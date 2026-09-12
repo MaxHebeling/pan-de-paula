@@ -1,8 +1,22 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/sessions-purge", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/stock-alerts", "schedule": "0 */2 * * *" },
-    { "path": "/api/cron/customer-events", "schedule": "30 14 * * *" }
-  ]
+    {
+      "path": "/api/cron/sessions-purge",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/stock-alerts",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/customer-events",
+      "schedule": "30 14 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
 }
