@@ -51,7 +51,8 @@ Hay plantillas listas en `packages/db/import/mappings/`:
 | orders      | `pedidos-largo.json` | Cliente, Fecha, Producto, Cantidad, Precio unitario                                          |
 
 Copia la plantilla, cámbiale los `"from"` para que coincidan con tus encabezados y quita las columnas que no
-tengas (si mapeas una columna que no existe en el archivo, el importador se detiene y te dice cuáles hay).
+tengas. `--mapping` acepta una ruta o solo el nombre de la plantilla (`--mapping ingredientes`); las rutas
+relativas se resuelven desde la carpeta donde ejecutas el comando (sirve desde la raíz del repo) (si mapeas una columna que no existe en el archivo, el importador se detiene y te dice cuáles hay).
 
 Estructura:
 

@@ -56,7 +56,7 @@ scripts/               deploy, smoke, rollback, backup, restore-drill, checks
 ```bash
 pnpm dev | build | lint | typecheck | test | test:e2e | verify
 pnpm db:migrate | db:codegen | db:seed | db:reset -- --seed | db:test
-pnpm --filter @pdp/db run import -- --file hoja.xlsx --entity ingredients --mapping packages/db/import/mappings/ingredientes.json
+pnpm --filter @pdp/db run import -- --file hoja.xlsx --sheet Ingredientes --entity ingredients --mapping ingredientes   # dry-run; agrega --apply
 pnpm check:secrets | check:env | check:migrations
 pnpm deploy:staging | deploy:prod | rollback | backup | restore:drill
 ```
