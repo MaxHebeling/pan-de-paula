@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
-import { Menu, X, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
 import { NavLink } from "./nav-link";
 import { Icon } from "./icon";
@@ -63,7 +62,7 @@ export function Shell({
             aria-label="Abrir menú"
             onClick={() => setOpen(true)}
           >
-            <Menu size={18} />
+            <Icon name="☰" size={20} />
           </button>
           <div className="hidden text-sm text-muted md:block">
             Hola, <span className="font-medium text-ink">{user.name}</span> · {user.role}
@@ -75,7 +74,7 @@ export function Shell({
               className="btn btn-secondary btn-sm relative"
               aria-label={`Notificaciones (${unread} sin leer)`}
             >
-              <Bell size={18} />
+              <Icon name="🔔" />
               {unread > 0 && (
                 <span className="absolute -right-1 -top-1 rounded-full bg-red px-1.5 text-[10px] font-bold text-white">
                   {unread > 99 ? "99+" : unread}
@@ -88,7 +87,7 @@ export function Shell({
                 aria-label="Cerrar sesión"
                 title="Cerrar sesión"
               >
-                <LogOut size={18} />
+                <Icon name="🚪" />
               </button>
             </form>
           </div>
@@ -106,7 +105,7 @@ export function Shell({
                 aria-label="Cerrar menú"
                 onClick={() => setOpen(false)}
               >
-                <X size={18} />
+                <Icon name="✕" size={16} />
               </button>
             </div>
             {nav}

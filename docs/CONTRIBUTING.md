@@ -30,6 +30,7 @@ packages/integrations  Mercado Pago, Meta/Instagram, email, storage, cliente HTT
 - UI: `@/components/ui` (Card, PageHeader, Stat, Badge, Table, Money, EmptyState, Alert, LinkButton). Nuevos componentes → archivos nuevos en `components/`.
 - Formato: `@/lib/format` (`money`, `fmtDate`, `qty`, `pct`, `todayLocal`).
 - Estados con tintes (`st-green|amber|red|blue|gray`), un solo color de marca (teal). Sin fuentes externas.
+- Iconos de navegación y barra superior: **emoji a color** vía `<Icon name="🥐" />` (se declaran en `lib/nav.ts`); no usar iconos de línea monocromos en la navegación.
 - Táctil primero en POS y producción: botones ≥ 44px, 2–3 toques por operación.
 
 ## Convenciones del sitio público (apps/web)

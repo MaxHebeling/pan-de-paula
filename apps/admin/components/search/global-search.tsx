@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Icon } from "@/components/icon";
 
 type Results = {
   q: string;
@@ -152,7 +152,7 @@ export function GlobalSearch() {
         title="Buscar clientes, pedidos y productos (⌘K)"
         onClick={() => setOpen(true)}
       >
-        <Search size={18} />
+        <Icon name="🔍" size={16} />
         <span className="hidden text-xs text-muted lg:inline">⌘K</span>
       </button>
       {open && (
@@ -168,7 +168,7 @@ export function GlobalSearch() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 border-b border-line px-3">
-              <Search size={18} className="text-muted" aria-hidden />
+              <Icon name="🔍" size={16} />
               <input
                 ref={inputRef}
                 autoFocus
@@ -189,7 +189,7 @@ export function GlobalSearch() {
                 aria-label="Cerrar"
                 onClick={close}
               >
-                <X size={16} />
+                <Icon name="✕" size={14} />
               </button>
             </div>
             <div className="max-h-[60vh] overflow-y-auto">
