@@ -1,0 +1,13 @@
+{
+  "$comment": "Pestaña de productos con precio de venta. La categoría se crea por nombre si no existe; el slug se genera del nombre.",
+  "entity": "products",
+  "sheet": "Productos",
+  "columns": {
+    "name": { "from": "Producto", "transform": "text", "required": true },
+    "category": { "from": "Categoría", "transform": "text" },
+    "price_cents": { "from": "Precio", "transform": "money" },
+    "short_description": { "from": "Descripción", "transform": "text" },
+    "is_active": { "from": "Activo", "transform": "bool" }
+  },
+  "options": { "similarity_threshold": 0.7, "similar_policy": "skip" }
+}

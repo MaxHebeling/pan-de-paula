@@ -1,0 +1,12 @@
+{
+  "$comment": "Recetas en formato largo: una fila por producto + ingrediente. El rendimiento puede venir solo en la primera fila de cada producto. Si la hoja tiene una tabla por receta, conviértela a este formato (ver docs/MIGRATION_SHEETS.md).",
+  "entity": "recipes",
+  "sheet": "Recetas",
+  "columns": {
+    "product": { "from": "Producto", "transform": "text", "required": true },
+    "ingredient": { "from": "Ingrediente", "transform": "text", "required": true },
+    "qty": { "from": "Cantidad", "transform": "qty", "required": true },
+    "unit": { "from": "Unidad", "transform": "unit" },
+    "yield_qty": { "from": "Rendimiento", "transform": "qty" }
+  }
+}

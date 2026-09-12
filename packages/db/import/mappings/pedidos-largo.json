@@ -1,0 +1,17 @@
+{
+  "$comment": "Pedidos históricos en formato LARGO: una fila por producto; las filas con el mismo Cliente + Fecha forman un pedido. 'Precio unitario' es opcional (si falta se usa el precio vigente del catálogo).",
+  "entity": "orders",
+  "sheet": "Ventas",
+  "columns": {
+    "customer": { "from": "Cliente", "transform": "text", "required": true },
+    "date": { "from": "Fecha", "transform": "date", "required": true }
+  },
+  "items": {
+    "mode": "long",
+    "product": "Producto",
+    "qty": "Cantidad",
+    "unit_price": "Precio unitario",
+    "group_by": ["customer", "date"]
+  },
+  "options": { "date_format": "dd/mm/yyyy", "default_channel": "admin" }
+}

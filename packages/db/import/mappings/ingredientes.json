@@ -1,0 +1,21 @@
+{
+  "$comment": "Pestaña de ingredientes: precio del paquete, contenido y unidad → costo por unidad base (g/ml/pz). Encabezados en español tal como están en la hoja; ajusta 'from' si difieren.",
+  "entity": "ingredients",
+  "sheet": "Ingredientes",
+  "header_row": 1,
+  "columns": {
+    "name": { "from": "Ingrediente", "transform": "text", "required": true },
+    "brand": { "from": "Marca", "transform": "text" },
+    "price_cents": { "from": "Precio", "transform": "money" },
+    "package_qty": { "from": "Contenido", "transform": "qty" },
+    "unit": { "from": "Unidad", "transform": "unit" },
+    "package_label": { "from": "Presentación", "transform": "text" },
+    "supplier": { "from": "Proveedor", "transform": "text" },
+    "valid_from": { "from": "Vigente desde", "transform": "date" }
+  },
+  "options": {
+    "date_format": "dd/mm/yyyy",
+    "similarity_threshold": 0.7,
+    "similar_policy": "skip"
+  }
+}

@@ -17,6 +17,7 @@ done < /tmp/pdp_migrations.txt
 if [ -f "$DIR/RELEASED" ]; then
   while read -r name sum; do
     [ -z "$name" ] && continue
+    case "$name" in \#*) continue;; esac   # comentarios
     ACTUAL=$(shasum -a 256 "$DIR/$name" | cut -d' ' -f1)
     if [ "$ACTUAL" != "$sum" ]; then echo "La migración publicada $name fue modificada. Crea una nueva migración."; exit 1; fi
   done < "$DIR/RELEASED"

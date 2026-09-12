@@ -18,11 +18,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "build": "echo 'no build (source package)'"
+    "build": "echo 'no build (source package)'",
+    "import": "tsx scripts/import-sheets.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",
     "dotenv": "17.4.2",
+    "exceljs": "4.4.0",
     "kysely": "0.29.5",
     "pg": "8.23.0"
   },
