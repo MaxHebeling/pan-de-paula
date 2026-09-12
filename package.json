@@ -1,0 +1,40 @@
+{
+  "name": "pan-de-paula",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema Operativo Digital de El Pan de Paula: sitio público, tienda online, CRM, POS, producción, inventario y fidelización.",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,sql}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,sql}\"",
+    "db:migrate": "pnpm --filter @pdp/db run migrate",
+    "db:codegen": "pnpm --filter @pdp/db run codegen",
+    "db:seed": "pnpm --filter @pdp/db run seed",
+    "db:reset": "pnpm --filter @pdp/db run reset",
+    "db:test": "pnpm --filter @pdp/db run test",
+    "check:secrets": "bash scripts/check-secrets.sh",
+    "check:env": "node scripts/check-env.mjs",
+    "check:migrations": "bash scripts/check-migrations.sh",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "deploy:staging": "bash scripts/deploy.sh staging",
+    "deploy:prod": "bash scripts/deploy.sh production",
+    "rollback": "bash scripts/rollback.sh",
+    "backup": "bash scripts/backup.sh",
+    "restore:drill": "bash scripts/restore-drill.sh"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "2.10.12",
+    "typescript": "5.9.3"
+  }
+}

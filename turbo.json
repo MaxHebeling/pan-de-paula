@@ -1,0 +1,62 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_URL",
+    "VERCEL_GIT_COMMIT_SHA",
+    "APP_ENV",
+    "DATABASE_URL",
+    "DATABASE_URL_TEST",
+    "DATABASE_SSL",
+    "SESSION_SECRET",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_ADMIN_URL",
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "SENTRY_DSN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT",
+    "SENTRY_AUTH_TOKEN",
+    "MERCADOPAGO_ACCESS_TOKEN",
+    "MERCADOPAGO_PUBLIC_KEY",
+    "MERCADOPAGO_WEBHOOK_SECRET",
+    "MERCADOPAGO_POINT_DEVICE_ID",
+    "META_APP_SECRET",
+    "META_VERIFY_TOKEN",
+    "INSTAGRAM_PAGE_ACCESS_TOKEN",
+    "INSTAGRAM_ACCOUNT_ID",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "STORAGE_DRIVER",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_STORAGE_BUCKET",
+    "ANTHROPIC_API_KEY",
+    "CRON_SECRET",
+    "LOG_LEVEL",
+    "E2E_BASE_URL",
+    "E2E_ADMIN_EMAIL",
+    "E2E_ADMIN_PASSWORD",
+    "SEED_ADMIN_EMAIL",
+    "SEED_ADMIN_PASSWORD"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.*", "!**/*.spec.*"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": { "cache": false, "persistent": true },
+    "lint": { "dependsOn": ["^build"], "outputs": [] },
+    "typecheck": { "dependsOn": ["^build"], "outputs": [] },
+    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": ["playwright-report/**", "test-results/**"]
+    }
+  }
+}

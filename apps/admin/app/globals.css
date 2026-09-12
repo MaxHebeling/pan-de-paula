@@ -1,0 +1,232 @@
+@import "tailwindcss";
+
+/* ── Sistema visual del CRM / POS / Producción (teal administrativo) ────────
+   Un solo color de marca (#0a9cb8). El color solo informa. Tarjetas blancas, fondos neutros. */
+:root {
+  --teal: #0a9cb8;
+  --teal-d: #0b8499;
+  --teal-deep: #0b6f82;
+  --teal-l: #1cc0d8;
+
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --glass: rgba(255, 255, 255, 0.72);
+  --line: rgba(0, 0, 0, 0.09);
+
+  --ink: #1d1d1f;
+  --muted: #86868b;
+
+  --green: #34c759;
+  --green-d: #248a3d;
+  --amber: #ff9f0a;
+  --amber-d: #9a6b00;
+  --red: #ff3b30;
+  --red-d: #c4271f;
+  --blue: #0a84ff;
+  --blue-d: #0a6fd8;
+  --gray-st: #9ca3af;
+  --wa: #25d366;
+
+  --pay-ok: #10b981;
+  --pay-ok-tx: #065f46;
+  --pay-warn: #f59e0b;
+  --pay-warn-tx: #92400e;
+  --pay-bad: #ef4444;
+  --pay-bad-tx: #991b1b;
+
+  --r-btn: 11px;
+  --r-btn-sm: 9px;
+  --r-card: 14px;
+  --r-card-lg: 18px;
+  --r-hero: 22px;
+  --r-pill: 980px;
+
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.04);
+  --shadow-lift: 0 18px 44px rgba(0, 0, 0, 0.28);
+
+  --font:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --fs-base: 14.5px;
+  --lh-base: 1.45;
+  --ls-base: -0.01em;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-teal: var(--teal);
+  --color-teal-d: var(--teal-d);
+  --color-teal-deep: var(--teal-deep);
+  --color-teal-l: var(--teal-l);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-green: var(--green);
+  --color-green-d: var(--green-d);
+  --color-amber: var(--amber);
+  --color-amber-d: var(--amber-d);
+  --color-red: var(--red);
+  --color-red-d: var(--red-d);
+  --color-blue: var(--blue);
+  --color-blue-d: var(--blue-d);
+  --color-wa: var(--wa);
+  --radius-btn: var(--r-btn);
+  --radius-btn-sm: var(--r-btn-sm);
+  --radius-card: var(--r-card);
+  --radius-card-lg: var(--r-card-lg);
+  --radius-hero: var(--r-hero);
+  --radius-pill: var(--r-pill);
+  --shadow-card: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
+  --font-sans: var(--font);
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  letter-spacing: var(--ls-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Estados (tintes) */
+.st-green {
+  background: rgba(52, 199, 89, 0.16);
+  color: #248a3d;
+}
+.st-amber {
+  background: rgba(255, 159, 10, 0.18);
+  color: #9a6b00;
+}
+.st-red {
+  background: rgba(255, 59, 48, 0.13);
+  color: #c4271f;
+}
+.st-blue {
+  background: rgba(10, 132, 255, 0.14);
+  color: #0a6fd8;
+}
+.st-gray {
+  background: rgba(0, 0, 0, 0.06);
+  color: #6e6e73;
+}
+
+/* Botones */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--r-btn);
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  transition:
+    transform 0.08s ease,
+    background 0.15s ease,
+    opacity 0.15s ease;
+  cursor: pointer;
+  border: 0;
+  line-height: 1.2;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--teal);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--teal-d);
+}
+.btn-confirm {
+  background: var(--green);
+  color: #fff;
+}
+.btn-wa {
+  background: var(--wa);
+  color: #fff;
+}
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink);
+}
+.btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+.btn-danger {
+  background: rgba(255, 59, 48, 0.1);
+  color: var(--red-d);
+}
+.btn-undo {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--amber-d);
+}
+.btn-sm {
+  border-radius: var(--r-btn-sm);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9em;
+}
+.btn-lg {
+  padding: 0.9rem 1.3rem;
+  font-size: 1.05em;
+}
+
+/* Tarjetas / glass / hero */
+.card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+.card-lg {
+  border-radius: var(--r-card-lg);
+}
+.glass {
+  background: var(--glass);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.hero {
+  background: linear-gradient(120deg, #0b6f82 0%, #0a9cb8 52%, #1cc0d8 100%);
+  border-radius: var(--r-hero);
+  color: #fff;
+}
+.pill {
+  border-radius: var(--r-pill);
+}
+
+/* Inputs */
+.input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-btn);
+  padding: 0.6rem 0.8rem;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+}
+.input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(10, 156, 184, 0.18);
+}
+.label {
+  display: block;
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+/* Accesibilidad: foco visible */
+:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}

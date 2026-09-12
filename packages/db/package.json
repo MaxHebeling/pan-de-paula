@@ -1,0 +1,39 @@
+{
+  "name": "@pdp/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/generated/db.ts"
+  },
+  "scripts": {
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:status": "tsx scripts/migrate.ts --status",
+    "reset": "tsx scripts/reset.ts",
+    "seed": "tsx scripts/seed.ts",
+    "codegen": "tsx scripts/codegen.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "echo 'no build (source package)'"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.1",
+    "dotenv": "17.4.2",
+    "kysely": "0.29.5",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@pdp/config": "workspace:*",
+    "@types/node": "22.20.2",
+    "@types/pg": "8.23.1",
+    "eslint": "9.39.5",
+    "kysely-codegen": "0.20.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

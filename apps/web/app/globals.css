@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* ── Identidad El Pan de Paula (derivada del logo) ───────────────────────────
+   Crema del fondo del sello, azul-tinta del texto, verde salvia de "BOULANGERIE",
+   vino de las flores/puntos, y un dorado cálido de pan recién horneado. */
+@theme {
+  --color-cream: #f7f3ec;
+  --color-cream-2: #efe8dc;
+  --color-paper: #fffdf9;
+  --color-ink: #1f2a3a;
+  --color-ink-2: #3a4658;
+  --color-sage: #2f6b5f;
+  --color-sage-2: #3f8474;
+  --color-wine: #7a3b4a;
+  --color-wine-2: #93505f;
+  --color-crust: #c98a3e;
+  --color-crust-2: #e0a95e;
+  --color-line: rgba(31, 42, 58, 0.12);
+
+  --font-display: var(--font-display), "Playfair Display", Georgia, serif;
+  --font-body: var(--font-body), "Inter", system-ui, sans-serif;
+
+  --radius-card: 18px;
+  --radius-pill: 980px;
+  --shadow-soft: 0 1px 2px rgba(31, 42, 58, 0.05), 0 12px 32px rgba(31, 42, 58, 0.08);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  min-height: 100dvh;
+}
