@@ -1,4 +1,4 @@
-/** Almacenamiento de imágenes de productos. local (dev: apps/*/public/uploads) | supabase (Storage). */
+/** Almacenamiento de imágenes de productos. Drivers: local (dev, carpeta public/uploads de la app) o supabase (Storage). */
 export type UploadInput = { bytes: Uint8Array; contentType: string; fileName: string; folder?: string };
 export type UploadResult = { url: string; key: string };
 
