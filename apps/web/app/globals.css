@@ -23,6 +23,7 @@
   --radius-card: 18px;
   --radius-pill: 980px;
   --shadow-soft: 0 1px 2px rgba(31, 42, 58, 0.05), 0 12px 32px rgba(31, 42, 58, 0.08);
+  --shadow-lift: 0 2px 4px rgba(31, 42, 58, 0.06), 0 18px 44px rgba(31, 42, 58, 0.12);
 }
 
 :root {
@@ -33,9 +34,162 @@ html {
   background: var(--color-cream);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-body);
   min-height: 100dvh;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgba(201, 138, 62, 0.28);
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-pill px-5 text-sm font-medium transition duration-200 select-none disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-ink text-cream shadow-soft hover:bg-ink-2 hover:shadow-lift active:translate-y-px;
+  }
+  .btn-secondary {
+    @apply border border-line bg-paper text-ink hover:border-ink/30 hover:shadow-soft active:translate-y-px;
+  }
+  .btn-sage {
+    @apply bg-sage text-white shadow-soft hover:bg-sage-2 hover:shadow-lift active:translate-y-px;
+  }
+  .btn-ghost {
+    @apply text-ink hover:bg-cream-2;
+  }
+  .btn-lg {
+    @apply min-h-12 px-7 text-base;
+  }
+  .card {
+    @apply rounded-card border border-line/60 bg-paper shadow-soft;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold tracking-[0.18em] text-sage uppercase;
+  }
+  .display {
+    @apply font-display text-ink;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .prose-warm p + p {
+    @apply mt-4;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .input {
+    @apply min-h-11 w-full rounded-[14px] border border-line bg-paper px-4 text-base text-ink placeholder:text-ink-2/50 focus:border-sage focus:outline-none focus-visible:ring-2 focus-visible:ring-sage/40;
+  }
+  .help {
+    @apply mt-1.5 text-xs text-ink-2;
+  }
+  .error {
+    @apply mt-1.5 text-sm text-wine;
+  }
+  .chip {
+    @apply inline-flex min-h-9 items-center rounded-pill border border-line bg-paper px-3.5 text-sm text-ink transition hover:border-ink/30;
+  }
+  .chip-active {
+    @apply border-ink bg-ink text-cream;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-pill px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase;
+  }
+  .tap {
+    @apply min-h-11 min-w-11;
+  }
+  .stepper-btn {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-paper text-lg text-ink transition hover:border-ink/40 disabled:opacity-40;
+  }
+}
+
+/* Microinteracciones (solo CSS) */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.reveal {
+  animation: fade-up 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.reveal-2 {
+  animation-delay: 0.08s;
+}
+.reveal-3 {
+  animation-delay: 0.16s;
+}
+.drawer-in {
+  animation: drawer-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.pop {
+  animation: pop 0.35s ease-out;
+}
+.lift {
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.25s;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal,
+  .drawer-in,
+  .pop,
+  .lift {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Textura sutil de papel en el fondo */
+.paper-bg {
+  background-color: var(--color-cream);
+  background-image: radial-gradient(rgba(31, 42, 58, 0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
 }

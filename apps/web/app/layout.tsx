@@ -1,6 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import { WEEKDAY_LABELS } from "@pdp/domain";
+import { CartDrawer } from "@/components/CartDrawer";
+import { Footer } from "@/components/Footer";
+import { Header } from "@/components/Header";
+import { JsonLd } from "@/components/JsonLd";
+import { CartProvider } from "@/lib/cart/CartProvider";
+import { fullAddress, getBusiness } from "@/lib/site";
 import "./globals.css";
+
+// El sitio lee horarios, catálogo y estado "abierto" en cada petición: nada se congela en build.
+export const dynamic = "force-dynamic";
 
 const display = Playfair_Display({
   subsets: ["latin"],
@@ -9,20 +19,73 @@ const display = Playfair_Display({
 });
 const body = Inter({ subsets: ["latin"], variable: "--font-body", display: "swap" });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "El Pan de Paula · Boulangerie", template: "%s · El Pan de Paula" },
+  metadataBase: new URL(SITE_URL),
+  title: { default: "El Pan de Paula · Panadería artesanal", template: "%s · El Pan de Paula" },
   description:
-    "Panadería artesanal. Croissants, galletas, roles y pan dulce recién horneado. Pide en línea y recoge en tienda.",
+    "Panadería artesanal. Croissants, galletas, roles y pan dulce recién horneado. Pide en línea y recoge en tienda en tu fecha.",
+  applicationName: "El Pan de Paula",
   openGraph: { type: "website", locale: "es_MX", siteName: "El Pan de Paula" },
+  twitter: { card: "summary_large_image" },
+  robots: { index: true, follow: true },
+  icons: { icon: "/brand/logo-192.png", apple: "/brand/apple-icon.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#f7f3ec", width: "device-width", initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+const EN_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const business = await getBusiness();
+  const address = fullAddress(business);
+  const bakeryLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Bakery",
+    name: business.name,
+    url: SITE_URL,
+    image: `${SITE_URL}/brand/logo-512.png`,
+    logo: `${SITE_URL}/brand/logo-512.png`,
+    servesCuisine: "Panadería artesanal",
+    priceRange: "$$",
+    currenciesAccepted: "MXN",
+    openingHoursSpecification: business.hours
+      .filter((h) => h.isOpen && h.opensAt && h.closesAt)
+      .map((h) => ({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: EN_DAYS[h.weekday],
+        opens: h.opensAt,
+        closes: h.closesAt,
+        name: WEEKDAY_LABELS[h.weekday],
+      })),
+  };
+  if (business.phone) bakeryLd.telephone = business.phone;
+  if (business.email) bakeryLd.email = business.email;
+  if (address) {
+    bakeryLd.address = {
+      "@type": "PostalAddress",
+      streetAddress: business.address ?? undefined,
+      addressLocality: business.city ?? undefined,
+      addressRegion: business.state ?? undefined,
+      addressCountry: "MX",
+    };
+  }
+  if (business.instagramHandle) bakeryLd.sameAs = [`https://www.instagram.com/${business.instagramHandle}/`];
+
   return (
     <html lang="es-MX" className={`${display.variable} ${body.variable}`}>
-      <body>{children}</body>
+      <body className="paper-bg flex min-h-dvh flex-col">
+        <CartProvider>
+          <Header />
+          <main id="contenido" className="flex-1">
+            {children}
+          </main>
+          <Footer business={business} />
+          <CartDrawer />
+        </CartProvider>
+        <JsonLd data={bakeryLd} />
+      </body>
     </html>
   );
 }

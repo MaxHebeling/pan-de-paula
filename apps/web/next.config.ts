@@ -11,6 +11,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  agentRules: false,
   transpilePackages: ["@pdp/db", "@pdp/domain", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
   images: {
