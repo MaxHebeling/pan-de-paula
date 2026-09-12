@@ -3,6 +3,7 @@
 ## Por qué
 
 ## Definition of Done
+
 - [ ] Tests añadidos/actualizados (unit / integración DB / E2E según aplique) y en verde
 - [ ] Sin lógica de venta/stock/puntos reimplementada en TypeScript (solo funciones SQL)
 - [ ] Migraciones aditivas en el rango del módulo; `pnpm db:codegen` ejecutado
