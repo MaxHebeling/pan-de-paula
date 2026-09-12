@@ -230,3 +230,8 @@ html {
   outline: 2px solid var(--teal);
   outline-offset: 2px;
 }
+
+/* Los hijos de un grid no encogen por defecto (min-width:auto): con tablas anchas el grid desborda en móvil. */
+.grid > * {
+  min-width: 0;
+}

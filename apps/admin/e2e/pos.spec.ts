@@ -22,7 +22,7 @@ async function fillField(page: Page, label: string, value: string) {
 
 async function login(page: Page) {
   await page.goto("/login");
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   // La hidratación puede vaciar los campos justo antes del envío: reintenta el ciclo completo.
   for (let attempt = 0; attempt < 4; attempt++) {
     await fillField(page, "Correo", EMAIL);

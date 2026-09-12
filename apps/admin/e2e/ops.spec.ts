@@ -25,7 +25,7 @@ async function fillField(page: Page, label: string, value: string) {
 async function login(page: Page) {
   // Nota: loginAction rechaza el envío sin `next` (form.get devuelve null, no undefined); se entra con next explícito.
   await page.goto("/login?next=/produccion");
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await fillField(page, "Correo", EMAIL);
   await fillField(page, "Contraseña", PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
@@ -34,7 +34,7 @@ async function login(page: Page) {
 
 /** Navega esperando a que termine cualquier refresh disparado por una server action (WebKit lo reporta como navegación). */
 async function go(page: Page, url: string) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await page.goto(url);
 }
 
@@ -163,7 +163,7 @@ test("producción +10 → inventario → merma 2 → conciliación → pedido ma
   await expect(transitions.getByRole("button", { name: "Entregado" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Cancelar pedido" })).toHaveCount(0);
   await expect(page.getByTestId("wa-link")).toHaveAttribute("href", /wa\.me\/526641112233/);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   await go(page, "/inventario?tab=stock");
   await expect(stockRow.getByTestId("stock-on-hand")).toHaveText(
@@ -172,7 +172,12 @@ test("producción +10 → inventario → merma 2 → conciliación → pedido ma
 
   // ── Recibo imprimible ──
   await go(page, `${orderPath}/recibo`);
-  await expect(page.getByText(/PDP-\d{4}-\d{6}/).first()).toBeVisible();
+  await expect(
+    page
+      .getByText(/PDP-\d{4}-\d{6}/)
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
 
   // ── Notificaciones + contador ──
   await go(page, "/notificaciones?estado=todas");

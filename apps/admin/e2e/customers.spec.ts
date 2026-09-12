@@ -19,7 +19,7 @@ async function fillField(page: Page, selector: string, value: string) {
  */
 async function open(page: Page, path: string) {
   await page.goto(path);
-  await page.waitForLoadState("networkidle").catch(() => undefined);
+  await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
     () => {
       const el = document.querySelector("form, main");
