@@ -217,9 +217,7 @@ export async function notesAction(_prev: FormState, form: FormData): Promise<For
 }
 
 /** Búsqueda de clientes para el pedido manual (código/QR/teléfono/email exacto o nombre parcial). */
-export async function searchCustomersAction(
-  q: string,
-): Promise<
+export async function searchCustomersAction(q: string): Promise<
   ActionResult<
     Array<{
       id: string;
