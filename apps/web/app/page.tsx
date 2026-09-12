@@ -70,7 +70,7 @@ export default async function HomePage() {
               )}
             </p>
           </div>
-          <div className="reveal reveal-2 relative mx-auto w-full max-w-sm lg:max-w-md">
+          <div className="reveal reveal-2 relative mx-auto w-full max-w-[240px] sm:max-w-sm lg:max-w-md">
             <div className="absolute -inset-6 rounded-full bg-crust/15 blur-2xl" aria-hidden="true" />
             <div className="card relative aspect-square overflow-hidden rounded-full p-6">
               <Logo size={480} priority className="h-full w-full" />
@@ -217,6 +217,29 @@ export default async function HomePage() {
           </div>
         </div>
       </Section>
+
+      {/* Instagram */}
+      {business.instagramHandle && (
+        <section className="container-x pb-8" aria-labelledby="ig-title">
+          <div className="card flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center sm:p-8">
+            <div>
+              <p className="eyebrow mb-1">Instagram</p>
+              <h2 id="ig-title" className="display text-2xl sm:text-3xl">
+                Lo que sale del horno, cada día
+              </h2>
+              <p className="mt-2 text-sm text-ink-2">Temporadas, novedades y el pan del día en @{business.instagramHandle}.</p>
+            </div>
+            <a
+              href={`https://www.instagram.com/${business.instagramHandle}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-lg shrink-0"
+            >
+              Seguir @{business.instagramHandle}
+            </a>
+          </div>
+        </section>
+      )}
 
       {/* Club */}
       <section className="container-x pb-8">

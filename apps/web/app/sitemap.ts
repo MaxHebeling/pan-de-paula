@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 import { listCategories, listProducts } from "@/lib/catalog";
 
+// Se genera por petición: el catálogo cambia y en build no hay base de datos.
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const now = new Date();

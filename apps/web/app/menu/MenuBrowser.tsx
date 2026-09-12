@@ -125,7 +125,7 @@ export function MenuBrowser({
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-testid="menu-grid">
           {visible.map((p, i) => (
-            <ProductCard key={p.id} p={p} priority={i < 4} />
+            <ProductCard key={p.id} p={p} priority={i < 4} headingLevel={2} />
           ))}
         </div>
       )}

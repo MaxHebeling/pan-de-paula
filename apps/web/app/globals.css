@@ -119,13 +119,12 @@ body {
 }
 
 /* Microinteracciones (solo CSS) */
+/* Solo transform: un elemento animado desde opacity 0 deja de ser candidato a LCP en Chrome. */
 @keyframes fade-up {
   from {
-    opacity: 0;
     transform: translateY(10px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
