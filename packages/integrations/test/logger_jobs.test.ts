@@ -1,3 +1,4 @@
+// secret-scan: fixtures — los tokens de este archivo son inventados para probar la redacción del logger.
 import { afterEach, describe, expect, it } from "vitest";
 import { _setLogSink, createLogger, redact, REDACTED } from "../src/logger.ts";
 import { isCronAuthorized } from "../src/jobs.ts";

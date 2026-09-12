@@ -8,6 +8,8 @@ BAD=0
 while IFS= read -r f; do
   [ -f "$f" ] || continue
   case "$f" in *.png|*.jpg|*.jpeg|*.webp|*.ico|*.woff|*.woff2|pnpm-lock.yaml) continue;; esac
+  # Fixtures de prueba: pueden contener tokens con formato real pero inventados (solo si el archivo lo declara)
+  case "$f" in *.test.ts|*.test.tsx|*/test/fixtures/*) grep -q "secret-scan: fixtures" "$f" && continue;; esac
   if grep -EnI "$PATTERNS" "$f" >/dev/null 2>&1; then
     echo "Posible secreto en: $f"; grep -EnI "$PATTERNS" "$f" | head -3; BAD=1
   fi
