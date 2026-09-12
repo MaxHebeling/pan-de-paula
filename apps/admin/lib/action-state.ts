@@ -20,3 +20,6 @@ export const cents = (fd: FormData, name: string): number | undefined => {
   if (n === undefined) return undefined;
   return Number.isNaN(n) ? Number.NaN : Math.round(n * 100);
 };
+
+/** Estado inicial para useActionState. */
+export const idle: ActionState = {};
