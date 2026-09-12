@@ -1,0 +1,13 @@
+{
+  "$comment": "Clientes. Identidad = teléfono o email (al menos uno). Nombres parecidos a un cliente existente con otro contacto se reportan y NO se fusionan.",
+  "entity": "customers",
+  "sheet": "Clientes",
+  "columns": {
+    "full_name": { "from": "Cliente", "transform": "text", "required": true },
+    "phone": { "from": "Teléfono", "transform": "phone" },
+    "email": { "from": "Email", "transform": "text" },
+    "birthday": { "from": "Cumpleaños", "transform": "date" },
+    "marketing_consent": { "from": "Promos", "transform": "bool" }
+  },
+  "options": { "date_format": "dd/mm/yyyy", "similarity_threshold": 0.7, "similar_policy": "skip" }
+}

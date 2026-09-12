@@ -15,7 +15,7 @@ export async function truncateAll(db: Database) {
       coupon_redemptions, coupons, rewards, customer_events, customer_addresses, customers,
       recipe_items, recipes, ingredient_prices, ingredients, suppliers, product_prices, product_images, products, categories,
       webhook_events, notifications, domain_events, audit_logs, leads, instagram_messages, instagram_conversations,
-      loyalty_product_bonuses, staff_sessions, staff_users
+      loyalty_product_bonuses, staff_sessions, staff_users, import_rows, import_batches
     restart identity cascade`.execute(db);
   await sql`alter sequence customer_code_seq restart with 1`.execute(db);
   await sql`update loyalty_program set is_active = true, points_per_unit = 1, unit_cents = 1000, min_purchase_cents = 0, birthday_multiplier = 2, signup_bonus_points = 0`.execute(

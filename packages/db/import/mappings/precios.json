@@ -1,0 +1,12 @@
+{
+  "$comment": "Precios de venta. Un precio regular nuevo cierra el anterior (historial). Canal: all (default), web o pos. Para promos agrega columnas Tipo=promo y Hasta.",
+  "entity": "prices",
+  "sheet": "Precios",
+  "columns": {
+    "product": { "from": "Producto", "transform": "text", "required": true },
+    "price_cents": { "from": "Precio", "transform": "money", "required": true },
+    "channel": { "from": "Canal", "transform": "text", "default": "all" },
+    "valid_from": { "from": "Desde", "transform": "date" }
+  },
+  "options": { "date_format": "dd/mm/yyyy", "default_price_channel": "all" }
+}

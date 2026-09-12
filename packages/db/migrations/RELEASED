@@ -1,0 +1,4 @@
+# Migraciones publicadas en producción: "<archivo> <sha256>" por línea.
+# Las migraciones listadas aquí son INMUTABLES: scripts/check-migrations.sh (CI) falla si su checksum cambia.
+# Se actualiza con `bash scripts/release-migrations.sh` al publicar a producción (ver docs/DEPLOYMENT.md).
+# Vacío hasta el primer deploy a producción.

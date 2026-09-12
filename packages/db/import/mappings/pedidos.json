@@ -1,0 +1,20 @@
+{
+  "$comment": "Pedidos históricos en formato ANCHO: una fila por pedido, una columna por producto con la cantidad (como la pestaña 'Pedidos' de la hoja). Toda columna que no esté en 'columns' ni en 'items.exclude' se interpreta como producto.",
+  "entity": "orders",
+  "sheet": "Pedidos",
+  "columns": {
+    "customer": { "from": "Cliente", "transform": "text", "required": true },
+    "phone": { "from": "Teléfono", "transform": "phone" },
+    "date": { "from": "Fecha", "transform": "date", "required": true },
+    "total_cents": { "from": "Total", "transform": "money" },
+    "pickup_point": { "from": "Punto de entrega", "transform": "text" },
+    "paid": { "from": "Pagado", "transform": "bool", "default": "sí" },
+    "payment_method": { "from": "Método", "transform": "text" }
+  },
+  "items": { "mode": "wide", "product_columns": "auto", "exclude": ["Total general", "Notas"] },
+  "options": {
+    "date_format": "dd/mm/yyyy",
+    "default_channel": "admin",
+    "create_missing_customers": true
+  }
+}
