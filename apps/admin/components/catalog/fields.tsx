@@ -1,4 +1,9 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from "react";
 
 /** Campos de formulario accesibles (label + control + ayuda) con las clases del sistema (.label / .input). */
 
@@ -96,7 +101,13 @@ export function Checkbox({
   const fid = id ?? name;
   return (
     <label htmlFor={fid} className="flex cursor-pointer items-start gap-2.5 py-1 text-sm">
-      <input id={fid} name={name} type="checkbox" className="mt-0.5 size-4 accent-[var(--teal)]" {...rest} />
+      <input
+        id={fid}
+        name={name}
+        type="checkbox"
+        className="mt-0.5 size-4 accent-[var(--teal)]"
+        {...rest}
+      />
       <span>
         <span className="font-medium">{label}</span>
         {hint && <span className="block text-xs text-muted">{hint}</span>}
@@ -118,7 +129,9 @@ export function MoneyInput({
   return (
     <Field label={label} htmlFor={fid} hint={hint} className={className}>
       <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">$</span>
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">
+          $
+        </span>
         <input
           id={fid}
           name={name}

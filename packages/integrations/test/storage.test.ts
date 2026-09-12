@@ -22,7 +22,9 @@ describe("validateImage", () => {
     expect(() => validateImage({ bytes: PNG, contentType: "application/pdf" })).toThrow();
   });
   it("rechaza vacías y mayores a 5 MB", () => {
-    expect(() => validateImage({ bytes: new Uint8Array(0), contentType: "image/png" })).toThrow(/vacía/);
+    expect(() => validateImage({ bytes: new Uint8Array(0), contentType: "image/png" })).toThrow(
+      /vacía/,
+    );
     expect(() =>
       validateImage({ bytes: new Uint8Array(5 * 1024 * 1024 + 1), contentType: "image/jpeg" }),
     ).toThrow(/5 MB/);
@@ -62,7 +64,10 @@ describe("driver local", () => {
   });
 
   it("escribe el archivo en public/uploads/<folder>/<uuid>.<ext> y devuelve URL absoluta", async () => {
-    const r = await uploadImage({ bytes: PNG, contentType: "image/png", fileName: "foto.png", folder: "products" }, cfg);
+    const r = await uploadImage(
+      { bytes: PNG, contentType: "image/png", fileName: "foto.png", folder: "products" },
+      cfg,
+    );
     expect(r.key).toMatch(/^products\/[0-9a-f-]{36}\.png$/);
     expect(r.url).toBe(`http://localhost:3101/uploads/${r.key}`);
     const written = await readFile(join(root, "uploads", r.key));
@@ -79,7 +84,10 @@ describe("driver local", () => {
       uploadImage({ bytes: PNG, contentType: "image/png", fileName: "x", folder: "../etc" }, cfg),
     ).rejects.toThrow(/Carpeta/);
     await expect(
-      uploadImage({ bytes: PNG, contentType: "image/png", fileName: "x", folder: "Con Espacios" }, cfg),
+      uploadImage(
+        { bytes: PNG, contentType: "image/png", fileName: "x", folder: "Con Espacios" },
+        cfg,
+      ),
     ).rejects.toThrow(/Carpeta/);
   });
 
@@ -129,7 +137,10 @@ describe("driver supabase", () => {
 
   it("hace POST al endpoint de Storage con el service role y devuelve la URL pública", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ Key: "ok" }), { status: 200 }));
-    const r = await uploadImage({ bytes: PNG, contentType: "image/png", fileName: "x", folder: "categories" }, cfg);
+    const r = await uploadImage(
+      { bytes: PNG, contentType: "image/png", fileName: "x", folder: "categories" },
+      cfg,
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(`https://abc.supabase.co/storage/v1/object/product-images/${r.key}`);

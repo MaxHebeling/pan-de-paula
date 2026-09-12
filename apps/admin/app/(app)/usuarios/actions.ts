@@ -23,13 +23,19 @@ function tempPassword(): string {
 type RoleRow = { key: string; name: string; rank: number };
 
 async function rolesAndRank(session: StaffSession): Promise<{ roles: RoleRow[]; myRank: number }> {
-  const roles = await db().selectFrom("roles").select(["key", "name", "rank"]).orderBy("rank", "desc").execute();
+  const roles = await db()
+    .selectFrom("roles")
+    .select(["key", "name", "rank"])
+    .orderBy("rank", "desc")
+    .execute();
   const myRank = roles.find((r) => r.key === session.staff.roleKey)?.rank ?? 0;
   return { roles, myRank };
 }
 
 /** Un usuario solo administra a otros de rango menor o igual al suyo, y solo asigna roles hasta su propio rango. */
-async function targetRank(id: string): Promise<{ rank: number; email: string; is_active: boolean } | null> {
+async function targetRank(
+  id: string,
+): Promise<{ rank: number; email: string; is_active: boolean } | null> {
   const r = await db()
     .selectFrom("staff_users as u")
     .innerJoin("roles as r", "r.key", "u.role_key")
@@ -53,19 +59,30 @@ const createSchema = z.object({
 
 export async function createUser(_prev: ActionState, form: FormData): Promise<ActionState> {
   const s = await requireSession("staff.write");
-  const parsed = createSchema.safeParse({ email: str(form, "email") ?? "", full_name: str(form, "full_name") ?? "", role_key: str(form, "role_key") ?? "" });
+  const parsed = createSchema.safeParse({
+    email: str(form, "email") ?? "",
+    full_name: str(form, "full_name") ?? "",
+    role_key: str(form, "role_key") ?? "",
+  });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   const { roles, myRank } = await rolesAndRank(s);
   const role = roles.find((r) => r.key === parsed.data.role_key);
   if (!role) return { error: "Rol inválido" };
-  if (role.rank > myRank) return { error: `No puedes asignar el rol ${role.name}: es superior al tuyo.` };
+  if (role.rank > myRank)
+    return { error: `No puedes asignar el rol ${role.name}: es superior al tuyo.` };
   const password = tempPassword();
   try {
     const password_hash = await hashPassword(password);
     await withStaff(db(), s.staff.id, (trx) =>
       trx
         .insertInto("staff_users")
-        .values({ email: parsed.data.email, full_name: parsed.data.full_name, role_key: parsed.data.role_key, password_hash, must_change_password: true })
+        .values({
+          email: parsed.data.email,
+          full_name: parsed.data.full_name,
+          role_key: parsed.data.role_key,
+          password_hash,
+          must_change_password: true,
+        })
         .execute(),
     );
   } catch (e) {
@@ -84,20 +101,32 @@ const updateSchema = z.object({
   is_active: z.boolean(),
 });
 
-export async function updateUser(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function updateUser(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("staff.write");
   if (!zId.safeParse(id).success) return { error: "Usuario inválido" };
-  const parsed = updateSchema.safeParse({ full_name: str(form, "full_name") ?? "", role_key: str(form, "role_key") ?? "", is_active: bool(form, "is_active") });
+  const parsed = updateSchema.safeParse({
+    full_name: str(form, "full_name") ?? "",
+    role_key: str(form, "role_key") ?? "",
+    is_active: bool(form, "is_active"),
+  });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   const { roles, myRank } = await rolesAndRank(s);
   const target = await targetRank(id);
   if (!target) return { error: "Usuario no encontrado" };
-  if (target.rank > myRank) return { error: "No puedes editar a un usuario con rol superior al tuyo." };
+  if (target.rank > myRank)
+    return { error: "No puedes editar a un usuario con rol superior al tuyo." };
   const role = roles.find((r) => r.key === parsed.data.role_key);
   if (!role) return { error: "Rol inválido" };
-  if (role.rank > myRank) return { error: `No puedes asignar el rol ${role.name}: es superior al tuyo.` };
+  if (role.rank > myRank)
+    return { error: `No puedes asignar el rol ${role.name}: es superior al tuyo.` };
   if (id === s.staff.id && (parsed.data.role_key !== s.staff.roleKey || !parsed.data.is_active))
-    return { error: "No puedes cambiar tu propio rol ni desactivarte. Pídeselo a otro administrador." };
+    return {
+      error: "No puedes cambiar tu propio rol ni desactivarte. Pídeselo a otro administrador.",
+    };
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       await trx.updateTable("staff_users").set(parsed.data).where("id", "=", id).execute();
@@ -116,7 +145,8 @@ export async function generateResetLink(id: string, _prev: ActionState): Promise
   const { myRank } = await rolesAndRank(s);
   const target = await targetRank(id);
   if (!target) return { error: "Usuario no encontrado" };
-  if (target.rank > myRank) return { error: "No puedes restablecer la contraseña de un rol superior al tuyo." };
+  if (target.rank > myRank)
+    return { error: "No puedes restablecer la contraseña de un rol superior al tuyo." };
   if (!target.is_active) return { error: "El usuario está desactivado; actívalo primero." };
   try {
     const r = await createPasswordReset(db(), target.email);
@@ -126,10 +156,19 @@ export async function generateResetLink(id: string, _prev: ActionState): Promise
     await withStaff(db(), s.staff.id, (trx) =>
       trx
         .insertInto("audit_logs")
-        .values({ staff_id: s.staff.id, action: "PASSWORD_RESET_LINK", entity: "staff_users", entity_id: id, new_data: JSON.stringify({ email: target.email }) })
+        .values({
+          staff_id: s.staff.id,
+          action: "PASSWORD_RESET_LINK",
+          entity: "staff_users",
+          entity_id: id,
+          new_data: JSON.stringify({ email: target.email }),
+        })
         .execute(),
     );
-    return { ok: "Enlace generado. Compártelo por un canal seguro; vence en 1 hora y sirve una sola vez.", data: { url } };
+    return {
+      ok: "Enlace generado. Compártelo por un canal seguro; vence en 1 hora y sirve una sola vez.",
+      data: { url },
+    };
   } catch (e) {
     return failure("usuarios.reset", e);
   }
@@ -143,7 +182,15 @@ export async function revokeSessions(id: string): Promise<void> {
   if (!target || target.rank > myRank) return;
   await revokeAllSessions(db(), id);
   await withStaff(db(), s.staff.id, (trx) =>
-    trx.insertInto("audit_logs").values({ staff_id: s.staff.id, action: "SESSIONS_REVOKED", entity: "staff_users", entity_id: id }).execute(),
+    trx
+      .insertInto("audit_logs")
+      .values({
+        staff_id: s.staff.id,
+        action: "SESSIONS_REVOKED",
+        entity: "staff_users",
+        entity_id: id,
+      })
+      .execute(),
   );
   revalidate(id);
 }

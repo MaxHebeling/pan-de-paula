@@ -5,7 +5,11 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
-import { RecipeEditor, type RecipeIngredient, type RecipeInitial } from "@/components/catalog/recipe-editor";
+import {
+  RecipeEditor,
+  type RecipeIngredient,
+  type RecipeInitial,
+} from "@/components/catalog/recipe-editor";
 import { ConfirmButton } from "@/components/catalog/action-form";
 import { deleteRecipe, saveRecipe } from "../actions";
 
@@ -28,10 +32,20 @@ export default async function RecipePage({ params }: { params: Promise<{ product
       select i.id, i.name || coalesce(' (' || i.brand || ')', '') as name, i.base_unit, ingredient_unit_cost(i.id)::float8 as unit_cost, i.is_available
       from ingredients i where i.deleted_at is null order by i.name`.execute(db()),
     db().selectFrom("recipes").selectAll().where("product_id", "=", productId).executeTakeFirst(),
-    sql<{ cost: number | null; pos: number | null }>`select product_cost_cents(${productId}) as cost, current_price_cents(${productId}, 'pos') as pos`.execute(db()),
+    sql<{
+      cost: number | null;
+      pos: number | null;
+    }>`select product_cost_cents(${productId}) as cost, current_price_cents(${productId}, 'pos') as pos`.execute(
+      db(),
+    ),
   ]);
   const items = recipe
-    ? await db().selectFrom("recipe_items").select(["ingredient_id", "qty", "note"]).where("recipe_id", "=", recipe.id).orderBy("sort_order").execute()
+    ? await db()
+        .selectFrom("recipe_items")
+        .select(["ingredient_id", "qty", "note"])
+        .where("recipe_id", "=", recipe.id)
+        .orderBy("sort_order")
+        .execute()
     : [];
   const initial: RecipeInitial | null = recipe
     ? {
@@ -40,11 +54,18 @@ export default async function RecipePage({ params }: { params: Promise<{ product
         labor_cents: recipe.labor_cents,
         overhead_cents: recipe.overhead_cents,
         notes: recipe.notes,
-        items: items.map((it) => ({ ingredient_id: it.ingredient_id, qty: Number(it.qty), note: it.note })),
+        items: items.map((it) => ({
+          ingredient_id: it.ingredient_id,
+          qty: Number(it.qty),
+          note: it.note,
+        })),
       }
     : null;
   const st = priceRes.rows[0]!;
-  const ingredients = ingredientsRes.rows.map((i) => ({ ...i, base_unit: i.base_unit as BaseUnit }));
+  const ingredients = ingredientsRes.rows.map((i) => ({
+    ...i,
+    base_unit: i.base_unit as BaseUnit,
+  }));
 
   return (
     <>
@@ -55,7 +76,13 @@ export default async function RecipePage({ params }: { params: Promise<{ product
             <Link href="/recetas" className="hover:underline">
               ← Recetas
             </Link>
-            {recipe ? <Badge tone="green">v{recipe.version} · {fmtDate(recipe.updated_at, "datetime")}</Badge> : <Badge tone="amber">Sin receta</Badge>}
+            {recipe ? (
+              <Badge tone="green">
+                v{recipe.version} · {fmtDate(recipe.updated_at, "datetime")}
+              </Badge>
+            ) : (
+              <Badge tone="amber">Sin receta</Badge>
+            )}
             {!product.is_active && <Badge tone="gray">Producto inactivo</Badge>}
           </span>
         }
@@ -91,8 +118,14 @@ export default async function RecipePage({ params }: { params: Promise<{ product
       </Card>
       {canWrite && recipe && (
         <Card title="Zona de riesgo" className="mt-4">
-          <form action={deleteRecipe.bind(null, product.id)} className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted">Borrar la receta deja al producto sin costo (las ventas pasadas conservan su costo snapshot).</span>
+          <form
+            action={deleteRecipe.bind(null, product.id)}
+            className="flex items-center justify-between gap-3 text-sm"
+          >
+            <span className="text-muted">
+              Borrar la receta deja al producto sin costo (las ventas pasadas conservan su costo
+              snapshot).
+            </span>
             <ConfirmButton variant="danger" confirm={`¿Eliminar la receta de "${product.name}"?`}>
               Eliminar receta
             </ConfirmButton>

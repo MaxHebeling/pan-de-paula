@@ -41,7 +41,10 @@ export default async function CategoriesPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0">
           {rows.length === 0 ? (
-            <EmptyState title="Sin categorías" body="Crea la primera categoría para organizar el catálogo." />
+            <EmptyState
+              title="Sin categorías"
+              body="Crea la primera categoría para organizar el catálogo."
+            />
           ) : (
             <Table>
               <thead>
@@ -61,12 +64,19 @@ export default async function CategoriesPage() {
                       <div className="flex items-center gap-3">
                         {c.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={c.image_url} alt="" className="size-10 rounded-lg object-cover" />
+                          <img
+                            src={c.image_url}
+                            alt=""
+                            className="size-10 rounded-lg object-cover"
+                          />
                         ) : (
                           <div className="size-10 rounded-lg bg-black/5" aria-hidden />
                         )}
                         <div>
-                          <Link href={`/categorias/${c.id}`} className="font-medium hover:underline">
+                          <Link
+                            href={`/categorias/${c.id}`}
+                            className="font-medium hover:underline"
+                          >
                             {c.name}
                           </Link>
                           <div className="text-xs text-muted">/{c.slug}</div>
@@ -75,7 +85,9 @@ export default async function CategoriesPage() {
                     </td>
                     <td className="text-right tabular-nums">{c.products}</td>
                     <td>
-                      <Badge tone={c.is_active ? "green" : "gray"}>{c.is_active ? "Activa" : "Inactiva"}</Badge>
+                      <Badge tone={c.is_active ? "green" : "gray"}>
+                        {c.is_active ? "Activa" : "Inactiva"}
+                      </Badge>
                     </td>
                     {canWrite && (
                       <td>
@@ -86,7 +98,10 @@ export default async function CategoriesPage() {
                             </ConfirmButton>
                           </form>
                           <form action={moveCategory.bind(null, c.id, "down")}>
-                            <ConfirmButton title="Bajar" className={i === rows.length - 1 ? "invisible" : ""}>
+                            <ConfirmButton
+                              title="Bajar"
+                              className={i === rows.length - 1 ? "invisible" : ""}
+                            >
                               ↓
                             </ConfirmButton>
                           </form>
@@ -117,8 +132,19 @@ export default async function CategoriesPage() {
               />
               <TextArea label="Descripción" name="description" maxLength={500} rows={2} />
               <FormGrid>
-                <TextInput label="Orden" name="sort_order" type="number" min={0} defaultValue={rows.length + 1} />
-                <TextInput label="Imagen" name="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif" />
+                <TextInput
+                  label="Orden"
+                  name="sort_order"
+                  type="number"
+                  min={0}
+                  defaultValue={rows.length + 1}
+                />
+                <TextInput
+                  label="Imagen"
+                  name="image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                />
               </FormGrid>
               <Checkbox label="Activa" name="is_active" defaultChecked />
               <SubmitButton pendingText="Creando…">Crear categoría</SubmitButton>

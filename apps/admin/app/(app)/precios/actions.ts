@@ -8,7 +8,9 @@ import type { ActionState } from "@/lib/action-state";
 import { zonedToUtc } from "@/lib/tz";
 
 async function businessTz(): Promise<string> {
-  const r = await sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(db());
+  const r = await sql<{
+    timezone: string;
+  }>`select timezone from business_settings where id = 1`.execute(db());
   return r.rows[0]?.timezone ?? "America/Tijuana";
 }
 
@@ -22,9 +24,17 @@ function revalidate(productId: string) {
   revalidatePath("/recetas");
 }
 
-const regularSchema = z.object({ channel, price_cents: zCents, label: z.string().trim().max(80).nullable() });
+const regularSchema = z.object({
+  channel,
+  price_cents: zCents,
+  label: z.string().trim().max(80).nullable(),
+});
 
-export async function setRegularPrice(productId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function setRegularPrice(
+  productId: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success) return { error: "Producto inválido" };
   const parsed = regularSchema.safeParse({
@@ -35,7 +45,12 @@ export async function setRegularPrice(productId: string, _prev: ActionState, for
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
-      callFn(trx, "set_regular_price", [productId, parsed.data.channel, parsed.data.price_cents, parsed.data.label]),
+      callFn(trx, "set_regular_price", [
+        productId,
+        parsed.data.channel,
+        parsed.data.price_cents,
+        parsed.data.label,
+      ]),
     );
   } catch (e) {
     return failure("precios.regular", e);
@@ -52,10 +67,20 @@ const promoSchema = z
     valid_to: z.string().nullable(),
     label: z.string().trim().min(1, "Ponle nombre a la promoción").max(80),
   })
-  .refine((v) => !Number.isNaN(Date.parse(v.valid_from)), { message: "Fecha de inicio inválida", path: ["valid_from"] })
-  .refine((v) => v.valid_to === null || !Number.isNaN(Date.parse(v.valid_to)), { message: "Fecha de fin inválida", path: ["valid_to"] });
+  .refine((v) => !Number.isNaN(Date.parse(v.valid_from)), {
+    message: "Fecha de inicio inválida",
+    path: ["valid_from"],
+  })
+  .refine((v) => v.valid_to === null || !Number.isNaN(Date.parse(v.valid_to)), {
+    message: "Fecha de fin inválida",
+    path: ["valid_to"],
+  });
 
-export async function createPromotion(productId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function createPromotion(
+  productId: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success) return { error: "Producto inválido" };
   const parsed = promoSchema.safeParse({

@@ -7,13 +7,24 @@ import { resetPassword } from "./actions";
 export const metadata = { title: "Nueva contraseña" };
 export const dynamic = "force-dynamic";
 
-export default async function ResetPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
+export default async function ResetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>;
+}) {
   const { token } = await searchParams;
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="card card-lg w-full max-w-sm p-6 md:p-8">
         <div className="mb-6 flex flex-col items-center text-center">
-          <Image src="/logo.jpeg" alt="El Pan de Paula" width={72} height={72} className="rounded-full" priority />
+          <Image
+            src="/logo.jpeg"
+            alt="El Pan de Paula"
+            width={72}
+            height={72}
+            className="rounded-full"
+            priority
+          />
           <h1 className="mt-3 text-lg font-semibold">Nueva contraseña</h1>
           <p className="text-sm text-muted">Mínimo 10 caracteres, con letras y números.</p>
         </div>
@@ -28,8 +39,21 @@ export default async function ResetPage({ searchParams }: { searchParams: Promis
         ) : (
           <ActionForm action={resetPassword} className="flex flex-col gap-3">
             <input type="hidden" name="token" value={token} />
-            <TextInput label="Nueva contraseña" name="password" type="password" required minLength={10} autoComplete="new-password" />
-            <TextInput label="Confirmar contraseña" name="confirm" type="password" required autoComplete="new-password" />
+            <TextInput
+              label="Nueva contraseña"
+              name="password"
+              type="password"
+              required
+              minLength={10}
+              autoComplete="new-password"
+            />
+            <TextInput
+              label="Confirmar contraseña"
+              name="confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
             <SubmitButton size="lg" pendingText="Guardando…">
               Guardar contraseña
             </SubmitButton>

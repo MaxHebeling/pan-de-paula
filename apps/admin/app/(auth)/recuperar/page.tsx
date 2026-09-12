@@ -15,12 +15,26 @@ export default async function RecoverPage() {
     <main className="flex min-h-dvh items-center justify-center px-4">
       <div className="card card-lg w-full max-w-sm p-6 md:p-8">
         <div className="mb-6 flex flex-col items-center text-center">
-          <Image src="/logo.jpeg" alt="El Pan de Paula" width={72} height={72} className="rounded-full" priority />
+          <Image
+            src="/logo.jpeg"
+            alt="El Pan de Paula"
+            width={72}
+            height={72}
+            className="rounded-full"
+            priority
+          />
           <h1 className="mt-3 text-lg font-semibold">Recuperar contraseña</h1>
           <p className="text-sm text-muted">Te enviaremos un enlace para crear una nueva.</p>
         </div>
         <ActionForm action={requestReset} className="flex flex-col gap-3" resetOnSuccess>
-          <TextInput label="Correo" name="email" type="email" required autoComplete="username" inputMode="email" />
+          <TextInput
+            label="Correo"
+            name="email"
+            type="email"
+            required
+            autoComplete="username"
+            inputMode="email"
+          />
           <SubmitButton size="lg" pendingText="Enviando…">
             Enviar enlace
           </SubmitButton>

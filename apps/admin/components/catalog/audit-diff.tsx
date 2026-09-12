@@ -10,10 +10,15 @@ function fmt(v: unknown): string {
   return String(v);
 }
 
-export function diffRows(oldData: J, newData: J): Array<{ key: string; from: unknown; to: unknown }> {
+export function diffRows(
+  oldData: J,
+  newData: J,
+): Array<{ key: string; from: unknown; to: unknown }> {
   const o = oldData ?? {};
   const n = newData ?? {};
-  const keys = Array.from(new Set([...Object.keys(o), ...Object.keys(n)])).filter((k) => !HIDDEN.has(k));
+  const keys = Array.from(new Set([...Object.keys(o), ...Object.keys(n)])).filter(
+    (k) => !HIDDEN.has(k),
+  );
   const rows: Array<{ key: string; from: unknown; to: unknown }> = [];
   for (const k of keys.sort()) {
     const a = o[k];
@@ -23,9 +28,18 @@ export function diffRows(oldData: J, newData: J): Array<{ key: string; from: unk
   return rows;
 }
 
-export function AuditDiff({ action, oldData, newData }: { action: string; oldData: J; newData: J }) {
+export function AuditDiff({
+  action,
+  oldData,
+  newData,
+}: {
+  action: string;
+  oldData: J;
+  newData: J;
+}) {
   const rows = diffRows(oldData, newData);
-  if (rows.length === 0) return <p className="text-xs text-muted">Sin cambios de datos registrados.</p>;
+  if (rows.length === 0)
+    return <p className="text-xs text-muted">Sin cambios de datos registrados.</p>;
   return (
     <table className="w-full text-xs [&_td]:px-2 [&_td]:py-1 [&_td]:align-top [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted">
       <thead>
@@ -39,7 +53,9 @@ export function AuditDiff({ action, oldData, newData }: { action: string; oldDat
         {rows.map((r) => (
           <tr key={r.key} className="border-t border-line">
             <td className="font-mono">{r.key}</td>
-            {action !== "INSERT" && <td className="text-red-d line-through decoration-red-d/40">{fmt(r.from)}</td>}
+            {action !== "INSERT" && (
+              <td className="text-red-d line-through decoration-red-d/40">{fmt(r.from)}</td>
+            )}
             {action !== "DELETE" && <td className="text-green-d">{fmt(r.to)}</td>}
           </tr>
         ))}

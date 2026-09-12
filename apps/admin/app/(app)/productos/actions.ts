@@ -5,7 +5,19 @@ import { z } from "zod";
 import { slugify } from "@pdp/domain";
 import { db, sql, withStaff, callFn } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
-import { bool, cents, failure, list, num, str, strOrNull, uuidOrNull, zCents, zId, zodMessage } from "@/lib/forms";
+import {
+  bool,
+  cents,
+  failure,
+  list,
+  num,
+  str,
+  strOrNull,
+  uuidOrNull,
+  zCents,
+  zId,
+  zodMessage,
+} from "@/lib/forms";
 import { removeStoredImage, uploadFromForm } from "@/lib/uploads";
 import type { ActionState } from "@/lib/action-state";
 
@@ -94,10 +106,20 @@ export async function createProduct(_prev: ActionState, form: FormData): Promise
   let id: string;
   try {
     id = await withStaff(db(), s.staff.id, async (trx) => {
-      const p = await trx.insertInto("products").values(parsed.data).returning("id").executeTakeFirstOrThrow();
+      const p = await trx
+        .insertInto("products")
+        .values(parsed.data)
+        .returning("id")
+        .executeTakeFirstOrThrow();
       await trx
         .insertInto("product_prices")
-        .values({ product_id: p.id, channel: "all", kind: "regular", price_cents: price.data, created_by: s.staff.id })
+        .values({
+          product_id: p.id,
+          channel: "all",
+          kind: "regular",
+          price_cents: price.data,
+          created_by: s.staff.id,
+        })
         .execute();
       return p.id;
     });
@@ -108,15 +130,25 @@ export async function createProduct(_prev: ActionState, form: FormData): Promise
   redirect(`/productos/${id}?creado=1`);
 }
 
-export async function updateProduct(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function updateProduct(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(id).success) return { error: "Producto inválido" };
   const parsed = parseProduct(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
-  if (parsed.data.parent_id === id) return { error: "Un producto no puede ser variante de sí mismo" };
+  if (parsed.data.parent_id === id)
+    return { error: "Un producto no puede ser variante de sí mismo" };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
-      trx.updateTable("products").set(parsed.data).where("id", "=", id).where("deleted_at", "is", null).execute(),
+      trx
+        .updateTable("products")
+        .set(parsed.data)
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute(),
     );
   } catch (e) {
     return failure("productos.update", e);
@@ -131,12 +163,28 @@ const variantSchema = z.object({
   price: zCents,
 });
 
-export async function createVariant(parentId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function createVariant(
+  parentId: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(parentId).success) return { error: "Producto inválido" };
   const parent = await db()
     .selectFrom("products")
-    .select(["id", "name", "slug", "category_id", "unit_label", "track_stock", "show_on_web", "show_on_pos", "allow_preorder", "requires_preorder", "preparation_hours"])
+    .select([
+      "id",
+      "name",
+      "slug",
+      "category_id",
+      "unit_label",
+      "track_stock",
+      "show_on_web",
+      "show_on_pos",
+      "allow_preorder",
+      "requires_preorder",
+      "preparation_hours",
+    ])
     .where("id", "=", parentId)
     .where("deleted_at", "is", null)
     .where("parent_id", "is", null)
@@ -152,7 +200,11 @@ export async function createVariant(parentId: string, _prev: ActionState, form: 
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       const base = slugify(`${parent.slug}-${parsed.data.variant_label}`);
-      const taken = await trx.selectFrom("products").select("id").where("slug", "=", base).executeTakeFirst();
+      const taken = await trx
+        .selectFrom("products")
+        .select("id")
+        .where("slug", "=", base)
+        .executeTakeFirst();
       const slug = taken ? `${base}-${Math.random().toString(36).slice(2, 6)}` : base;
       const v = await trx
         .insertInto("products")
@@ -174,7 +226,13 @@ export async function createVariant(parentId: string, _prev: ActionState, form: 
         .executeTakeFirstOrThrow();
       await trx
         .insertInto("product_prices")
-        .values({ product_id: v.id, channel: "all", kind: "regular", price_cents: parsed.data.price, created_by: s.staff.id })
+        .values({
+          product_id: v.id,
+          channel: "all",
+          kind: "regular",
+          price_cents: parsed.data.price,
+          created_by: s.staff.id,
+        })
         .execute();
     });
   } catch (e) {
@@ -184,7 +242,11 @@ export async function createVariant(parentId: string, _prev: ActionState, form: 
   return { ok: `Variante "${parsed.data.variant_label}" creada.` };
 }
 
-export async function uploadProductImage(productId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function uploadProductImage(
+  productId: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success) return { error: "Producto inválido" };
   const alt = strOrNull(form, "alt");
@@ -194,12 +256,21 @@ export async function uploadProductImage(productId: string, _prev: ActionState, 
     await withStaff(db(), s.staff.id, async (trx) => {
       const agg = await trx
         .selectFrom("product_images")
-        .select([sql<number>`count(*)::int`.as("n"), sql<number>`coalesce(max(sort_order), 0)`.as("max")])
+        .select([
+          sql<number>`count(*)::int`.as("n"),
+          sql<number>`coalesce(max(sort_order), 0)`.as("max"),
+        ])
         .where("product_id", "=", productId)
         .executeTakeFirstOrThrow();
       await trx
         .insertInto("product_images")
-        .values({ product_id: productId, url, alt, sort_order: agg.max + 1, is_primary: agg.n === 0 })
+        .values({
+          product_id: productId,
+          url,
+          alt,
+          sort_order: agg.max + 1,
+          is_primary: agg.n === 0,
+        })
         .execute();
     });
   } catch (e) {
@@ -213,13 +284,26 @@ export async function setPrimaryImage(productId: string, imageId: string): Promi
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success || !zId.safeParse(imageId).success) return;
   await withStaff(db(), s.staff.id, async (trx) => {
-    await trx.updateTable("product_images").set({ is_primary: false }).where("product_id", "=", productId).execute();
-    await trx.updateTable("product_images").set({ is_primary: true }).where("id", "=", imageId).where("product_id", "=", productId).execute();
+    await trx
+      .updateTable("product_images")
+      .set({ is_primary: false })
+      .where("product_id", "=", productId)
+      .execute();
+    await trx
+      .updateTable("product_images")
+      .set({ is_primary: true })
+      .where("id", "=", imageId)
+      .where("product_id", "=", productId)
+      .execute();
   });
   revalidate(productId);
 }
 
-export async function moveImage(productId: string, imageId: string, dir: "up" | "down"): Promise<void> {
+export async function moveImage(
+  productId: string,
+  imageId: string,
+  dir: "up" | "down",
+): Promise<void> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success || !zId.safeParse(imageId).success) return;
   await withStaff(db(), s.staff.id, async (trx) => {
@@ -236,7 +320,11 @@ export async function moveImage(productId: string, imageId: string, dir: "up" | 
     if (i < 0 || j < 0 || j >= order.length) return;
     [order[i], order[j]] = [order[j]!, order[i]!];
     for (let k = 0; k < order.length; k++)
-      await trx.updateTable("product_images").set({ sort_order: k + 1 }).where("id", "=", order[k]!).execute();
+      await trx
+        .updateTable("product_images")
+        .set({ sort_order: k + 1 })
+        .where("id", "=", order[k]!)
+        .execute();
   });
   revalidate(productId);
 }
@@ -258,7 +346,12 @@ export async function deleteProductImage(productId: string, imageId: string): Pr
         .where("product_id", "=", productId)
         .orderBy("sort_order")
         .executeTakeFirst();
-      if (next) await trx.updateTable("product_images").set({ is_primary: true }).where("id", "=", next.id).execute();
+      if (next)
+        await trx
+          .updateTable("product_images")
+          .set({ is_primary: true })
+          .where("id", "=", next.id)
+          .execute();
     }
     return img?.url ?? null;
   });

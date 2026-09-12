@@ -15,7 +15,11 @@ export default async function SuppliersPage() {
   const rows = await db()
     .selectFrom("suppliers as s")
     .selectAll("s")
-    .select(sql<number>`(select count(*)::int from ingredients i where i.supplier_id = s.id and i.deleted_at is null)`.as("ingredients"))
+    .select(
+      sql<number>`(select count(*)::int from ingredients i where i.supplier_id = s.id and i.deleted_at is null)`.as(
+        "ingredients",
+      ),
+    )
     .orderBy("s.is_active", "desc")
     .orderBy("s.name")
     .execute();
@@ -33,7 +37,10 @@ export default async function SuppliersPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="flex min-w-0 flex-col gap-3">
           {rows.length === 0 ? (
-            <EmptyState title="Sin proveedores" body="Registra a quién le compras para llevar historial de precios por proveedor." />
+            <EmptyState
+              title="Sin proveedores"
+              body="Registra a quién le compras para llevar historial de precios por proveedor."
+            />
           ) : (
             rows.map((s) => (
               <details key={s.id} className="card group p-4">
@@ -41,25 +48,71 @@ export default async function SuppliersPage() {
                   <div>
                     <span className="font-medium">{s.name}</span>
                     <span className="ml-2 text-xs text-muted">
-                      {[s.contact, s.phone, s.email].filter(Boolean).join(" · ") || "sin datos de contacto"} · {s.ingredients} insumo
+                      {[s.contact, s.phone, s.email].filter(Boolean).join(" · ") ||
+                        "sin datos de contacto"}{" "}
+                      · {s.ingredients} insumo
                       {s.ingredients === 1 ? "" : "s"}
                     </span>
                   </div>
                   <span className="flex items-center gap-2">
-                    <Badge tone={s.is_active ? "green" : "gray"}>{s.is_active ? "Activo" : "Inactivo"}</Badge>
-                    {canWrite && <span className="text-xs text-teal-d group-open:hidden">Editar</span>}
+                    <Badge tone={s.is_active ? "green" : "gray"}>
+                      {s.is_active ? "Activo" : "Inactivo"}
+                    </Badge>
+                    {canWrite && (
+                      <span className="text-xs text-teal-d group-open:hidden">Editar</span>
+                    )}
                   </span>
                 </summary>
                 {canWrite && (
-                  <ActionForm action={updateSupplier.bind(null, s.id)} className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
+                  <ActionForm
+                    action={updateSupplier.bind(null, s.id)}
+                    className="mt-4 flex flex-col gap-3 border-t border-line pt-4"
+                  >
                     <FormGrid>
-                      <TextInput label="Nombre" name="name" required maxLength={80} defaultValue={s.name} id={`name-${s.id}`} />
-                      <TextInput label="Contacto" name="contact" maxLength={80} defaultValue={s.contact ?? ""} id={`contact-${s.id}`} />
-                      <TextInput label="Teléfono" name="phone" maxLength={30} defaultValue={s.phone ?? ""} id={`phone-${s.id}`} />
-                      <TextInput label="Email" name="email" type="email" defaultValue={s.email ?? ""} id={`email-${s.id}`} />
+                      <TextInput
+                        label="Nombre"
+                        name="name"
+                        required
+                        maxLength={80}
+                        defaultValue={s.name}
+                        id={`name-${s.id}`}
+                      />
+                      <TextInput
+                        label="Contacto"
+                        name="contact"
+                        maxLength={80}
+                        defaultValue={s.contact ?? ""}
+                        id={`contact-${s.id}`}
+                      />
+                      <TextInput
+                        label="Teléfono"
+                        name="phone"
+                        maxLength={30}
+                        defaultValue={s.phone ?? ""}
+                        id={`phone-${s.id}`}
+                      />
+                      <TextInput
+                        label="Email"
+                        name="email"
+                        type="email"
+                        defaultValue={s.email ?? ""}
+                        id={`email-${s.id}`}
+                      />
                     </FormGrid>
-                    <TextArea label="Notas" name="notes" rows={2} maxLength={500} defaultValue={s.notes ?? ""} id={`notes-${s.id}`} />
-                    <Checkbox label="Activo" name="is_active" defaultChecked={s.is_active} id={`active-${s.id}`} />
+                    <TextArea
+                      label="Notas"
+                      name="notes"
+                      rows={2}
+                      maxLength={500}
+                      defaultValue={s.notes ?? ""}
+                      id={`notes-${s.id}`}
+                    />
+                    <Checkbox
+                      label="Activo"
+                      name="is_active"
+                      defaultChecked={s.is_active}
+                      id={`active-${s.id}`}
+                    />
                     <div>
                       <SubmitButton size="sm">Guardar</SubmitButton>
                     </div>

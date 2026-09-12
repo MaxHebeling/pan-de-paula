@@ -8,14 +8,33 @@ import { createProduct } from "../actions";
 export const metadata = { title: "Nuevo producto" };
 export const dynamic = "force-dynamic";
 
-export default async function NewProductPage({ searchParams }: { searchParams: Promise<{ padre?: string }> }) {
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ padre?: string }>;
+}) {
   await requireSession("catalog.write");
   const { padre } = await searchParams;
   const [categories, parents] = await Promise.all([
-    db().selectFrom("categories").select(["id", "name"]).where("deleted_at", "is", null).orderBy("sort_order").orderBy("name").execute(),
-    db().selectFrom("products").select(["id", "name"]).where("deleted_at", "is", null).where("parent_id", "is", null).orderBy("name").execute(),
+    db()
+      .selectFrom("categories")
+      .select(["id", "name"])
+      .where("deleted_at", "is", null)
+      .orderBy("sort_order")
+      .orderBy("name")
+      .execute(),
+    db()
+      .selectFrom("products")
+      .select(["id", "name"])
+      .where("deleted_at", "is", null)
+      .where("parent_id", "is", null)
+      .orderBy("name")
+      .execute(),
   ]);
-  const initial = padre && parents.some((x) => x.id === padre) ? { ...emptyProduct, parent_id: padre } : emptyProduct;
+  const initial =
+    padre && parents.some((x) => x.id === padre)
+      ? { ...emptyProduct, parent_id: padre }
+      : emptyProduct;
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader

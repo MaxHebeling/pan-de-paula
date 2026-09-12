@@ -11,10 +11,17 @@ const schema = z
     password: z.string().min(10, "Mínimo 10 caracteres"),
     confirm: z.string(),
   })
-  .refine((v) => v.password === v.confirm, { message: "Las contraseñas no coinciden", path: ["confirm"] });
+  .refine((v) => v.password === v.confirm, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirm"],
+  });
 
 export async function resetPassword(_prev: ActionState, form: FormData): Promise<ActionState> {
-  const parsed = schema.safeParse({ token: form.get("token"), password: form.get("password"), confirm: form.get("confirm") });
+  const parsed = schema.safeParse({
+    token: form.get("token"),
+    password: form.get("password"),
+    confirm: form.get("confirm"),
+  });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   try {
     validatePasswordPolicy(parsed.data.password);

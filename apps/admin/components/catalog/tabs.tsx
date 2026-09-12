@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 /** Pestañas por enlace (server-friendly): cada pestaña es una URL, navegable con teclado y compartible. */
-export function LinkTabs({ items }: { items: Array<{ href: string; label: string; active: boolean }> }) {
+export function LinkTabs({
+  items,
+}: {
+  items: Array<{ href: string; label: string; active: boolean }>;
+}) {
   return (
     <nav aria-label="Secciones" className="mb-4 -mx-1 overflow-x-auto">
       <ul className="flex min-w-max gap-1 border-b border-line px-1">

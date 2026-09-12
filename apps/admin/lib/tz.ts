@@ -29,7 +29,9 @@ function tzOffsetMs(utcMs: number, timeZone: string): number {
     minute: "2-digit",
     second: "2-digit",
   });
-  const parts = Object.fromEntries(dtf.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]));
+  const parts = Object.fromEntries(
+    dtf.formatToParts(new Date(utcMs)).map((p) => [p.type, p.value]),
+  );
   const wall = Date.UTC(
     Number(parts.year),
     Number(parts.month) - 1,

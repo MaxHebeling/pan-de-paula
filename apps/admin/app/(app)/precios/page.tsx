@@ -24,7 +24,11 @@ type Row = {
   upcoming: number;
 };
 
-export default async function PricesPage({ searchParams }: { searchParams: Promise<{ q?: string; filtro?: string }> }) {
+export default async function PricesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; filtro?: string }>;
+}) {
   await requireSession("catalog.read");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -46,21 +50,44 @@ export default async function PricesPage({ searchParams }: { searchParams: Promi
       and (${q} = '' or p.name ilike ${"%" + q + "%"})
       and (${filtro} = '' or (${filtro} = 'promo' and pr.label is not null) or (${filtro} = 'sin-precio' and current_price_cents(p.id, 'pos') is null)
            or (${filtro} = 'distinto' and current_price_cents(p.id, 'pos') is distinct from current_price_cents(p.id, 'web')))
-    order by c.sort_order nulls last, coalesce(pp.sort_order, p.sort_order), coalesce(pp.name, p.name), p.parent_id nulls first, p.name`.execute(db());
+    order by c.sort_order nulls last, coalesce(pp.sort_order, p.sort_order), coalesce(pp.name, p.name), p.parent_id nulls first, p.name`.execute(
+    db(),
+  );
   const rows = res.rows;
   const withPromo = rows.filter((r) => r.promo_label).length;
   const noPrice = rows.filter((r) => r.pos_price === null && r.web_price === null).length;
 
   return (
     <>
-      <PageHeader title="Precios y promociones" subtitle="Precio vigente por canal. El historial nunca se edita: se cierran vigencias y se crean nuevas." />
+      <PageHeader
+        title="Precios y promociones"
+        subtitle="Precio vigente por canal. El historial nunca se edita: se cierran vigencias y se crean nuevas."
+      />
       <div className="mb-4 grid grid-cols-3 gap-3">
         <Stat label="Productos" value={rows.length} />
-        <Stat label="Con promoción activa" value={withPromo} tone={withPromo ? "blue" : undefined} />
-        <Stat label="Sin precio" value={noPrice} tone={noPrice ? "red" : undefined} hint={noPrice ? "no se pueden vender" : undefined} />
+        <Stat
+          label="Con promoción activa"
+          value={withPromo}
+          tone={withPromo ? "blue" : undefined}
+        />
+        <Stat
+          label="Sin precio"
+          value={noPrice}
+          tone={noPrice ? "red" : undefined}
+          hint={noPrice ? "no se pueden vender" : undefined}
+        />
       </div>
-      <form method="get" className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_220px_auto] md:items-end">
-        <TextInput label="Buscar" name="q" defaultValue={q} placeholder="Producto" className="col-span-2 md:col-span-1" />
+      <form
+        method="get"
+        className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_220px_auto] md:items-end"
+      >
+        <TextInput
+          label="Buscar"
+          name="q"
+          defaultValue={q}
+          placeholder="Producto"
+          className="col-span-2 md:col-span-1"
+        />
         <Select label="Mostrar" name="filtro" defaultValue={filtro}>
           <option value="">Todos</option>
           <option value="promo">Con promoción activa</option>
@@ -111,7 +138,9 @@ export default async function PricesPage({ searchParams }: { searchParams: Promi
               <td className="text-right">
                 <Money cents={r.pos_price} />
               </td>
-              <td className={`text-right ${r.pos_price !== r.web_price ? "font-medium text-blue-d" : ""}`}>
+              <td
+                className={`text-right ${r.pos_price !== r.web_price ? "font-medium text-blue-d" : ""}`}
+              >
                 <Money cents={r.web_price} />
               </td>
               <td className="text-right text-muted">
@@ -122,11 +151,14 @@ export default async function PricesPage({ searchParams }: { searchParams: Promi
                   <span className="flex flex-wrap items-center gap-1">
                     <Badge tone="blue">{r.promo_label}</Badge>
                     <span className="text-xs text-muted">
-                      {r.promo_channel === "all" ? "todos" : r.promo_channel} · {r.promo_to ? `hasta ${fmtDate(r.promo_to, "datetime")}` : "sin fin"}
+                      {r.promo_channel === "all" ? "todos" : r.promo_channel} ·{" "}
+                      {r.promo_to ? `hasta ${fmtDate(r.promo_to, "datetime")}` : "sin fin"}
                     </span>
                   </span>
                 ) : r.upcoming ? (
-                  <Badge tone="gray">{r.upcoming} programada{r.upcoming === 1 ? "" : "s"}</Badge>
+                  <Badge tone="gray">
+                    {r.upcoming} programada{r.upcoming === 1 ? "" : "s"}
+                  </Badge>
                 ) : (
                   <span className="text-muted">—</span>
                 )}

@@ -5,7 +5,19 @@ import { z } from "zod";
 import { toBaseQty, type BaseUnit } from "@pdp/domain";
 import { db, sql, withStaff, callFn } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
-import { bool, cents, failure, num, str, strOrNull, uuidOrNull, zCents, zId, zQty, zodMessage } from "@/lib/forms";
+import {
+  bool,
+  cents,
+  failure,
+  num,
+  str,
+  strOrNull,
+  uuidOrNull,
+  zCents,
+  zId,
+  zQty,
+  zodMessage,
+} from "@/lib/forms";
 import type { ActionState } from "@/lib/action-state";
 
 const ingredientSchema = z.object({
@@ -41,7 +53,11 @@ const priceSchema = z.object({
 });
 
 /** Convierte (cantidad, unidad de compra) a la unidad base del ingrediente; error legible si no es compatible. */
-function toBase(qty: number, unit: string, base: BaseUnit): { ok: true; qty: number } | { ok: false; error: string } {
+function toBase(
+  qty: number,
+  unit: string,
+  base: BaseUnit,
+): { ok: true; qty: number } | { ok: false; error: string } {
   try {
     return { ok: true, qty: toBaseQty(qty, unit, base).qty };
   } catch (e) {
@@ -62,7 +78,8 @@ export async function createIngredient(_prev: ActionState, form: FormData): Prom
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   // Precio inicial opcional (si se captura precio, se exige contenido y unidad)
   const priceRaw = cents(form, "price");
-  let initialPrice: { price_cents: number; package_qty: number; label: string | null } | null = null;
+  let initialPrice: { price_cents: number; package_qty: number; label: string | null } | null =
+    null;
   if (priceRaw !== undefined) {
     const pp = priceSchema.safeParse({
       price_cents: priceRaw,
@@ -76,12 +93,20 @@ export async function createIngredient(_prev: ActionState, form: FormData): Prom
     if (!pp.success) return { error: zodMessage(pp.error) };
     const conv = toBase(pp.data.qty, pp.data.unit, parsed.data.base_unit);
     if (!conv.ok) return { error: conv.error };
-    initialPrice = { price_cents: pp.data.price_cents, package_qty: conv.qty, label: pp.data.package_label };
+    initialPrice = {
+      price_cents: pp.data.price_cents,
+      package_qty: conv.qty,
+      label: pp.data.package_label,
+    };
   }
   let id: string;
   try {
     id = await withStaff(db(), s.staff.id, async (trx) => {
-      const r = await trx.insertInto("ingredients").values(parsed.data).returning("id").executeTakeFirstOrThrow();
+      const r = await trx
+        .insertInto("ingredients")
+        .values(parsed.data)
+        .returning("id")
+        .executeTakeFirstOrThrow();
       if (initialPrice) {
         await callFn(trx, "record_ingredient_price", [
           r.id,
@@ -102,13 +127,21 @@ export async function createIngredient(_prev: ActionState, form: FormData): Prom
   redirect(`/ingredientes/${id}?creado=1`);
 }
 
-export async function updateIngredient(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function updateIngredient(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("recipes.write");
   if (!zId.safeParse(id).success) return { error: "Ingrediente inválido" };
   const parsed = parseIngredient(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
-    const current = await db().selectFrom("ingredients").select("base_unit").where("id", "=", id).executeTakeFirst();
+    const current = await db()
+      .selectFrom("ingredients")
+      .select("base_unit")
+      .where("id", "=", id)
+      .executeTakeFirst();
     if (!current) return { error: "Ingrediente no encontrado" };
     if (current.base_unit !== parsed.data.base_unit) {
       const used = await db()
@@ -117,10 +150,18 @@ export async function updateIngredient(id: string, _prev: ActionState, form: For
         .where("ingredient_id", "=", id)
         .executeTakeFirst();
       if ((used?.n ?? 0) > 0)
-        return { error: "No se puede cambiar la unidad base: ya tiene precios o recetas registrados en la unidad actual." };
+        return {
+          error:
+            "No se puede cambiar la unidad base: ya tiene precios o recetas registrados en la unidad actual.",
+        };
     }
     await withStaff(db(), s.staff.id, (trx) =>
-      trx.updateTable("ingredients").set(parsed.data).where("id", "=", id).where("deleted_at", "is", null).execute(),
+      trx
+        .updateTable("ingredients")
+        .set(parsed.data)
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute(),
     );
   } catch (e) {
     return failure("ingredientes.update", e);
@@ -129,7 +170,11 @@ export async function updateIngredient(id: string, _prev: ActionState, form: For
   return { ok: "Ingrediente guardado." };
 }
 
-export async function recordIngredientPrice(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function recordIngredientPrice(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("recipes.write");
   if (!zId.safeParse(id).success) return { error: "Ingrediente inválido" };
   const parsed = priceSchema.safeParse({
@@ -142,15 +187,27 @@ export async function recordIngredientPrice(id: string, _prev: ActionState, form
     packages: num(form, "packages") ?? 1,
   });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
-  const ing = await db().selectFrom("ingredients").select(["base_unit", "name"]).where("id", "=", id).where("deleted_at", "is", null).executeTakeFirst();
+  const ing = await db()
+    .selectFrom("ingredients")
+    .select(["base_unit", "name"])
+    .where("id", "=", id)
+    .where("deleted_at", "is", null)
+    .executeTakeFirst();
   if (!ing) return { error: "Ingrediente no encontrado" };
   const conv = toBase(parsed.data.qty, parsed.data.unit, ing.base_unit);
   if (!conv.ok) return { error: conv.error };
-  let changed: Array<{ product_name: string; current_cost_cents: number; new_cost_cents: number }> = [];
+  let changed: Array<{ product_name: string; current_cost_cents: number; new_cost_cents: number }> =
+    [];
   try {
     const unitCost = parsed.data.price_cents / 100 / conv.qty;
-    const impact = await sql<{ product_name: string; current_cost_cents: number; new_cost_cents: number }>`
-      select product_name, current_cost_cents, new_cost_cents from product_cost_impact(${id}, ${unitCost})`.execute(db());
+    const impact = await sql<{
+      product_name: string;
+      current_cost_cents: number;
+      new_cost_cents: number;
+    }>`
+      select product_name, current_cost_cents, new_cost_cents from product_cost_impact(${id}, ${unitCost})`.execute(
+      db(),
+    );
     changed = impact.rows.filter((r) => r.current_cost_cents !== r.new_cost_cents);
     await withStaff(db(), s.staff.id, (trx) =>
       callFn(trx, "record_ingredient_price", [
@@ -178,12 +235,18 @@ export async function recordIngredientPrice(id: string, _prev: ActionState, form
 
 const movementSchema = z.object({
   type: z.enum(["PURCHASE", "CORRECTION", "WASTE"], { error: "Tipo de movimiento inválido" }),
-  qty: z.number({ error: "Escribe una cantidad" }).refine((n) => n !== 0, "La cantidad no puede ser cero"),
+  qty: z
+    .number({ error: "Escribe una cantidad" })
+    .refine((n) => n !== 0, "La cantidad no puede ser cero"),
   unit: z.string().trim().min(1),
   note: z.string().trim().max(300).nullable(),
 });
 
-export async function recordIngredientMovement(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function recordIngredientMovement(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("recipes.write");
   if (!zId.safeParse(id).success) return { error: "Ingrediente inválido" };
   const parsed = movementSchema.safeParse({
@@ -193,18 +256,34 @@ export async function recordIngredientMovement(id: string, _prev: ActionState, f
     note: strOrNull(form, "note"),
   });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
-  const ing = await db().selectFrom("ingredients").select("base_unit").where("id", "=", id).where("deleted_at", "is", null).executeTakeFirst();
+  const ing = await db()
+    .selectFrom("ingredients")
+    .select("base_unit")
+    .where("id", "=", id)
+    .where("deleted_at", "is", null)
+    .executeTakeFirst();
   if (!ing) return { error: "Ingrediente no encontrado" };
   const conv = toBase(Math.abs(parsed.data.qty), parsed.data.unit, ing.base_unit);
   if (!conv.ok) return { error: conv.error };
   // PURCHASE suma; WASTE resta; CORRECTION respeta el signo capturado.
   const signed =
-    parsed.data.type === "PURCHASE" ? conv.qty : parsed.data.type === "WASTE" ? -conv.qty : Math.sign(parsed.data.qty) * conv.qty;
+    parsed.data.type === "PURCHASE"
+      ? conv.qty
+      : parsed.data.type === "WASTE"
+        ? -conv.qty
+        : Math.sign(parsed.data.qty) * conv.qty;
   try {
     await withStaff(db(), s.staff.id, (trx) =>
       trx
         .insertInto("ingredient_movements")
-        .values({ ingredient_id: id, type: parsed.data.type, qty: signed, note: parsed.data.note, staff_id: s.staff.id, ref_type: "manual" })
+        .values({
+          ingredient_id: id,
+          type: parsed.data.type,
+          qty: signed,
+          note: parsed.data.note,
+          staff_id: s.staff.id,
+          ref_type: "manual",
+        })
         .execute(),
     );
   } catch (e) {
@@ -224,7 +303,11 @@ export async function deleteIngredient(id: string): Promise<void> {
     .executeTakeFirst();
   if ((used?.n ?? 0) > 0) redirect(`/ingredientes/${id}?error=en-uso`);
   await withStaff(db(), s.staff.id, (trx) =>
-    trx.updateTable("ingredients").set({ deleted_at: new Date(), is_available: false }).where("id", "=", id).execute(),
+    trx
+      .updateTable("ingredients")
+      .set({ deleted_at: new Date(), is_available: false })
+      .where("id", "=", id)
+      .execute(),
   );
   revalidate();
   redirect("/ingredientes?eliminado=1");
@@ -235,7 +318,14 @@ const supplierSchema = z.object({
   name: z.string().trim().min(2, "Nombre muy corto").max(80),
   contact: z.string().trim().max(80).nullable(),
   phone: z.string().trim().max(30).nullable(),
-  email: z.string().trim().toLowerCase().email("Email inválido").max(254).nullable().or(z.literal("").transform(() => null)),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Email inválido")
+    .max(254)
+    .nullable()
+    .or(z.literal("").transform(() => null)),
   notes: z.string().trim().max(500).nullable(),
   is_active: z.boolean(),
 });
@@ -256,7 +346,9 @@ export async function createSupplier(_prev: ActionState, form: FormData): Promis
   const parsed = parseSupplier(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
-    await withStaff(db(), s.staff.id, (trx) => trx.insertInto("suppliers").values(parsed.data).execute());
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx.insertInto("suppliers").values(parsed.data).execute(),
+    );
   } catch (e) {
     return failure("proveedores.create", e);
   }
@@ -265,13 +357,19 @@ export async function createSupplier(_prev: ActionState, form: FormData): Promis
   return { ok: `Proveedor "${parsed.data.name}" creado.` };
 }
 
-export async function updateSupplier(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function updateSupplier(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("recipes.write");
   if (!zId.safeParse(id).success) return { error: "Proveedor inválido" };
   const parsed = parseSupplier(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
-    await withStaff(db(), s.staff.id, (trx) => trx.updateTable("suppliers").set(parsed.data).where("id", "=", id).execute());
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx.updateTable("suppliers").set(parsed.data).where("id", "=", id).execute(),
+    );
   } catch (e) {
     return failure("proveedores.update", e);
   }

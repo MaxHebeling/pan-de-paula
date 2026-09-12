@@ -57,7 +57,11 @@ export async function createCategory(_prev: ActionState, form: FormData): Promis
   return { ok: `Categoría "${parsed.data.name}" creada.` };
 }
 
-export async function updateCategory(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function updateCategory(
+  id: string,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(id).success) return { error: "Categoría inválida" };
   const parsed = parse(form);
@@ -73,7 +77,11 @@ export async function updateCategory(id: string, _prev: ActionState, form: FormD
     const removeImage = bool(form, "remove_image");
     const image_url = newImage ?? (removeImage ? null : current.image_url);
     await withStaff(db(), s.staff.id, (trx) =>
-      trx.updateTable("categories").set({ ...parsed.data, image_url }).where("id", "=", id).execute(),
+      trx
+        .updateTable("categories")
+        .set({ ...parsed.data, image_url })
+        .where("id", "=", id)
+        .execute(),
     );
     if ((newImage || removeImage) && current.image_url) await removeStoredImage(current.image_url);
   } catch (e) {
@@ -111,7 +119,11 @@ export async function moveCategory(id: string, dir: "up" | "down"): Promise<void
     const order = rows.map((r) => r.id);
     [order[i], order[j]] = [order[j]!, order[i]!];
     for (let k = 0; k < order.length; k++) {
-      await trx.updateTable("categories").set({ sort_order: k + 1 }).where("id", "=", order[k]!).execute();
+      await trx
+        .updateTable("categories")
+        .set({ sort_order: k + 1 })
+        .where("id", "=", order[k]!)
+        .execute();
     }
   });
   revalidate();

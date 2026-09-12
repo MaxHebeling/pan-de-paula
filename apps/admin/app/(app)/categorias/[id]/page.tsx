@@ -72,9 +72,21 @@ export default async function CategoryEditPage({
               hint="Cambiarlo rompe enlaces ya compartidos."
             />
           </FormGrid>
-          <TextArea label="Descripción" name="description" maxLength={500} rows={3} defaultValue={c.description ?? ""} />
+          <TextArea
+            label="Descripción"
+            name="description"
+            maxLength={500}
+            rows={3}
+            defaultValue={c.description ?? ""}
+          />
           <FormGrid>
-            <TextInput label="Orden" name="sort_order" type="number" min={0} defaultValue={c.sort_order} />
+            <TextInput
+              label="Orden"
+              name="sort_order"
+              type="number"
+              min={0}
+              defaultValue={c.sort_order}
+            />
             <TextInput
               label={c.image_url ? "Reemplazar imagen" : "Imagen"}
               name="image"
@@ -85,11 +97,20 @@ export default async function CategoryEditPage({
           {c.image_url && (
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.image_url} alt={`Imagen de ${c.name}`} className="size-20 rounded-lg object-cover" />
+              <img
+                src={c.image_url}
+                alt={`Imagen de ${c.name}`}
+                className="size-20 rounded-lg object-cover"
+              />
               <Checkbox label="Quitar imagen" name="remove_image" />
             </div>
           )}
-          <Checkbox label="Activa" name="is_active" defaultChecked={c.is_active} hint="Inactiva: no aparece en tienda ni POS." />
+          <Checkbox
+            label="Activa"
+            name="is_active"
+            defaultChecked={c.is_active}
+            hint="Inactiva: no aparece en tienda ni POS."
+          />
           <div className="flex gap-2">
             <SubmitButton>Guardar cambios</SubmitButton>
             <LinkButton href="/categorias" variant="secondary">

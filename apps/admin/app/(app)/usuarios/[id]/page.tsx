@@ -17,7 +17,20 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
     db()
       .selectFrom("staff_users as u")
       .innerJoin("roles as r", "r.key", "u.role_key")
-      .select(["u.id", "u.email", "u.full_name", "u.role_key", "r.name as role_name", "r.rank", "u.is_active", "u.must_change_password", "u.last_login_at", "u.locked_until", "u.failed_logins", "u.created_at"])
+      .select([
+        "u.id",
+        "u.email",
+        "u.full_name",
+        "u.role_key",
+        "r.name as role_name",
+        "r.rank",
+        "u.is_active",
+        "u.must_change_password",
+        "u.last_login_at",
+        "u.locked_until",
+        "u.failed_logins",
+        "u.created_at",
+      ])
       .where("u.id", "=", id)
       .where("u.deleted_at", "is", null)
       .executeTakeFirst(),
@@ -48,7 +61,9 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
               ← Usuarios
             </Link>
             <span>{u.email}</span>
-            <Badge tone={u.is_active ? "green" : "gray"}>{u.is_active ? "Activo" : "Inactivo"}</Badge>
+            <Badge tone={u.is_active ? "green" : "gray"}>
+              {u.is_active ? "Activo" : "Inactivo"}
+            </Badge>
             {u.must_change_password && <Badge tone="amber">Debe cambiar contraseña</Badge>}
             {locked && <Badge tone="red">Bloqueado hasta {fmtDate(u.locked_until, "time")}</Badge>}
           </span>
@@ -56,13 +71,21 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
       />
       {isSelf && (
         <div className="mb-4">
-          <Alert tone="blue">Es tu propia cuenta: puedes cambiar tu nombre, pero no tu rol ni tu estado.</Alert>
+          <Alert tone="blue">
+            Es tu propia cuenta: puedes cambiar tu nombre, pero no tu rol ni tu estado.
+          </Alert>
         </div>
       )}
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Datos y rol">
           <ActionForm action={updateUser.bind(null, u.id)} className="flex flex-col gap-3">
-            <TextInput label="Nombre completo" name="full_name" required maxLength={120} defaultValue={u.full_name} />
+            <TextInput
+              label="Nombre completo"
+              name="full_name"
+              required
+              maxLength={120}
+              defaultValue={u.full_name}
+            />
             <Select label="Rol" name="role_key" defaultValue={u.role_key} disabled={isSelf}>
               {(isSelf ? roles : assignable).map((r) => (
                 <option key={r.key} value={r.key}>
@@ -71,7 +94,13 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
               ))}
             </Select>
             {isSelf && <input type="hidden" name="role_key" value={u.role_key} />}
-            <Checkbox label="Cuenta activa" name="is_active" defaultChecked={u.is_active} disabled={isSelf} hint="Al desactivar se cierran sus sesiones y no puede entrar." />
+            <Checkbox
+              label="Cuenta activa"
+              name="is_active"
+              defaultChecked={u.is_active}
+              disabled={isSelf}
+              hint="Al desactivar se cierran sus sesiones y no puede entrar."
+            />
             {isSelf && <input type="hidden" name="is_active" value="on" />}
             <div>
               <SubmitButton>Guardar</SubmitButton>
@@ -88,8 +117,14 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         </Card>
         <div className="flex min-w-0 flex-col gap-4">
           <Card title="Restablecer contraseña">
-            <p className="mb-3 text-sm text-muted">Genera un enlace de un solo uso (vence en 1 hora). Compártelo por WhatsApp o en persona.</p>
-            <ActionForm action={generateResetLink.bind(null, u.id)} secret={{ label: "Enlace de restablecimiento", valueKey: "url" }}>
+            <p className="mb-3 text-sm text-muted">
+              Genera un enlace de un solo uso (vence en 1 hora). Compártelo por WhatsApp o en
+              persona.
+            </p>
+            <ActionForm
+              action={generateResetLink.bind(null, u.id)}
+              secret={{ label: "Enlace de restablecimiento", valueKey: "url" }}
+            >
               <SubmitButton variant="secondary" pendingText="Generando…" disabled={!u.is_active}>
                 Generar enlace
               </SubmitButton>
@@ -106,14 +141,22 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                       {s.user_agent ?? "dispositivo desconocido"}
                     </div>
                     <div className="text-muted">
-                      {s.ip ?? "—"} · visto {fmtDate(s.last_seen_at, "datetime")} · vence {fmtDate(s.expires_at)}
+                      {s.ip ?? "—"} · visto {fmtDate(s.last_seen_at, "datetime")} · vence{" "}
+                      {fmtDate(s.expires_at)}
                     </div>
                   </li>
                 ))}
               </ul>
             )}
             <form action={revokeSessions.bind(null, u.id)}>
-              <ConfirmButton variant="danger" confirm={isSelf ? "Se cerrarán TODAS tus sesiones, incluida esta. ¿Continuar?" : `¿Cerrar todas las sesiones de ${u.full_name}?`}>
+              <ConfirmButton
+                variant="danger"
+                confirm={
+                  isSelf
+                    ? "Se cerrarán TODAS tus sesiones, incluida esta. ¿Continuar?"
+                    : `¿Cerrar todas las sesiones de ${u.full_name}?`
+                }
+              >
                 Cerrar todas las sesiones
               </ConfirmButton>
             </form>

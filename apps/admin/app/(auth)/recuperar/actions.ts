@@ -24,13 +24,21 @@ export async function requestReset(_prev: ActionState, form: FormData): Promise<
     if (ip) {
       const r = await sql<{ n: number }>`
         select count(*)::int as n from login_attempts
-        where ip = ${ip}::inet and email like 'reset:%' and created_at > now() - interval '15 minutes'`.execute(db());
-      if ((r.rows[0]?.n ?? 0) >= 5) return { error: "Demasiadas solicitudes. Intenta de nuevo en 15 minutos." };
+        where ip = ${ip}::inet and email like 'reset:%' and created_at > now() - interval '15 minutes'`.execute(
+        db(),
+      );
+      if ((r.rows[0]?.n ?? 0) >= 5)
+        return { error: "Demasiadas solicitudes. Intenta de nuevo en 15 minutos." };
     }
-    await sql`insert into login_attempts(email, ip, success) values (${"reset:" + parsed.data.email}, ${ip}::inet, false)`.execute(db());
+    await sql`insert into login_attempts(email, ip, success) values (${"reset:" + parsed.data.email}, ${ip}::inet, false)`.execute(
+      db(),
+    );
     const reset = await createPasswordReset(db(), parsed.data.email);
     if (reset) {
-      const base = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001").replace(/\/+$/, "");
+      const base = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001").replace(
+        /\/+$/,
+        "",
+      );
       const url = `${base}/restablecer?token=${encodeURIComponent(reset.token)}`;
       if (isEmailConfigured()) {
         const r = await sendEmail({
@@ -41,10 +49,16 @@ export async function requestReset(_prev: ActionState, form: FormData): Promise<
           text: `Restablece tu contraseña (vence en 1 hora): ${url}`,
           idempotencyKey: `reset-${reset.staffId}-${Date.now()}`,
         });
-        if (!r.sent) console.error("[recuperar] no se pudo enviar el correo de restablecimiento", r.error ?? r.skipped);
+        if (!r.sent)
+          console.error(
+            "[recuperar] no se pudo enviar el correo de restablecimiento",
+            r.error ?? r.skipped,
+          );
       } else {
         // Sin proveedor de email configurado: el enlace queda en el log del servidor para que un admin lo comparta.
-        console.info(`[recuperar] EMAIL NO CONFIGURADO. Enlace de restablecimiento para ${parsed.data.email}: ${url}`);
+        console.info(
+          `[recuperar] EMAIL NO CONFIGURADO. Enlace de restablecimiento para ${parsed.data.email}: ${url}`,
+        );
       }
     }
   } catch (e) {

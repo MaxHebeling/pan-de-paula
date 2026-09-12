@@ -31,8 +31,10 @@ async function login(page: Page) {
     await fillField(page, "Contraseña", PASSWORD);
     // La hidratación tardía puede vaciar los campos: espera y vuelve a verificar antes de enviar.
     await page.waitForTimeout(600);
-    if ((await page.getByLabel("Correo").inputValue()) !== EMAIL) await fillField(page, "Correo", EMAIL);
-    if ((await page.getByLabel("Contraseña").inputValue()) !== PASSWORD) await fillField(page, "Contraseña", PASSWORD);
+    if ((await page.getByLabel("Correo").inputValue()) !== EMAIL)
+      await fillField(page, "Correo", EMAIL);
+    if ((await page.getByLabel("Contraseña").inputValue()) !== PASSWORD)
+      await fillField(page, "Contraseña", PASSWORD);
     await page.getByRole("button", { name: "Entrar" }).click();
     const outcome = await Promise.race([
       page.waitForURL(/\/(dashboard|cuenta)/, { timeout: 10_000 }).then(() => "ok" as const),
@@ -49,7 +51,9 @@ async function login(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
-test("catálogo: categoría → producto con precio → ingrediente → receta → nuevo precio cambia el costo", async ({ page }) => {
+test("catálogo: categoría → producto con precio → ingrediente → receta → nuevo precio cambia el costo", async ({
+  page,
+}) => {
   test.setTimeout(150_000);
   const ts = Date.now().toString(36);
   const categoryName = `Cat E2E ${ts}`;
@@ -75,7 +79,9 @@ test("catálogo: categoría → producto con precio → ingrediente → receta �
   await page.waitForURL(new RegExp(`/productos/${UUID}\\?creado=1`), { timeout: 20_000 });
   const productId = new URL(page.url()).pathname.split("/").pop()!;
   await expect(page.getByRole("heading", { name: productName })).toBeVisible();
-  await expect(page.getByText("Precio creado", { exact: false }).or(page.getByText("Producto creado"))).toBeVisible();
+  await expect(
+    page.getByText("Precio creado", { exact: false }).or(page.getByText("Producto creado")),
+  ).toBeVisible();
 
   // ── Lista de productos ──
   await page.goto(`/productos?q=${encodeURIComponent(productName)}`);
@@ -121,5 +127,7 @@ test("catálogo: categoría → producto con precio → ingrediente → receta �
   await page.goto(`/recetas/${productId}`);
   await expect(page.getByTestId("sql-cost")).toHaveText("$2.00");
   await page.goto(`/productos?q=${encodeURIComponent(productName)}`);
-  await expect(page.getByRole("row").filter({ has: page.getByRole("link", { name: productName }) })).toContainText("$2.00");
+  await expect(
+    page.getByRole("row").filter({ has: page.getByRole("link", { name: productName }) }),
+  ).toContainText("$2.00");
 });

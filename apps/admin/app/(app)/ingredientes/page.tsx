@@ -72,8 +72,17 @@ export default async function IngredientsPage({
           <Alert tone="green">Ingrediente eliminado.</Alert>
         </div>
       )}
-      <form method="get" className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_200px_auto] md:items-end">
-        <TextInput label="Buscar" name="q" defaultValue={q} placeholder="Nombre, marca o proveedor" className="col-span-2 md:col-span-1" />
+      <form
+        method="get"
+        className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_200px_auto] md:items-end"
+      >
+        <TextInput
+          label="Buscar"
+          name="q"
+          defaultValue={q}
+          placeholder="Nombre, marca o proveedor"
+          className="col-span-2 md:col-span-1"
+        />
         <Select label="Mostrar" name="filtro" defaultValue={filtro}>
           <option value="">Todos</option>
           <option value="alerta">En alerta de stock</option>
@@ -95,7 +104,11 @@ export default async function IngredientsPage({
         <EmptyState
           title="Sin ingredientes"
           body="Registra tus insumos con su precio de compra para costear las recetas."
-          action={canWrite ? <LinkButton href="/ingredientes/nuevo">Nuevo ingrediente</LinkButton> : undefined}
+          action={
+            canWrite ? (
+              <LinkButton href="/ingredientes/nuevo">Nuevo ingrediente</LinkButton>
+            ) : undefined
+          }
         />
       ) : (
         <Table>
@@ -124,7 +137,9 @@ export default async function IngredientsPage({
                     </Link>
                     <div className="text-xs text-muted">
                       {r.brand ?? ""}
-                      {r.recipes ? `${r.brand ? " · " : ""}en ${r.recipes} receta${r.recipes === 1 ? "" : "s"}` : ""}
+                      {r.recipes
+                        ? `${r.brand ? " · " : ""}en ${r.recipes} receta${r.recipes === 1 ? "" : "s"}`
+                        : ""}
                     </div>
                   </td>
                   <td className="text-muted">{r.supplier_name ?? "—"}</td>
@@ -144,17 +159,28 @@ export default async function IngredientsPage({
                       "—"
                     ) : (
                       <>
-                        <Money cents={r.last_price_cents} /> · {r.last_package_label ?? formatQty(Number(r.last_package_qty), r.base_unit)}
+                        <Money cents={r.last_price_cents} /> ·{" "}
+                        {r.last_package_label ?? formatQty(Number(r.last_package_qty), r.base_unit)}
                         <div className="text-xs">{fmtDate(r.last_valid_from)}</div>
                       </>
                     )}
                   </td>
-                  <td className={`text-right tabular-nums ${low ? "font-semibold text-red-d" : ""}`}>{formatQty(stock, r.base_unit)}</td>
-                  <td className="text-right tabular-nums text-muted">{formatQty(min, r.base_unit)}</td>
+                  <td
+                    className={`text-right tabular-nums ${low ? "font-semibold text-red-d" : ""}`}
+                  >
+                    {formatQty(stock, r.base_unit)}
+                  </td>
+                  <td className="text-right tabular-nums text-muted">
+                    {formatQty(min, r.base_unit)}
+                  </td>
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {!r.is_available && <Badge tone="gray">No disponible</Badge>}
-                      {low && <Badge tone={stock <= 0 ? "red" : "amber"}>{stock <= 0 ? "Agotado" : "Bajo"}</Badge>}
+                      {low && (
+                        <Badge tone={stock <= 0 ? "red" : "amber"}>
+                          {stock <= 0 ? "Agotado" : "Bajo"}
+                        </Badge>
+                      )}
                       {r.is_available && !low && <Badge tone="green">OK</Badge>}
                     </div>
                   </td>

@@ -21,5 +21,7 @@ export const PURCHASE_UNITS: Record<BaseUnit, Array<{ value: string; label: stri
 /** Costo unitario en MXN con decimales suficientes (los costos por gramo son fraccionales). */
 export function formatUnitCost(v: number): string {
   const digits = v >= 1 ? 2 : v >= 0.01 ? 4 : 6;
-  return "$" + v.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: digits });
+  return (
+    "$" + v.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: digits })
+  );
 }

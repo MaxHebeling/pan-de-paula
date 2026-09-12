@@ -1,9 +1,20 @@
 import { Badge } from "@/components/ui";
 import { ActionForm, ConfirmButton, SubmitButton } from "./action-form";
 import { TextInput } from "./fields";
-import { deleteProductImage, moveImage, setPrimaryImage, uploadProductImage } from "@/app/(app)/productos/actions";
+import {
+  deleteProductImage,
+  moveImage,
+  setPrimaryImage,
+  uploadProductImage,
+} from "@/app/(app)/productos/actions";
 
-export type ProductImage = { id: string; url: string; alt: string | null; is_primary: boolean; sort_order: number };
+export type ProductImage = {
+  id: string;
+  url: string;
+  alt: string | null;
+  is_primary: boolean;
+  sort_order: number;
+};
 
 export function ImageManager({
   productId,
@@ -24,7 +35,12 @@ export function ImageManager({
             <li key={img.id} className="card overflow-hidden">
               <div className="relative aspect-square bg-black/5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={img.alt ?? ""} className="size-full object-cover" loading="lazy" />
+                <img
+                  src={img.url}
+                  alt={img.alt ?? ""}
+                  className="size-full object-cover"
+                  loading="lazy"
+                />
                 {img.is_primary && (
                   <Badge tone="blue" className="absolute left-2 top-2">
                     Principal
@@ -44,12 +60,22 @@ export function ImageManager({
                     </ConfirmButton>
                   </form>
                   <form action={moveImage.bind(null, productId, img.id, "down")}>
-                    <ConfirmButton title="Mover después" className={i === images.length - 1 ? "invisible" : ""}>
+                    <ConfirmButton
+                      title="Mover después"
+                      className={i === images.length - 1 ? "invisible" : ""}
+                    >
                       →
                     </ConfirmButton>
                   </form>
-                  <form action={deleteProductImage.bind(null, productId, img.id)} className="ml-auto">
-                    <ConfirmButton variant="danger" title="Eliminar" confirm="¿Eliminar esta imagen?">
+                  <form
+                    action={deleteProductImage.bind(null, productId, img.id)}
+                    className="ml-auto"
+                  >
+                    <ConfirmButton
+                      variant="danger"
+                      title="Eliminar"
+                      confirm="¿Eliminar esta imagen?"
+                    >
                       ✕
                     </ConfirmButton>
                   </form>
@@ -62,7 +88,7 @@ export function ImageManager({
       {canWrite && (
         <ActionForm
           action={uploadProductImage.bind(null, productId)}
-         
+
           resetOnSuccess
           className="flex flex-col gap-3 md:flex-row md:items-end"
         >

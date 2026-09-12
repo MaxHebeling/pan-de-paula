@@ -27,8 +27,11 @@ type PriceRow = {
   status: "vigente" | "programado" | "cerrado";
 };
 
-
-export default async function ProductPricesPage({ params }: { params: Promise<{ productId: string }> }) {
+export default async function ProductPricesPage({
+  params,
+}: {
+  params: Promise<{ productId: string }>;
+}) {
   const session = await requireSession("catalog.read");
   const canWrite = hasPermission(session, "catalog.write");
   const { productId } = await params;
@@ -42,12 +45,16 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
 
   const [cur, history, tzRow] = await Promise.all([
     sql<{ pos: number | null; web: number | null; cost: number | null }>`
-      select current_price_cents(${productId}, 'pos') as pos, current_price_cents(${productId}, 'web') as web, product_cost_cents(${productId}) as cost`.execute(db()),
+      select current_price_cents(${productId}, 'pos') as pos, current_price_cents(${productId}, 'web') as web, product_cost_cents(${productId}) as cost`.execute(
+      db(),
+    ),
     sql<PriceRow>`
       select p.id, p.channel::text as channel, p.kind::text as kind, p.price_cents, p.valid_from, p.valid_to, p.label, p.created_at, u.full_name as created_by_name,
              case when p.valid_from > now() then 'programado' when p.valid_to is not null and p.valid_to <= now() then 'cerrado' else 'vigente' end as status
       from product_prices p left join staff_users u on u.id = p.created_by
-      where p.product_id = ${productId} order by p.valid_from desc, p.created_at desc limit 200`.execute(db()),
+      where p.product_id = ${productId} order by p.valid_from desc, p.created_at desc limit 200`.execute(
+      db(),
+    ),
     sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(db()),
   ]);
   const tz = tzRow.rows[0]?.timezone ?? "America/Tijuana";
@@ -83,17 +90,33 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
         }
       />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Vigente POS" value={<Money cents={c.pos} />} hint={marginPos === null ? "sin costo" : `margen ${pct(marginPos)}`} tone={marginPos !== null && marginPos < 3000 ? "red" : undefined} />
-        <Stat label="Vigente web" value={<Money cents={c.web} />} hint={marginWeb === null ? "sin costo" : `margen ${pct(marginWeb)}`} tone={marginWeb !== null && marginWeb < 3000 ? "red" : undefined} />
+        <Stat
+          label="Vigente POS"
+          value={<Money cents={c.pos} />}
+          hint={marginPos === null ? "sin costo" : `margen ${pct(marginPos)}`}
+          tone={marginPos !== null && marginPos < 3000 ? "red" : undefined}
+        />
+        <Stat
+          label="Vigente web"
+          value={<Money cents={c.web} />}
+          hint={marginWeb === null ? "sin costo" : `margen ${pct(marginWeb)}`}
+          tone={marginWeb !== null && marginWeb < 3000 ? "red" : undefined}
+        />
         <Stat label="Costo por pieza" value={<Money cents={c.cost} />} hint="según receta" />
-        <Stat label="Promos activas" value={promosOpen.filter((r) => r.status === "vigente").length} hint={`${promosOpen.filter((r) => r.status === "programado").length} programadas`} />
+        <Stat
+          label="Promos activas"
+          value={promosOpen.filter((r) => r.status === "vigente").length}
+          hint={`${promosOpen.filter((r) => r.status === "programado").length} programadas`}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card title="Vigentes y programados">
             {active.length === 0 ? (
-              <p className="text-sm text-muted">Este producto no tiene precio. No se puede vender hasta fijar uno.</p>
+              <p className="text-sm text-muted">
+                Este producto no tiene precio. No se puede vender hasta fijar uno.
+              </p>
             ) : (
               <Table className="!shadow-none">
                 <thead>
@@ -110,7 +133,11 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
                   {active.map((r) => (
                     <tr key={r.id}>
                       <td>
-                        {r.kind === "promo" ? <Badge tone="blue">Promo</Badge> : <Badge tone="gray">Regular</Badge>}
+                        {r.kind === "promo" ? (
+                          <Badge tone="blue">Promo</Badge>
+                        ) : (
+                          <Badge tone="gray">Regular</Badge>
+                        )}
                         {r.label && <div className="text-xs text-muted">{r.label}</div>}
                       </td>
                       <td>{CHANNEL[r.channel] ?? r.channel}</td>
@@ -120,7 +147,9 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
                       <td className="text-xs text-muted">
                         desde {fmtDate(r.valid_from, "datetime")}
                         <br />
-                        {r.valid_to ? `hasta ${fmtDate(r.valid_to, "datetime")}` : "sin fecha de fin"}
+                        {r.valid_to
+                          ? `hasta ${fmtDate(r.valid_to, "datetime")}`
+                          : "sin fecha de fin"}
                       </td>
                       <td>
                         <Badge tone={r.status === "vigente" ? "green" : "amber"}>{r.status}</Badge>
@@ -129,7 +158,14 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
                         <td className="text-right">
                           {r.kind === "promo" && (
                             <form action={endPromotion.bind(null, product.id, r.id)}>
-                              <ConfirmButton variant="danger" confirm={r.status === "programado" ? "¿Cancelar esta promoción programada?" : "¿Terminar la promoción ahora?"}>
+                              <ConfirmButton
+                                variant="danger"
+                                confirm={
+                                  r.status === "programado"
+                                    ? "¿Cancelar esta promoción programada?"
+                                    : "¿Terminar la promoción ahora?"
+                                }
+                              >
                                 {r.status === "programado" ? "Cancelar" : "Terminar"}
                               </ConfirmButton>
                             </form>
@@ -166,10 +202,24 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
                     <td className="text-right">
                       <Money cents={r.price_cents} />
                     </td>
-                    <td className="whitespace-nowrap text-xs">{fmtDate(r.valid_from, "datetime")}</td>
-                    <td className="whitespace-nowrap text-xs">{r.valid_to ? fmtDate(r.valid_to, "datetime") : "—"}</td>
+                    <td className="whitespace-nowrap text-xs">
+                      {fmtDate(r.valid_from, "datetime")}
+                    </td>
+                    <td className="whitespace-nowrap text-xs">
+                      {r.valid_to ? fmtDate(r.valid_to, "datetime") : "—"}
+                    </td>
                     <td>
-                      <Badge tone={r.status === "vigente" ? "green" : r.status === "programado" ? "amber" : "gray"}>{r.status}</Badge>
+                      <Badge
+                        tone={
+                          r.status === "vigente"
+                            ? "green"
+                            : r.status === "programado"
+                              ? "amber"
+                              : "gray"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
                     </td>
                     <td className="text-xs">{r.created_by_name ?? "sistema"}</td>
                   </tr>
@@ -182,34 +232,83 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
         {canWrite && (
           <div className="flex min-w-0 flex-col gap-4">
             <Card title="Nuevo precio regular">
-              <ActionForm action={setRegularPrice.bind(null, product.id)} resetOnSuccess className="flex flex-col gap-3">
+              <ActionForm
+                action={setRegularPrice.bind(null, product.id)}
+                resetOnSuccess
+                className="flex flex-col gap-3"
+              >
                 <FormGrid>
-                  <Select label="Canal" name="channel" id="reg-channel" defaultValue="all" hint="El precio del canal específico gana al de 'Todos'.">
+                  <Select
+                    label="Canal"
+                    name="channel"
+                    id="reg-channel"
+                    defaultValue="all"
+                    hint="El precio del canal específico gana al de 'Todos'."
+                  >
                     <option value="all">Todos los canales</option>
                     <option value="pos">Solo POS</option>
                     <option value="web">Solo tienda web</option>
                   </Select>
                   <MoneyInput label="Precio (MXN)" name="price" id="reg-price" required />
                 </FormGrid>
-                <TextInput label="Motivo / etiqueta (opcional)" name="label" id="reg-label" maxLength={80} placeholder="Ajuste por inflación" />
-                <p className="text-xs text-muted">Cierra el precio regular vigente del mismo canal (valid_to = ahora) y activa el nuevo. Las ventas pasadas no cambian.</p>
+                <TextInput
+                  label="Motivo / etiqueta (opcional)"
+                  name="label"
+                  id="reg-label"
+                  maxLength={80}
+                  placeholder="Ajuste por inflación"
+                />
+                <p className="text-xs text-muted">
+                  Cierra el precio regular vigente del mismo canal (valid_to = ahora) y activa el
+                  nuevo. Las ventas pasadas no cambian.
+                </p>
                 <div>
                   <SubmitButton>Fijar precio</SubmitButton>
                 </div>
               </ActionForm>
             </Card>
             <Card title="Crear promoción">
-              <ActionForm action={createPromotion.bind(null, product.id)} resetOnSuccess className="flex flex-col gap-3">
-                <TextInput label="Nombre" name="label" id="promo-label" required maxLength={80} placeholder="Promo San Valentín" />
+              <ActionForm
+                action={createPromotion.bind(null, product.id)}
+                resetOnSuccess
+                className="flex flex-col gap-3"
+              >
+                <TextInput
+                  label="Nombre"
+                  name="label"
+                  id="promo-label"
+                  required
+                  maxLength={80}
+                  placeholder="Promo San Valentín"
+                />
                 <FormGrid>
                   <Select label="Canal" name="channel" id="promo-channel" defaultValue="all">
                     <option value="all">Todos los canales</option>
                     <option value="pos">Solo POS</option>
                     <option value="web">Solo tienda web</option>
                   </Select>
-                  <MoneyInput label="Precio promo (MXN)" name="price" id="promo-price" required hint="Debe ser menor al regular." />
-                  <TextInput label="Inicio" name="valid_from" id="promo-from" type="datetime-local" required defaultValue={utcToZonedInput(new Date(), tz)} />
-                  <TextInput label="Fin (opcional)" name="valid_to" id="promo-to" type="datetime-local" hint={`Vacío = hasta que la termines. Horas en ${tz}.`} />
+                  <MoneyInput
+                    label="Precio promo (MXN)"
+                    name="price"
+                    id="promo-price"
+                    required
+                    hint="Debe ser menor al regular."
+                  />
+                  <TextInput
+                    label="Inicio"
+                    name="valid_from"
+                    id="promo-from"
+                    type="datetime-local"
+                    required
+                    defaultValue={utcToZonedInput(new Date(), tz)}
+                  />
+                  <TextInput
+                    label="Fin (opcional)"
+                    name="valid_to"
+                    id="promo-to"
+                    type="datetime-local"
+                    hint={`Vacío = hasta que la termines. Horas en ${tz}.`}
+                  />
                 </FormGrid>
                 <div>
                   <SubmitButton variant="secondary">Crear promoción</SubmitButton>

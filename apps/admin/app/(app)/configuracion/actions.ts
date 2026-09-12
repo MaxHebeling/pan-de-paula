@@ -23,7 +23,14 @@ const businessSchema = z.object({
   country: z.string().trim().length(2, "País en 2 letras (MX)").toUpperCase(),
   phone: z.string().trim().max(30).nullable(),
   whatsapp: z.string().trim().max(30).nullable(),
-  email: z.string().trim().toLowerCase().email("Email inválido").max(254).nullable().or(z.literal("").transform(() => null)),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Email inválido")
+    .max(254)
+    .nullable()
+    .or(z.literal("").transform(() => null)),
   instagram_handle: z
     .string()
     .trim()
@@ -74,7 +81,11 @@ export async function saveBusiness(_prev: ActionState, form: FormData): Promise<
   });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
-    const current = await db().selectFrom("business_settings").select("logo_url").where("id", "=", 1).executeTakeFirstOrThrow();
+    const current = await db()
+      .selectFrom("business_settings")
+      .select("logo_url")
+      .where("id", "=", 1)
+      .executeTakeFirstOrThrow();
     const newLogo = await uploadFromForm(form, "logo", "brand");
     const removeLogo = bool(form, "remove_logo");
     const logo_url = newLogo ?? (removeLogo ? null : current.logo_url);
@@ -95,9 +106,18 @@ export async function saveBusiness(_prev: ActionState, form: FormData): Promise<
 
 // ── Horarios ─────────────────────────────────────────────────────────────────
 const hourSchema = z
-  .object({ weekday: z.number().int().min(0).max(6), is_open: z.boolean(), opens_at: zTime, closes_at: zTime })
-  .refine((h) => !h.is_open || (h.opens_at && h.closes_at), { message: "Un día abierto necesita hora de apertura y cierre" })
-  .refine((h) => !h.is_open || (h.opens_at! < h.closes_at!), { message: "La hora de cierre debe ser posterior a la apertura" });
+  .object({
+    weekday: z.number().int().min(0).max(6),
+    is_open: z.boolean(),
+    opens_at: zTime,
+    closes_at: zTime,
+  })
+  .refine((h) => !h.is_open || (h.opens_at && h.closes_at), {
+    message: "Un día abierto necesita hora de apertura y cierre",
+  })
+  .refine((h) => !h.is_open || h.opens_at! < h.closes_at!, {
+    message: "La hora de cierre debe ser posterior a la apertura",
+  });
 
 export async function saveHours(_prev: ActionState, form: FormData): Promise<ActionState> {
   const s = await requireSession("settings.write");
@@ -117,11 +137,24 @@ export async function saveHours(_prev: ActionState, form: FormData): Promise<Act
       for (const r of rows) {
         await trx
           .insertInto("business_hours")
-          .values({ weekday: r.weekday, is_open: r.is_open, opens_at: r.is_open ? r.opens_at : null, closes_at: r.is_open ? r.closes_at : null })
-          .onConflict((oc) => oc.column("weekday").doUpdateSet({ is_open: r.is_open, opens_at: r.is_open ? r.opens_at : null, closes_at: r.is_open ? r.closes_at : null }))
+          .values({
+            weekday: r.weekday,
+            is_open: r.is_open,
+            opens_at: r.is_open ? r.opens_at : null,
+            closes_at: r.is_open ? r.closes_at : null,
+          })
+          .onConflict((oc) =>
+            oc.column("weekday").doUpdateSet({
+              is_open: r.is_open,
+              opens_at: r.is_open ? r.opens_at : null,
+              closes_at: r.is_open ? r.closes_at : null,
+            }),
+          )
           .execute();
       }
-      await sql`select emit_event('BUSINESS_HOURS_UPDATED', 'business', '1', ${JSON.stringify(rows)}::jsonb)`.execute(trx);
+      await sql`select emit_event('BUSINESS_HOURS_UPDATED', 'business', '1', ${JSON.stringify(rows)}::jsonb)`.execute(
+        trx,
+      );
     });
   } catch (e) {
     return failure("configuracion.horarios", e);
@@ -136,8 +169,12 @@ const DAY = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "S
 const windowSchema = z
   .object({
     name: z.string().trim().min(2, "Nombre muy corto").max(80),
-    fulfillment_type: z.enum(["pickup", "scheduled_pickup", "delivery", "preorder"], { error: "Tipo de entrega inválido" }),
-    order_weekdays: z.array(z.number().int().min(0).max(6)).min(1, "Elige al menos un día para recibir pedidos"),
+    fulfillment_type: z.enum(["pickup", "scheduled_pickup", "delivery", "preorder"], {
+      error: "Tipo de entrega inválido",
+    }),
+    order_weekdays: z
+      .array(z.number().int().min(0).max(6))
+      .min(1, "Elige al menos un día para recibir pedidos"),
     cutoff_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Hora límite inválida"),
     fulfillment_weekday: z.number().int().min(0).max(6),
     fulfillment_from: zTime,
@@ -147,10 +184,13 @@ const windowSchema = z
     is_active: z.boolean(),
     sort_order: z.number().int().min(0).max(9999),
   })
-  .refine((w) => !(w.fulfillment_from && w.fulfillment_to) || w.fulfillment_from < w.fulfillment_to, {
-    message: "La hora de fin de entrega debe ser posterior al inicio",
-    path: ["fulfillment_to"],
-  });
+  .refine(
+    (w) => !(w.fulfillment_from && w.fulfillment_to) || w.fulfillment_from < w.fulfillment_to,
+    {
+      message: "La hora de fin de entrega debe ser posterior al inicio",
+      path: ["fulfillment_to"],
+    },
+  );
 
 function parseWindow(form: FormData) {
   return windowSchema.safeParse({
@@ -168,14 +208,19 @@ function parseWindow(form: FormData) {
   });
 }
 
-export async function saveWindow(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function saveWindow(
+  id: string | null,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("settings.write");
   if (id && !zId.safeParse(id).success) return { error: "Ventana inválida" };
   const parsed = parseWindow(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
-      if (id) await trx.updateTable("ordering_windows").set(parsed.data).where("id", "=", id).execute();
+      if (id)
+        await trx.updateTable("ordering_windows").set(parsed.data).where("id", "=", id).execute();
       else await trx.insertInto("ordering_windows").values(parsed.data).execute();
     });
   } catch (e) {
@@ -188,9 +233,18 @@ export async function saveWindow(id: string | null, _prev: ActionState, form: Fo
 export async function deleteWindow(id: string): Promise<void> {
   const s = await requireSession("settings.write");
   if (!zId.safeParse(id).success) return;
-  const used = await db().selectFrom("orders").select(sql<number>`count(*)::int`.as("n")).where("ordering_window_id", "=", id).executeTakeFirst();
+  const used = await db()
+    .selectFrom("orders")
+    .select(sql<number>`count(*)::int`.as("n"))
+    .where("ordering_window_id", "=", id)
+    .executeTakeFirst();
   await withStaff(db(), s.staff.id, async (trx) => {
-    if ((used?.n ?? 0) > 0) await trx.updateTable("ordering_windows").set({ is_active: false }).where("id", "=", id).execute();
+    if ((used?.n ?? 0) > 0)
+      await trx
+        .updateTable("ordering_windows")
+        .set({ is_active: false })
+        .where("id", "=", id)
+        .execute();
     else await trx.deleteFrom("ordering_windows").where("id", "=", id).execute();
   });
   revalidate();
@@ -222,13 +276,25 @@ export async function saveException(_prev: ActionState, form: FormData): Promise
     note: strOrNull(form, "note"),
   });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
-  const v = { ...parsed.data, opens_at: parsed.data.is_closed ? null : parsed.data.opens_at, closes_at: parsed.data.is_closed ? null : parsed.data.closes_at };
+  const v = {
+    ...parsed.data,
+    opens_at: parsed.data.is_closed ? null : parsed.data.opens_at,
+    closes_at: parsed.data.is_closed ? null : parsed.data.closes_at,
+  };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
       trx
         .insertInto("calendar_exceptions")
         .values(v)
-        .onConflict((oc) => oc.column("date").doUpdateSet({ is_closed: v.is_closed, no_orders: v.no_orders, opens_at: v.opens_at, closes_at: v.closes_at, note: v.note }))
+        .onConflict((oc) =>
+          oc.column("date").doUpdateSet({
+            is_closed: v.is_closed,
+            no_orders: v.no_orders,
+            opens_at: v.opens_at,
+            closes_at: v.closes_at,
+            note: v.note,
+          }),
+        )
         .execute(),
     );
   } catch (e) {
@@ -241,7 +307,9 @@ export async function saveException(_prev: ActionState, form: FormData): Promise
 export async function deleteException(id: string): Promise<void> {
   const s = await requireSession("settings.write");
   if (!zId.safeParse(id).success) return;
-  await withStaff(db(), s.staff.id, (trx) => trx.deleteFrom("calendar_exceptions").where("id", "=", id).execute());
+  await withStaff(db(), s.staff.id, (trx) =>
+    trx.deleteFrom("calendar_exceptions").where("id", "=", id).execute(),
+  );
   revalidate();
 }
 
@@ -251,7 +319,13 @@ const pickupSchema = z.object({
   address: z.string().trim().max(300).nullable(),
   city: z.string().trim().max(80).nullable(),
   notes: z.string().trim().max(300).nullable(),
-  map_url: z.string().trim().url("URL de mapa inválida").max(500).nullable().or(z.literal("").transform(() => null)),
+  map_url: z
+    .string()
+    .trim()
+    .url("URL de mapa inválida")
+    .max(500)
+    .nullable()
+    .or(z.literal("").transform(() => null)),
   is_default: z.boolean(),
   is_active: z.boolean(),
   sort_order: z.number().int().min(0).max(9999),
@@ -270,17 +344,25 @@ function parsePickup(form: FormData) {
   });
 }
 
-export async function savePickup(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function savePickup(
+  id: string | null,
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("settings.write");
   if (id && !zId.safeParse(id).success) return { error: "Punto inválido" };
   const parsed = parsePickup(form);
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
-      if (parsed.data.is_default) await trx.updateTable("pickup_points").set({ is_default: false }).execute();
-      if (id) await trx.updateTable("pickup_points").set(parsed.data).where("id", "=", id).execute();
+      if (parsed.data.is_default)
+        await trx.updateTable("pickup_points").set({ is_default: false }).execute();
+      if (id)
+        await trx.updateTable("pickup_points").set(parsed.data).where("id", "=", id).execute();
       else await trx.insertInto("pickup_points").values(parsed.data).execute();
-      await sql`select emit_event('PICKUP_POINTS_UPDATED', 'business', '1', ${JSON.stringify({ id, name: parsed.data.name })}::jsonb)`.execute(trx);
+      await sql`select emit_event('PICKUP_POINTS_UPDATED', 'business', '1', ${JSON.stringify({ id, name: parsed.data.name })}::jsonb)`.execute(
+        trx,
+      );
     });
   } catch (e) {
     return failure("configuracion.retiro", e);
@@ -292,9 +374,18 @@ export async function savePickup(id: string | null, _prev: ActionState, form: Fo
 export async function deletePickup(id: string): Promise<void> {
   const s = await requireSession("settings.write");
   if (!zId.safeParse(id).success) return;
-  const used = await db().selectFrom("orders").select(sql<number>`count(*)::int`.as("n")).where("pickup_point_id", "=", id).executeTakeFirst();
+  const used = await db()
+    .selectFrom("orders")
+    .select(sql<number>`count(*)::int`.as("n"))
+    .where("pickup_point_id", "=", id)
+    .executeTakeFirst();
   await withStaff(db(), s.staff.id, async (trx) => {
-    if ((used?.n ?? 0) > 0) await trx.updateTable("pickup_points").set({ is_active: false, is_default: false }).where("id", "=", id).execute();
+    if ((used?.n ?? 0) > 0)
+      await trx
+        .updateTable("pickup_points")
+        .set({ is_active: false, is_default: false })
+        .where("id", "=", id)
+        .execute();
     else await trx.deleteFrom("pickup_points").where("id", "=", id).execute();
   });
   revalidate();
@@ -304,6 +395,8 @@ export async function deletePickup(id: string): Promise<void> {
 export async function toggleFlag(key: string, enabled: boolean): Promise<void> {
   const s = await requireSession("settings.write");
   if (!/^[a-z0-9_]{2,60}$/.test(key)) return;
-  await withStaff(db(), s.staff.id, (trx) => trx.updateTable("feature_flags").set({ enabled }).where("key", "=", key).execute());
+  await withStaff(db(), s.staff.id, (trx) =>
+    trx.updateTable("feature_flags").set({ enabled }).where("key", "=", key).execute(),
+  );
   revalidate();
 }

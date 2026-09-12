@@ -15,7 +15,11 @@ export async function imageFromForm(
 }
 
 /** Sube una imagen del formulario a la carpeta indicada y devuelve su URL pública (o null si no había archivo). */
-export async function uploadFromForm(form: FormData, key: string, folder: string): Promise<string | null> {
+export async function uploadFromForm(
+  form: FormData,
+  key: string,
+  folder: string,
+): Promise<string | null> {
   const img = await imageFromForm(form, key);
   if (!img) return null;
   const r = await uploadImage({ ...img, folder });

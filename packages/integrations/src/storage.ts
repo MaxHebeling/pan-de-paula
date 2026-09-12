@@ -100,7 +100,8 @@ async function localUpload(input: UploadInput, cfg: StorageConfig): Promise<Uplo
   const key = buildKey(input);
   const root = resolve(cfg.localRoot, "uploads");
   const path = resolve(root, key);
-  if (!path.startsWith(root + sep)) throw new Error("Ruta de almacenamiento fuera de la carpeta permitida");
+  if (!path.startsWith(root + sep))
+    throw new Error("Ruta de almacenamiento fuera de la carpeta permitida");
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, input.bytes, { flag: "wx" });
   return { key, url: publicUrlForKey(key, cfg) };
@@ -110,7 +111,8 @@ async function localDelete(key: string, cfg: StorageConfig): Promise<void> {
   assertKey(key);
   const root = resolve(cfg.localRoot, "uploads");
   const path = resolve(root, key);
-  if (!path.startsWith(root + sep)) throw new Error("Ruta de almacenamiento fuera de la carpeta permitida");
+  if (!path.startsWith(root + sep))
+    throw new Error("Ruta de almacenamiento fuera de la carpeta permitida");
   try {
     await unlink(path);
   } catch (e) {
@@ -122,7 +124,9 @@ async function localDelete(key: string, cfg: StorageConfig): Promise<void> {
 // ── Driver Supabase Storage ──────────────────────────────────────────────────
 function requireSupabase(cfg: StorageConfig): { url: string; key: string } {
   if (!cfg.supabaseUrl || !cfg.supabaseServiceRoleKey)
-    throw new Error("Storage Supabase no configurado: faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "Storage Supabase no configurado: faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY",
+    );
   return { url: cfg.supabaseUrl, key: cfg.supabaseServiceRoleKey };
 }
 
@@ -171,12 +175,18 @@ export async function uploadImage(
   return cfg.driver === "supabase" ? supabaseUpload(input, cfg) : localUpload(input, cfg);
 }
 
-export async function deleteImage(key: string, cfg: StorageConfig = storageConfigFromEnv()): Promise<void> {
+export async function deleteImage(
+  key: string,
+  cfg: StorageConfig = storageConfigFromEnv(),
+): Promise<void> {
   return cfg.driver === "supabase" ? supabaseDelete(key, cfg) : localDelete(key, cfg);
 }
 
 /** Extrae la clave de almacenamiento a partir de una URL devuelta por uploadImage (o null si no es nuestra). */
-export function keyFromUrl(url: string, cfg: StorageConfig = storageConfigFromEnv()): string | null {
+export function keyFromUrl(
+  url: string,
+  cfg: StorageConfig = storageConfigFromEnv(),
+): string | null {
   const prefixes = [
     `${cfg.publicBaseUrl}/uploads/`,
     cfg.supabaseUrl ? `${cfg.supabaseUrl}/storage/v1/object/public/${cfg.bucket}/` : null,

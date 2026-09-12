@@ -10,7 +10,11 @@ export const metadata = { title: "Auditoría" };
 export const dynamic = "force-dynamic";
 
 const PAGE = 50;
-const ACTION_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = { INSERT: "green", UPDATE: "amber", DELETE: "red" };
+const ACTION_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = {
+  INSERT: "green",
+  UPDATE: "amber",
+  DELETE: "red",
+};
 const ENTITY_LABEL: Record<string, string> = {
   products: "Productos",
   product_prices: "Precios",
@@ -28,7 +32,15 @@ const ENTITY_LABEL: Record<string, string> = {
   customers: "Clientes",
 };
 
-type Search = { entidad?: string; usuario?: string; accion?: string; desde?: string; hasta?: string; q?: string; pagina?: string };
+type Search = {
+  entidad?: string;
+  usuario?: string;
+  accion?: string;
+  desde?: string;
+  hasta?: string;
+  q?: string;
+  pagina?: string;
+};
 
 type Row = {
   id: number;
@@ -57,7 +69,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   const [entities, staff, actions, res, total] = await Promise.all([
     sql<{ entity: string }>`select distinct entity from audit_logs order by entity`.execute(db()),
-    db().selectFrom("staff_users").select(["id", "full_name"]).where("deleted_at", "is", null).orderBy("full_name").execute(),
+    db()
+      .selectFrom("staff_users")
+      .select(["id", "full_name"])
+      .where("deleted_at", "is", null)
+      .orderBy("full_name")
+      .execute(),
     sql<{ action: string }>`select distinct action from audit_logs order by action`.execute(db()),
     sql<Row>`
       select a.id, a.action, a.entity, a.entity_id, a.old_data, a.new_data, a.ip::text as ip, a.created_at, u.full_name as staff_name, u.email as staff_email
@@ -77,7 +94,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         and (${accion} = '' or a.action = ${accion})
         and (${desde} = '' or a.created_at >= ${desde || null}::date)
         and (${hasta} = '' or a.created_at < (${hasta || null}::date + 1))
-        and (${q} = '' or a.entity_id = ${q} or coalesce(a.new_data::text, '') ilike ${"%" + q + "%"} or coalesce(a.old_data::text, '') ilike ${"%" + q + "%"})`.execute(db()),
+        and (${q} = '' or a.entity_id = ${q} or coalesce(a.new_data::text, '') ilike ${"%" + q + "%"} or coalesce(a.old_data::text, '') ilike ${"%" + q + "%"})`.execute(
+      db(),
+    ),
   ]);
   const rows = res.rows;
   const n = total.rows[0]?.n ?? 0;
@@ -90,8 +109,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="Auditoría" subtitle={`${n.toLocaleString("es-MX")} eventos · quién cambió qué y cuándo`} />
-      <form method="get" className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_140px_140px_1fr_auto] xl:items-end">
+      <PageHeader
+        title="Auditoría"
+        subtitle={`${n.toLocaleString("es-MX")} eventos · quién cambió qué y cuándo`}
+      />
+      <form
+        method="get"
+        className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_140px_140px_1fr_auto] xl:items-end"
+      >
         <Select label="Entidad" name="entidad" defaultValue={entidad}>
           <option value="">Todas</option>
           {entities.rows.map((e) => (
@@ -138,7 +163,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           {rows.map((r) => (
             <details key={r.id} className="group">
               <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm hover:bg-black/[0.02]">
-                <span className="w-32 shrink-0 tabular-nums text-muted">{fmtDate(r.created_at, "datetime")}</span>
+                <span className="w-32 shrink-0 tabular-nums text-muted">
+                  {fmtDate(r.created_at, "datetime")}
+                </span>
                 <Badge tone={ACTION_TONE[r.action] ?? "blue"}>{r.action}</Badge>
                 <span className="font-medium">{ENTITY_LABEL[r.entity] ?? r.entity}</span>
                 <span className="truncate font-mono text-xs text-muted" title={r.entity_id ?? ""}>

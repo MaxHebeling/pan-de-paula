@@ -30,7 +30,13 @@ type Row = {
   image_url: string | null;
 };
 
-type Search = { q?: string; categoria?: string; estado?: string; canal?: string; eliminado?: string };
+type Search = {
+  q?: string;
+  categoria?: string;
+  estado?: string;
+  canal?: string;
+  eliminado?: string;
+};
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<Search> }) {
   const session = await requireSession("catalog.read");
@@ -42,7 +48,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const canal = sp.canal ?? "";
 
   const [categories, res] = await Promise.all([
-    db().selectFrom("categories").select(["id", "name"]).where("deleted_at", "is", null).orderBy("sort_order").orderBy("name").execute(),
+    db()
+      .selectFrom("categories")
+      .select(["id", "name"])
+      .where("deleted_at", "is", null)
+      .orderBy("sort_order")
+      .orderBy("name")
+      .execute(),
     sql<Row>`
       select p.id, p.name, p.slug, p.parent_id, p.variant_label, p.category_id, c.name as category_name,
              p.is_active, p.show_on_web, p.show_on_pos, p.track_stock, p.requires_preorder, p.is_featured,
@@ -64,7 +76,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   const rows = res.rows;
   const byParent = new Map<string, Row[]>();
-  for (const r of rows) if (r.parent_id) byParent.set(r.parent_id, [...(byParent.get(r.parent_id) ?? []), r]);
+  for (const r of rows)
+    if (r.parent_id) byParent.set(r.parent_id, [...(byParent.get(r.parent_id) ?? []), r]);
   const parentIds = new Set(rows.filter((r) => !r.parent_id).map((r) => r.id));
   const ordered: Array<{ row: Row; depth: number }> = [];
   for (const r of rows) {
@@ -78,15 +91,26 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       <PageHeader
         title="Productos"
         subtitle={`${rows.filter((r) => !r.parent_id).length} productos · ${rows.filter((r) => r.parent_id).length} variantes`}
-        actions={canWrite ? <LinkButton href="/productos/nuevo">Nuevo producto</LinkButton> : undefined}
+        actions={
+          canWrite ? <LinkButton href="/productos/nuevo">Nuevo producto</LinkButton> : undefined
+        }
       />
       {sp.eliminado && (
         <div className="mb-4">
           <Alert tone="green">Producto eliminado.</Alert>
         </div>
       )}
-      <form method="get" className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_180px_150px_150px_auto] md:items-end">
-        <TextInput label="Buscar" name="q" defaultValue={q} placeholder="Nombre, slug o SKU" className="col-span-2 md:col-span-1" />
+      <form
+        method="get"
+        className="card mb-4 grid grid-cols-2 gap-3 p-3 md:grid-cols-[1fr_180px_150px_150px_auto] md:items-end"
+      >
+        <TextInput
+          label="Buscar"
+          name="q"
+          defaultValue={q}
+          placeholder="Nombre, slug o SKU"
+          className="col-span-2 md:col-span-1"
+        />
         <Select label="Categoría" name="categoria" defaultValue={categoria}>
           <option value="">Todas</option>
           {categories.map((c) => (
@@ -120,8 +144,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       {ordered.length === 0 ? (
         <EmptyState
           title="Sin productos"
-          body={q || categoria ? "Ningún producto coincide con los filtros." : "Crea tu primer producto para empezar a vender."}
-          action={canWrite ? <LinkButton href="/productos/nuevo">Nuevo producto</LinkButton> : undefined}
+          body={
+            q || categoria
+              ? "Ningún producto coincide con los filtros."
+              : "Crea tu primer producto para empezar a vender."
+          }
+          action={
+            canWrite ? <LinkButton href="/productos/nuevo">Nuevo producto</LinkButton> : undefined
+          }
         />
       ) : (
         <Table>
@@ -139,14 +169,20 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           </thead>
           <tbody>
             {ordered.map(({ row: p, depth }) => {
-              const margin = p.pos_price !== null && p.cost !== null ? marginBps(p.pos_price, p.cost) : null;
+              const margin =
+                p.pos_price !== null && p.cost !== null ? marginBps(p.pos_price, p.cost) : null;
               return (
                 <tr key={p.id} className={depth ? "bg-black/[0.015]" : ""}>
                   <td>
                     <div className={`flex items-center gap-3 ${depth ? "pl-6" : ""}`}>
                       {p.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image_url} alt="" className="size-10 shrink-0 rounded-lg object-cover" loading="lazy" />
+                        <img
+                          src={p.image_url}
+                          alt=""
+                          className="size-10 shrink-0 rounded-lg object-cover"
+                          loading="lazy"
+                        />
                       ) : (
                         <div className="size-10 shrink-0 rounded-lg bg-black/5" aria-hidden />
                       )}
@@ -178,20 +214,29 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   </td>
                   <td className="text-right">
                     {p.cost === null ? (
-                      <Link href={`/recetas/${p.id}`} className="text-xs text-teal-d hover:underline">
+                      <Link
+                        href={`/recetas/${p.id}`}
+                        className="text-xs text-teal-d hover:underline"
+                      >
                         sin receta
                       </Link>
                     ) : (
                       <Money cents={p.cost} />
                     )}
                   </td>
-                  <td className={`text-right tabular-nums ${margin !== null && margin < 3000 ? "text-red-d" : ""}`}>
+                  <td
+                    className={`text-right tabular-nums ${margin !== null && margin < 3000 ? "text-red-d" : ""}`}
+                  >
                     {margin === null ? "—" : pct(margin)}
                   </td>
-                  <td className="text-right tabular-nums">{p.track_stock ? qty(p.on_hand ?? 0) : <span className="text-muted">n/a</span>}</td>
+                  <td className="text-right tabular-nums">
+                    {p.track_stock ? qty(p.on_hand ?? 0) : <span className="text-muted">n/a</span>}
+                  </td>
                   <td>
                     <div className="flex flex-wrap gap-1">
-                      <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "Activo" : "Inactivo"}</Badge>
+                      <Badge tone={p.is_active ? "green" : "gray"}>
+                        {p.is_active ? "Activo" : "Inactivo"}
+                      </Badge>
                       {p.show_on_web && <Badge tone="blue">Web</Badge>}
                       {p.show_on_pos && <Badge tone="gray">POS</Badge>}
                     </div>
