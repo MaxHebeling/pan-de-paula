@@ -32,7 +32,12 @@ export function CartDrawer() {
 
   return (
     <div className="fixed inset-0 z-50" role="presentation">
-      <button type="button" className="absolute inset-0 bg-ink/40" aria-label="Cerrar carrito" onClick={cart.close} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-ink/40"
+        aria-label="Cerrar carrito"
+        onClick={cart.close}
+      />
       <div
         ref={panel}
         role="dialog"
@@ -45,8 +50,22 @@ export function CartDrawer() {
           <h2 id="cart-title" className="font-display text-xl text-ink">
             Tu carrito
           </h2>
-          <button ref={closeBtn} type="button" onClick={cart.close} className="tap rounded-full text-ink hover:bg-cream-2" aria-label="Cerrar">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <button
+            ref={closeBtn}
+            type="button"
+            onClick={cart.close}
+            className="tap rounded-full text-ink hover:bg-cream-2"
+            aria-label="Cerrar"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
@@ -75,7 +94,11 @@ export function CartDrawer() {
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <div className="flex items-start justify-between gap-2">
-                      <Link href={`/producto/${l.slug}`} onClick={cart.close} className="font-medium text-ink hover:text-sage">
+                      <Link
+                        href={`/producto/${l.slug}`}
+                        onClick={cart.close}
+                        className="font-medium text-ink hover:text-sage"
+                      >
                         {l.name}
                         {l.variantLabel && <span className="text-ink-2"> · {l.variantLabel}</span>}
                       </Link>
@@ -85,14 +108,29 @@ export function CartDrawer() {
                         className="tap -mr-2 shrink-0 rounded-full text-ink-2 hover:bg-cream-2 hover:text-wine"
                         aria-label={`Quitar ${l.name}`}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          aria-hidden="true"
+                        >
                           <path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
                         </svg>
                       </button>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <QuantityStepper size="sm" value={l.qty} onChange={(q) => cart.setQty(l.productId, q)} label={`Cantidad de ${l.name}`} />
-                      <span className="text-sm font-semibold tabular-nums">{money(l.unitPriceCents * l.qty)}</span>
+                      <QuantityStepper
+                        size="sm"
+                        value={l.qty}
+                        onChange={(q) => cart.setQty(l.productId, q)}
+                        label={`Cantidad de ${l.name}`}
+                      />
+                      <span className="text-sm font-semibold tabular-nums">
+                        {money(l.unitPriceCents * l.qty)}
+                      </span>
                     </div>
                   </div>
                 </li>
@@ -117,12 +155,19 @@ export function CartDrawer() {
                   </dd>
                 </div>
               </dl>
-              <p className="text-xs text-ink-2">Los precios finales se confirman al hacer el pedido.</p>
+              <p className="text-xs text-ink-2">
+                Los precios finales se confirman al hacer el pedido.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <Link href="/carrito" className="btn btn-secondary" onClick={cart.close}>
                   Ver carrito
                 </Link>
-                <Link href="/checkout" className="btn btn-primary" onClick={cart.close} data-testid="drawer-checkout">
+                <Link
+                  href="/checkout"
+                  className="btn btn-primary"
+                  onClick={cart.close}
+                  data-testid="drawer-checkout"
+                >
                   Hacer pedido
                 </Link>
               </div>

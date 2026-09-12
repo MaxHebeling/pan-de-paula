@@ -18,7 +18,11 @@ export function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className={`container-x py-12 sm:py-16 ${className}`} aria-labelledby={id ? `${id}-title` : undefined}>
+    <section
+      id={id}
+      className={`container-x py-12 sm:py-16 ${className}`}
+      aria-labelledby={id ? `${id}-title` : undefined}
+    >
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
           {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}

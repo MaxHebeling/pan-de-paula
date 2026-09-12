@@ -3,7 +3,15 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Card, Stat, Table, Badge, Money } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { loyaltyTiers, tierTone } from "@/lib/customers";
-import { loyaltyProgram, rewardsList, productBonuses, activeProducts, redemptionsList, loyaltyDashboard, REWARD_KIND_LABELS } from "@/lib/loyalty";
+import {
+  loyaltyProgram,
+  rewardsList,
+  productBonuses,
+  activeProducts,
+  redemptionsList,
+  loyaltyDashboard,
+  REWARD_KIND_LABELS,
+} from "@/lib/loyalty";
 import { ActionForm } from "@/components/customers/action-form";
 import { PointsSimulator } from "@/components/customers/points-simulator";
 import { Bars } from "@/components/reports/bars";
@@ -31,7 +39,11 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-export default async function LoyaltyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function LoyaltyPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireSession("customers.read");
   const canWrite = hasPermission(session, "loyalty.write");
   const sp = await searchParams;
@@ -58,14 +70,26 @@ export default async function LoyaltyPage({ searchParams }: { searchParams: Prom
       />
       <nav className="mb-4 flex flex-wrap gap-2" aria-label="Secciones">
         {TABS.map(([k, label]) => (
-          <Link key={k} href={`/fidelizacion?tab=${k}`} aria-current={tab === k ? "page" : undefined} className={`pill px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-teal text-white" : "st-gray"}`}>
+          <Link
+            key={k}
+            href={`/fidelizacion?tab=${k}`}
+            aria-current={tab === k ? "page" : undefined}
+            className={`pill px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-teal text-white" : "st-gray"}`}
+          >
             {label}
           </Link>
         ))}
       </nav>
       {tab === "tablero" && <Dashboard />}
-      {tab === "programa" && <ProgramTab program={program} domainProgram={domainProgram} canWrite={canWrite} />}
-      {tab === "niveles" && <TiersTab canWrite={canWrite} editKey={Array.isArray(sp.editar) ? sp.editar[0] : sp.editar} />}
+      {tab === "programa" && (
+        <ProgramTab program={program} domainProgram={domainProgram} canWrite={canWrite} />
+      )}
+      {tab === "niveles" && (
+        <TiersTab
+          canWrite={canWrite}
+          editKey={Array.isArray(sp.editar) ? sp.editar[0] : sp.editar}
+        />
+      )}
       {tab === "recompensas" && <RewardsTab canWrite={canWrite} />}
       {tab === "bonos" && <BonusesTab canWrite={canWrite} />}
       {tab === "canjes" && <RedemptionsTab canWrite={canWrite} />}
@@ -75,11 +99,18 @@ export default async function LoyaltyPage({ searchParams }: { searchParams: Prom
 
 async function Dashboard() {
   const d = await loyaltyDashboard();
-  const monthLabel = (m: string) => new Intl.DateTimeFormat("es-MX", { month: "short", year: "2-digit", timeZone: "UTC" }).format(new Date(m + "-01T00:00:00Z"));
+  const monthLabel = (m: string) =>
+    new Intl.DateTimeFormat("es-MX", { month: "short", year: "2-digit", timeZone: "UTC" }).format(
+      new Date(m + "-01T00:00:00Z"),
+    );
   return (
     <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Puntos en circulación" value={d.totals.outstanding.toLocaleString("es-MX")} hint={`${d.totals.customers_with_points} clientes con saldo`} />
+        <Stat
+          label="Puntos en circulación"
+          value={d.totals.outstanding.toLocaleString("es-MX")}
+          hint={`${d.totals.customers_with_points} clientes con saldo`}
+        />
         <Stat label="Emitidos (30 días)" value={d.totals.issued_30d.toLocaleString("es-MX")} />
         <Stat label="Canjes (30 días)" value={d.totals.redemptions_30d} />
         <Stat label="Cumpleaños próximos" value={d.birthdays.length} hint="siguientes 30 días" />
@@ -113,11 +144,20 @@ async function Dashboard() {
           </div>
         </Card>
         <Card title="Clientes por nivel">
-          <Bars items={d.tiers.map((t) => ({ label: t.name, value: t.customers, hint: `${t.points.toLocaleString("es-MX")} pts en saldo` }))} />
+          <Bars
+            items={d.tiers.map((t) => ({
+              label: t.name,
+              value: t.customers,
+              hint: `${t.points.toLocaleString("es-MX")} pts en saldo`,
+            }))}
+          />
           <ul className="mt-3 divide-y divide-line text-sm">
             {d.tiers.map((t) => (
               <li key={t.key} className="flex items-center justify-between py-1.5">
-                <Link href={`/clientes?nivel=${t.key}`} className="flex items-center gap-2 hover:underline">
+                <Link
+                  href={`/clientes?nivel=${t.key}`}
+                  className="flex items-center gap-2 hover:underline"
+                >
                   <Badge tone={tierTone(t.color)}>{t.name}</Badge>
                 </Link>
                 <span className="tabular-nums text-muted">
@@ -135,10 +175,17 @@ async function Dashboard() {
               {d.birthdays.map((b) => (
                 <li key={b.id} className="flex items-center justify-between gap-2 py-1.5">
                   <Link href={`/clientes/${b.id}`} className="hover:underline">
-                    {b.full_name} <span className="font-mono text-xs text-muted">{b.public_code}</span>
+                    {b.full_name}{" "}
+                    <span className="font-mono text-xs text-muted">{b.public_code}</span>
                   </Link>
                   <span className="whitespace-nowrap text-xs text-muted">
-                    {b.days === 0 ? <Badge tone="green">hoy</Badge> : b.days === 1 ? "mañana" : `en ${b.days} días`}
+                    {b.days === 0 ? (
+                      <Badge tone="green">hoy</Badge>
+                    ) : b.days === 1 ? (
+                      "mañana"
+                    ) : (
+                      `en ${b.days} días`
+                    )}
                     {b.marketing_consent && <span className="ml-1 text-[10px] uppercase">mkt</span>}
                   </span>
                 </li>
@@ -166,59 +213,121 @@ function ProgramTab({
         <ActionForm action={updateProgramAction} submitLabel="Guardar programa">
           <fieldset disabled={!canWrite} className="flex flex-col gap-3">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="feature_enabled" defaultChecked={program.feature_enabled} className="h-4 w-4" /> Motor de puntos habilitado (feature flag)
+              <input
+                type="checkbox"
+                name="feature_enabled"
+                defaultChecked={program.feature_enabled}
+                className="h-4 w-4"
+              />{" "}
+              Motor de puntos habilitado (feature flag)
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="is_active" defaultChecked={program.is_active} className="h-4 w-4" /> Programa activo (otorga puntos en ventas)
+              <input
+                type="checkbox"
+                name="is_active"
+                defaultChecked={program.is_active}
+                className="h-4 w-4"
+              />{" "}
+              Programa activo (otorga puntos en ventas)
             </label>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label" htmlFor="points_per_unit">
                   Puntos otorgados
                 </label>
-                <input id="points_per_unit" name="points_per_unit" type="number" min={0} className="input" defaultValue={program.points_per_unit} required />
+                <input
+                  id="points_per_unit"
+                  name="points_per_unit"
+                  type="number"
+                  min={0}
+                  className="input"
+                  defaultValue={program.points_per_unit}
+                  required
+                />
               </div>
               <div>
                 <label className="label" htmlFor="unit_pesos">
                   por cada ($)
                 </label>
-                <input id="unit_pesos" name="unit_pesos" inputMode="decimal" className="input" defaultValue={(program.unit_cents / 100).toString()} required />
+                <input
+                  id="unit_pesos"
+                  name="unit_pesos"
+                  inputMode="decimal"
+                  className="input"
+                  defaultValue={(program.unit_cents / 100).toString()}
+                  required
+                />
               </div>
               <div>
                 <label className="label" htmlFor="min_purchase_pesos">
                   Compra mínima ($)
                 </label>
-                <input id="min_purchase_pesos" name="min_purchase_pesos" inputMode="decimal" className="input" defaultValue={(program.min_purchase_cents / 100).toString()} />
+                <input
+                  id="min_purchase_pesos"
+                  name="min_purchase_pesos"
+                  inputMode="decimal"
+                  className="input"
+                  defaultValue={(program.min_purchase_cents / 100).toString()}
+                />
               </div>
               <div>
                 <label className="label" htmlFor="birthday_multiplier">
                   Multiplicador de cumpleaños
                 </label>
-                <input id="birthday_multiplier" name="birthday_multiplier" inputMode="decimal" className="input" defaultValue={program.birthday_multiplier} required />
+                <input
+                  id="birthday_multiplier"
+                  name="birthday_multiplier"
+                  inputMode="decimal"
+                  className="input"
+                  defaultValue={program.birthday_multiplier}
+                  required
+                />
               </div>
               <div>
                 <label className="label" htmlFor="signup_bonus_points">
                   Bono de bienvenida (pts)
                 </label>
-                <input id="signup_bonus_points" name="signup_bonus_points" type="number" min={0} className="input" defaultValue={program.signup_bonus_points} />
+                <input
+                  id="signup_bonus_points"
+                  name="signup_bonus_points"
+                  type="number"
+                  min={0}
+                  className="input"
+                  defaultValue={program.signup_bonus_points}
+                />
               </div>
               <div>
                 <label className="label" htmlFor="points_expire_days">
                   Vencen a los (días, vacío = no vencen)
                 </label>
-                <input id="points_expire_days" name="points_expire_days" type="number" min={1} className="input" defaultValue={program.points_expire_days ?? ""} />
+                <input
+                  id="points_expire_days"
+                  name="points_expire_days"
+                  type="number"
+                  min={1}
+                  className="input"
+                  defaultValue={program.points_expire_days ?? ""}
+                />
               </div>
               <div>
                 <label className="label" htmlFor="rounding">
                   Redondeo
                 </label>
-                <select id="rounding" name="rounding" className="input" defaultValue={program.rounding}>
+                <select
+                  id="rounding"
+                  name="rounding"
+                  className="input"
+                  defaultValue={program.rounding}
+                >
                   <option value="floor">Hacia abajo (floor)</option>
                   <option value="round">Normal (round)</option>
                 </select>
               </div>
             </div>
-            <p className="text-xs text-muted">Última actualización {fmtDate(program.updated_at, "datetime")}. Los cambios aplican a ventas futuras; no recalculan puntos ya otorgados.</p>
+            <p className="text-xs text-muted">
+              Última actualización {fmtDate(program.updated_at, "datetime")}. Los cambios aplican a
+              ventas futuras; no recalculan puntos ya otorgados.
+            </p>
           </fieldset>
         </ActionForm>
       </Card>
@@ -251,7 +360,8 @@ async function TiersTab({ canWrite, editKey }: { canWrite: boolean; editKey?: st
             {tiers.map((t) => (
               <tr key={t.key}>
                 <td>
-                  <Badge tone={tierTone(t.color)}>{t.name}</Badge> <span className="ml-1 font-mono text-xs text-muted">{t.key}</span>
+                  <Badge tone={tierTone(t.color)}>{t.name}</Badge>{" "}
+                  <span className="ml-1 font-mono text-xs text-muted">{t.key}</span>
                 </td>
                 <td className="text-right tabular-nums">{t.rank}</td>
                 <td className="text-right tabular-nums">{t.min_orders}</td>
@@ -263,10 +373,20 @@ async function TiersTab({ canWrite, editKey }: { canWrite: boolean; editKey?: st
                 {canWrite && (
                   <td>
                     <div className="flex gap-1">
-                      <Link href={`/fidelizacion?tab=niveles&editar=${t.key}#nivel-form`} className="btn btn-secondary btn-sm">
+                      <Link
+                        href={`/fidelizacion?tab=niveles&editar=${t.key}#nivel-form`}
+                        className="btn btn-secondary btn-sm"
+                      >
                         Editar
                       </Link>
-                      <ActionForm action={deleteTierAction} inline submitLabel="Borrar" variant="danger" size="sm" confirm={`¿Eliminar el nivel "${t.name}"? Los clientes se reclasificarán.`}>
+                      <ActionForm
+                        action={deleteTierAction}
+                        inline
+                        submitLabel="Borrar"
+                        variant="danger"
+                        size="sm"
+                        confirm={`¿Eliminar el nivel "${t.name}"? Los clientes se reclasificarán.`}
+                      >
                         <input type="hidden" name="key" value={t.key} />
                       </ActionForm>
                     </div>
@@ -282,16 +402,43 @@ async function TiersTab({ canWrite, editKey }: { canWrite: boolean; editKey?: st
   );
 }
 
-function TierForm({ tiers, initial }: { tiers: Awaited<ReturnType<typeof loyaltyTiers>>; initial?: Awaited<ReturnType<typeof loyaltyTiers>>[number] }) {
+function TierForm({
+  tiers,
+  initial,
+}: {
+  tiers: Awaited<ReturnType<typeof loyaltyTiers>>;
+  initial?: Awaited<ReturnType<typeof loyaltyTiers>>[number];
+}) {
   return (
-    <Card title={initial ? `Editar nivel · ${initial.name}` : "Crear nivel"} key={initial?.key ?? "new"}>
-      <p className="mb-2 text-xs text-muted">Usa la misma clave para editar un nivel existente. Al guardar se reclasifican todos los clientes.</p>
-      <ActionForm action={upsertTierAction} submitLabel="Guardar nivel" id="nivel-form" resetOnOk={!initial}>
+    <Card
+      title={initial ? `Editar nivel · ${initial.name}` : "Crear nivel"}
+      key={initial?.key ?? "new"}
+    >
+      <p className="mb-2 text-xs text-muted">
+        Usa la misma clave para editar un nivel existente. Al guardar se reclasifican todos los
+        clientes.
+      </p>
+      <ActionForm
+        action={upsertTierAction}
+        submitLabel="Guardar nivel"
+        id="nivel-form"
+        resetOnOk={!initial}
+      >
         <div>
           <label className="label" htmlFor="tier_key">
             Clave *
           </label>
-          <input id="tier_key" name="key" className="input" list="tier-keys" placeholder="frequent" required pattern="[a-z0-9_-]{2,30}" defaultValue={initial?.key ?? ""} readOnly={Boolean(initial)} />
+          <input
+            id="tier_key"
+            name="key"
+            className="input"
+            list="tier-keys"
+            placeholder="frequent"
+            required
+            pattern="[a-z0-9_-]{2,30}"
+            defaultValue={initial?.key ?? ""}
+            readOnly={Boolean(initial)}
+          />
           <datalist id="tier-keys">
             {tiers.map((t) => (
               <option key={t.key} value={t.key}>
@@ -304,20 +451,39 @@ function TierForm({ tiers, initial }: { tiers: Awaited<ReturnType<typeof loyalty
           <label className="label" htmlFor="tier_name">
             Nombre *
           </label>
-          <input id="tier_name" name="name" className="input" required defaultValue={initial?.name ?? ""} />
+          <input
+            id="tier_name"
+            name="name"
+            className="input"
+            required
+            defaultValue={initial?.name ?? ""}
+          />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="label" htmlFor="tier_rank">
               Rango (mayor = mejor) *
             </label>
-            <input id="tier_rank" name="rank" type="number" min={1} className="input" required defaultValue={initial?.rank ?? ""} />
+            <input
+              id="tier_rank"
+              name="rank"
+              type="number"
+              min={1}
+              className="input"
+              required
+              defaultValue={initial?.rank ?? ""}
+            />
           </div>
           <div>
             <label className="label" htmlFor="tier_color">
               Color
             </label>
-            <select id="tier_color" name="color" className="input" defaultValue={initial?.color ?? "gray"}>
+            <select
+              id="tier_color"
+              name="color"
+              className="input"
+              defaultValue={initial?.color ?? "gray"}
+            >
               <option value="gray">Gris</option>
               <option value="blue">Azul</option>
               <option value="amber">Ámbar</option>
@@ -329,26 +495,52 @@ function TierForm({ tiers, initial }: { tiers: Awaited<ReturnType<typeof loyalty
             <label className="label" htmlFor="tier_orders">
               Mín. compras
             </label>
-            <input id="tier_orders" name="min_orders" type="number" min={0} className="input" defaultValue={initial?.min_orders ?? 0} />
+            <input
+              id="tier_orders"
+              name="min_orders"
+              type="number"
+              min={0}
+              className="input"
+              defaultValue={initial?.min_orders ?? 0}
+            />
           </div>
           <div>
             <label className="label" htmlFor="tier_spent">
               Mín. gasto ($)
             </label>
-            <input id="tier_spent" name="min_spent_pesos" inputMode="decimal" className="input" defaultValue={initial ? initial.min_spent_cents / 100 : 0} />
+            <input
+              id="tier_spent"
+              name="min_spent_pesos"
+              inputMode="decimal"
+              className="input"
+              defaultValue={initial ? initial.min_spent_cents / 100 : 0}
+            />
           </div>
           <div>
             <label className="label" htmlFor="tier_points">
               Mín. puntos históricos
             </label>
-            <input id="tier_points" name="min_lifetime_points" type="number" min={0} className="input" defaultValue={initial?.min_lifetime_points ?? 0} />
+            <input
+              id="tier_points"
+              name="min_lifetime_points"
+              type="number"
+              min={0}
+              className="input"
+              defaultValue={initial?.min_lifetime_points ?? 0}
+            />
           </div>
         </div>
         <div>
           <label className="label" htmlFor="tier_perks">
             Beneficio
           </label>
-          <input id="tier_perks" name="perks" className="input" placeholder="Puntos dobles en cumpleaños" defaultValue={initial?.perks ?? ""} />
+          <input
+            id="tier_perks"
+            name="perks"
+            className="input"
+            placeholder="Puntos dobles en cumpleaños"
+            defaultValue={initial?.perks ?? ""}
+          />
         </div>
       </ActionForm>
     </Card>
@@ -356,7 +548,11 @@ function TierForm({ tiers, initial }: { tiers: Awaited<ReturnType<typeof loyalty
 }
 
 async function RewardsTab({ canWrite }: { canWrite: boolean }) {
-  const [rewards, products, tiers] = await Promise.all([rewardsList(), activeProducts(), loyaltyTiers()]);
+  const [rewards, products, tiers] = await Promise.all([
+    rewardsList(),
+    activeProducts(),
+    loyaltyTiers(),
+  ]);
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <Card title="Recompensas">
@@ -381,28 +577,44 @@ async function RewardsTab({ canWrite }: { canWrite: boolean }) {
                   <td>
                     <div className="font-medium">{r.name}</div>
                     {r.description && <div className="text-xs text-muted">{r.description}</div>}
-                    {r.min_tier_key && <div className="text-xs text-muted">Desde nivel {tiers.find((t) => t.key === r.min_tier_key)?.name ?? r.min_tier_key}</div>}
+                    {r.min_tier_key && (
+                      <div className="text-xs text-muted">
+                        Desde nivel{" "}
+                        {tiers.find((t) => t.key === r.min_tier_key)?.name ?? r.min_tier_key}
+                      </div>
+                    )}
                   </td>
                   <td>{REWARD_KIND_LABELS[r.kind] ?? r.kind}</td>
                   <td className="text-right tabular-nums">{r.points_cost}</td>
                   <td>
                     {r.kind === "discount_pct" && r.value_bps !== null && `${r.value_bps / 100}%`}
-                    {r.kind === "discount_amount" && r.value_cents !== null && <Money cents={r.value_cents} compact />}
+                    {r.kind === "discount_amount" && r.value_cents !== null && (
+                      <Money cents={r.value_cents} compact />
+                    )}
                     {r.kind === "free_product" && (r.product_name ?? "—")}
                     {r.kind === "gift" && "—"}
                   </td>
                   <td className="text-right tabular-nums">{r.redemptions}</td>
                   <td>
-                    <Badge tone={r.is_active ? "green" : "gray"}>{r.is_active ? "activa" : "inactiva"}</Badge>
+                    <Badge tone={r.is_active ? "green" : "gray"}>
+                      {r.is_active ? "activa" : "inactiva"}
+                    </Badge>
                     {(r.starts_at || r.ends_at) && (
                       <div className="text-xs text-muted">
-                        {r.starts_at ? fmtDate(r.starts_at) : "…"} – {r.ends_at ? fmtDate(r.ends_at) : "…"}
+                        {r.starts_at ? fmtDate(r.starts_at) : "…"} –{" "}
+                        {r.ends_at ? fmtDate(r.ends_at) : "…"}
                       </div>
                     )}
                   </td>
                   {canWrite && (
                     <td>
-                      <ActionForm action={toggleRewardAction} inline submitLabel={r.is_active ? "Desactivar" : "Activar"} variant="secondary" size="sm">
+                      <ActionForm
+                        action={toggleRewardAction}
+                        inline
+                        submitLabel={r.is_active ? "Desactivar" : "Activar"}
+                        variant="secondary"
+                        size="sm"
+                      >
                         <input type="hidden" name="id" value={r.id} />
                         <input type="hidden" name="active" value={r.is_active ? "0" : "1"} />
                       </ActionForm>
@@ -421,7 +633,13 @@ async function RewardsTab({ canWrite }: { canWrite: boolean }) {
               <label className="label" htmlFor="rw_name">
                 Nombre *
               </label>
-              <input id="rw_name" name="name" className="input" required placeholder="Croissant de regalo" />
+              <input
+                id="rw_name"
+                name="name"
+                className="input"
+                required
+                placeholder="Croissant de regalo"
+              />
             </div>
             <div>
               <label className="label" htmlFor="rw_desc">
@@ -445,7 +663,14 @@ async function RewardsTab({ canWrite }: { canWrite: boolean }) {
                 <label className="label" htmlFor="rw_points">
                   Costo en puntos *
                 </label>
-                <input id="rw_points" name="points_cost" type="number" min={0} className="input" required />
+                <input
+                  id="rw_points"
+                  name="points_cost"
+                  type="number"
+                  min={0}
+                  className="input"
+                  required
+                />
               </div>
               <div>
                 <label className="label" htmlFor="rw_pesos">
@@ -513,7 +738,9 @@ async function BonusesTab({ canWrite }: { canWrite: boolean }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <Card title="Bonos por producto">
-        <p className="mb-3 text-sm text-muted">Puntos extra por cada unidad vendida del producto (se suman a los puntos por monto).</p>
+        <p className="mb-3 text-sm text-muted">
+          Puntos extra por cada unidad vendida del producto (se suman a los puntos por monto).
+        </p>
         {bonuses.length === 0 ? (
           <p className="text-sm text-muted">Sin bonos configurados.</p>
         ) : (
@@ -532,11 +759,20 @@ async function BonusesTab({ canWrite }: { canWrite: boolean }) {
                   <td>{b.name}</td>
                   <td className="text-right tabular-nums">+{b.bonus_points}</td>
                   <td>
-                    <Badge tone={b.is_active ? "green" : "gray"}>{b.is_active ? "activo" : "inactivo"}</Badge>
+                    <Badge tone={b.is_active ? "green" : "gray"}>
+                      {b.is_active ? "activo" : "inactivo"}
+                    </Badge>
                   </td>
                   {canWrite && (
                     <td>
-                      <ActionForm action={deleteBonusAction} inline submitLabel="Quitar" variant="danger" size="sm" confirm="¿Quitar este bono?">
+                      <ActionForm
+                        action={deleteBonusAction}
+                        inline
+                        submitLabel="Quitar"
+                        variant="danger"
+                        size="sm"
+                        confirm="¿Quitar este bono?"
+                      >
                         <input type="hidden" name="product_id" value={b.product_id} />
                       </ActionForm>
                     </td>
@@ -569,7 +805,14 @@ async function BonusesTab({ canWrite }: { canWrite: boolean }) {
               <label className="label" htmlFor="bn_points">
                 Puntos extra por unidad *
               </label>
-              <input id="bn_points" name="bonus_points" type="number" min={0} className="input" required />
+              <input
+                id="bn_points"
+                name="bonus_points"
+                type="number"
+                min={0}
+                className="input"
+                required
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="is_active" defaultChecked className="h-4 w-4" /> Activo
@@ -621,14 +864,25 @@ async function RedemptionsTab({ canWrite }: { canWrite: boolean }) {
                 <td className="font-mono text-xs">{r.code}</td>
                 <td className="text-right tabular-nums">−{r.points_spent}</td>
                 <td>
-                  <Badge tone={STATUS[r.status]?.tone ?? "gray"}>{STATUS[r.status]?.label ?? r.status}</Badge>
-                  {r.status === "issued" && r.expires_at && <div className="text-xs text-muted">vence {fmtDate(r.expires_at)}</div>}
+                  <Badge tone={STATUS[r.status]?.tone ?? "gray"}>
+                    {STATUS[r.status]?.label ?? r.status}
+                  </Badge>
+                  {r.status === "issued" && r.expires_at && (
+                    <div className="text-xs text-muted">vence {fmtDate(r.expires_at)}</div>
+                  )}
                 </td>
                 <td className="font-mono text-xs">{r.folio ?? "—"}</td>
                 {canWrite && (
                   <td>
                     {r.status === "issued" && (
-                      <ActionForm action={cancelRedemptionAction} inline submitLabel="Cancelar" variant="danger" size="sm" confirm="¿Cancelar el canje y devolver los puntos?">
+                      <ActionForm
+                        action={cancelRedemptionAction}
+                        inline
+                        submitLabel="Cancelar"
+                        variant="danger"
+                        size="sm"
+                        confirm="¿Cancelar el canje y devolver los puntos?"
+                      >
                         <input type="hidden" name="id" value={r.id} />
                       </ActionForm>
                     )}

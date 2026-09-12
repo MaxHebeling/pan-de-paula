@@ -12,7 +12,21 @@ function shift(date: string, days: number) {
 }
 
 /** Pestañas de reportes + selector de rango (fechas locales) + exportar/imprimir. */
-export function RangeBar({ kinds, today, from, to, canExport, reportKey }: { kinds: Kind[]; today: string; from: string; to: string; canExport: boolean; reportKey: string }) {
+export function RangeBar({
+  kinds,
+  today,
+  from,
+  to,
+  canExport,
+  reportKey,
+}: {
+  kinds: Kind[];
+  today: string;
+  from: string;
+  to: string;
+  canExport: boolean;
+  reportKey: string;
+}) {
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = `?from=${from}&to=${to}`;
@@ -35,7 +49,12 @@ export function RangeBar({ kinds, today, from, to, canExport, reportKey }: { kin
     <div className="no-print mb-4 flex flex-col gap-3">
       <nav className="flex flex-wrap gap-2" aria-label="Reportes">
         {kinds.map((k) => (
-          <Link key={k.key} href={`${k.href}${qs}`} aria-current={pathname === k.href ? "page" : undefined} className={`pill px-3 py-1.5 text-sm font-medium ${pathname === k.href ? "bg-teal text-white" : "st-gray"}`}>
+          <Link
+            key={k.key}
+            href={`${k.href}${qs}`}
+            aria-current={pathname === k.href ? "page" : undefined}
+            className={`pill px-3 py-1.5 text-sm font-medium ${pathname === k.href ? "bg-teal text-white" : "st-gray"}`}
+          >
             {k.label}
           </Link>
         ))}
@@ -46,26 +65,50 @@ export function RangeBar({ kinds, today, from, to, canExport, reportKey }: { kin
             <label className="label" htmlFor="from">
               Desde
             </label>
-            <input id="from" name="from" type="date" className="input" defaultValue={from} max={today} required />
+            <input
+              id="from"
+              name="from"
+              type="date"
+              className="input"
+              defaultValue={from}
+              max={today}
+              required
+            />
           </div>
           <div>
             <label className="label" htmlFor="to">
               Hasta
             </label>
-            <input id="to" name="to" type="date" className="input" defaultValue={to} max={today} required />
+            <input
+              id="to"
+              name="to"
+              type="date"
+              className="input"
+              defaultValue={to}
+              max={today}
+              required
+            />
           </div>
           <button className="btn btn-primary">Aplicar</button>
         </form>
         <div className="flex flex-wrap gap-1.5">
           {presets.map(([label, f, t]) => (
-            <Link key={label} href={`${pathname}?from=${f}&to=${t}`} className={`pill px-2.5 py-1 text-xs font-medium ${isActive(f, t) ? "bg-teal text-white" : "st-gray"}`}>
+            <Link
+              key={label}
+              href={`${pathname}?from=${f}&to=${t}`}
+              className={`pill px-2.5 py-1 text-xs font-medium ${isActive(f, t) ? "bg-teal text-white" : "st-gray"}`}
+            >
               {label}
             </Link>
           ))}
         </div>
         <div className="ml-auto flex gap-2">
           {canExport && (
-            <a className="btn btn-secondary" href={`/api/reports/export?report=${reportKey}&from=${from}&to=${to}&format=csv`} download>
+            <a
+              className="btn btn-secondary"
+              href={`/api/reports/export?report=${reportKey}&from=${from}&to=${to}&format=csv`}
+              download
+            >
               <Download size={16} aria-hidden /> CSV
             </a>
           )}

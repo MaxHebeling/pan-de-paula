@@ -2,7 +2,13 @@ import Link from "next/link";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Table, Badge, Money, LinkButton, EmptyState } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
-import { listCustomers, customerCounts, loyaltyTiers, tierTone, type CustomerFilters } from "@/lib/customers";
+import {
+  listCustomers,
+  customerCounts,
+  loyaltyTiers,
+  tierTone,
+  type CustomerFilters,
+} from "@/lib/customers";
 
 export const metadata = { title: "Clientes" };
 export const dynamic = "force-dynamic";
@@ -20,7 +26,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
     seg: ["frequent", "inactive", "birthday", "marketing"].includes(seg ?? "") ? seg : "",
     page: Number(one(sp.p) || 1) || 1,
   };
-  const [list, counts, tiers] = await Promise.all([listCustomers(filters), customerCounts(), loyaltyTiers()]);
+  const [list, counts, tiers] = await Promise.all([
+    listCustomers(filters),
+    customerCounts(),
+    loyaltyTiers(),
+  ]);
   const canWrite = hasPermission(session, "customers.write");
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -41,9 +51,15 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Clientes"
         subtitle={`${counts.total} clientes activos`}
-        actions={canWrite ? <LinkButton href="/clientes/nuevo">Nuevo cliente</LinkButton> : undefined}
+        actions={
+          canWrite ? <LinkButton href="/clientes/nuevo">Nuevo cliente</LinkButton> : undefined
+        }
       />
-      <form className="card mb-4 flex flex-wrap items-end gap-2 p-3" action="/clientes" method="get">
+      <form
+        className="card mb-4 flex flex-wrap items-end gap-2 p-3"
+        action="/clientes"
+        method="get"
+      >
         <div className="min-w-[220px] flex-1">
           <label className="label" htmlFor="q">
             Buscar
@@ -94,7 +110,9 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         <EmptyState
           title="Sin resultados"
           body="Prueba con otro nombre, teléfono o código, o quita los filtros."
-          action={canWrite ? <LinkButton href="/clientes/nuevo">Registrar cliente</LinkButton> : undefined}
+          action={
+            canWrite ? <LinkButton href="/clientes/nuevo">Registrar cliente</LinkButton> : undefined
+          }
         />
       ) : (
         <Table>
@@ -127,7 +145,9 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                   )}
                 </td>
                 <td className="tabular-nums">{c.phone ?? c.email ?? "—"}</td>
-                <td>{c.tier_name ? <Badge tone={tierTone(c.tier_color)}>{c.tier_name}</Badge> : "—"}</td>
+                <td>
+                  {c.tier_name ? <Badge tone={tierTone(c.tier_color)}>{c.tier_name}</Badge> : "—"}
+                </td>
                 <td className="text-right tabular-nums">{c.points_balance}</td>
                 <td className="text-right tabular-nums">{c.total_orders}</td>
                 <td className="text-right">

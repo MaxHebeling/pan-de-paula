@@ -102,13 +102,17 @@ test.describe("Clientes, fidelización, cupones y reportes", () => {
     await fillField(page, "#t_code", coupon);
     await fillField(page, "#t_subtotal", "200");
     await page.getByRole("button", { name: "Probar" }).click();
-    await expect(page.getByRole("status")).toContainText("Válido: descuento de $20.00", { timeout: 15_000 });
+    await expect(page.getByRole("status")).toContainText("Válido: descuento de $20.00", {
+      timeout: 15_000,
+    });
   });
 
   test("reporte diario y exportación CSV", async ({ page }) => {
     await login(page);
     await open(page, "/reportes");
-    await expect(page.getByRole("heading", { level: 2, name: /Reporte del día|Resumen de/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: /Reporte del día|Resumen de/ }),
+    ).toBeVisible();
     await expect(page.getByText("Ingresos netos")).toBeVisible();
     const csvLink = page.getByRole("link", { name: "CSV" });
     await expect(csvLink).toBeVisible();

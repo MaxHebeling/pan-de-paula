@@ -28,7 +28,11 @@ export type RewardView = {
 };
 
 export const getProgram = cache(async (): Promise<ProgramView> => {
-  const p = await db().selectFrom("loyalty_program").selectAll().where("id", "=", 1).executeTakeFirstOrThrow();
+  const p = await db()
+    .selectFrom("loyalty_program")
+    .selectAll()
+    .where("id", "=", 1)
+    .executeTakeFirstOrThrow();
   return {
     isActive: p.is_active,
     pointsPerUnit: p.points_per_unit,
@@ -76,7 +80,11 @@ export const listActiveRewards = cache(async (): Promise<RewardView[]> => {
     .execute();
   const now = Date.now();
   return rows
-    .filter((r) => (!r.starts_at || r.starts_at.getTime() <= now) && (!r.ends_at || r.ends_at.getTime() >= now))
+    .filter(
+      (r) =>
+        (!r.starts_at || r.starts_at.getTime() <= now) &&
+        (!r.ends_at || r.ends_at.getTime() >= now),
+    )
     .map((r) => ({
       id: r.id,
       name: r.name,

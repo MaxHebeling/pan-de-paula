@@ -38,7 +38,8 @@ const SELECT = sql`
 
 export async function listCoupons(opts: { q?: string; status?: string } = {}) {
   const conds = [sql`true`];
-  if (opts.q) conds.push(sql`(c.code ilike ${"%" + opts.q + "%"} or c.name ilike ${"%" + opts.q + "%"})`);
+  if (opts.q)
+    conds.push(sql`(c.code ilike ${"%" + opts.q + "%"} or c.name ilike ${"%" + opts.q + "%"})`);
   const r = await sql<CouponRow>`
     select * from (${SELECT} where ${sql.join(conds, sql` and `)}) x
     ${opts.status ? sql`where x.status = ${opts.status}` : sql``}
@@ -52,7 +53,18 @@ export async function getCoupon(id: string): Promise<CouponRow | null> {
 }
 
 export async function couponRedemptions(couponId: string) {
-  const r = await sql<{ id: string; discount_cents: number; created_at: Date; folio: string | null; order_id: string | null; customer_id: string | null; customer_name: string | null; public_code: string | null; channel: string | null; total_cents: number | null }>`
+  const r = await sql<{
+    id: string;
+    discount_cents: number;
+    created_at: Date;
+    folio: string | null;
+    order_id: string | null;
+    customer_id: string | null;
+    customer_name: string | null;
+    public_code: string | null;
+    channel: string | null;
+    total_cents: number | null;
+  }>`
     select r.id, r.discount_cents, r.created_at, o.folio, o.id as order_id, c.id as customer_id, c.full_name as customer_name, c.public_code, o.channel::text as channel, o.total_cents
     from coupon_redemptions r
     left join orders o on o.id = r.order_id
@@ -70,8 +82,15 @@ export async function couponStats() {
   return r.rows[0]!;
 }
 
-export const COUPON_KIND_LABELS: Record<string, string> = { pct: "Porcentaje", amount: "Monto fijo", free_product: "Producto gratis" };
-export const COUPON_STATUS: Record<string, { label: string; tone: "green" | "gray" | "blue" | "red" | "amber" }> = {
+export const COUPON_KIND_LABELS: Record<string, string> = {
+  pct: "Porcentaje",
+  amount: "Monto fijo",
+  free_product: "Producto gratis",
+};
+export const COUPON_STATUS: Record<
+  string,
+  { label: string; tone: "green" | "gray" | "blue" | "red" | "amber" }
+> = {
   active: { label: "activo", tone: "green" },
   inactive: { label: "inactivo", tone: "gray" },
   scheduled: { label: "programado", tone: "blue" },

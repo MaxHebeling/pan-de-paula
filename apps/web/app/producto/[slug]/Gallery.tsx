@@ -42,7 +42,14 @@ export function Gallery({ images, name, seed }: { images: Img[]; name: string; s
                 aria-pressed={i === idx}
                 className={`relative h-16 w-16 overflow-hidden rounded-[12px] border-2 ${i === idx ? "border-sage" : "border-transparent"}`}
               >
-                <Image src={im.url} alt="" fill sizes="64px" unoptimized={!KNOWN_HOST.test(im.url)} className="object-cover" />
+                <Image
+                  src={im.url}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  unoptimized={!KNOWN_HOST.test(im.url)}
+                  className="object-cover"
+                />
               </button>
             </li>
           ))}

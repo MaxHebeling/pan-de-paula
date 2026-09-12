@@ -33,10 +33,30 @@ const couponSchema = z
     is_active: z.boolean(),
   })
   .superRefine((v, ctx) => {
-    if (v.kind === "pct" && !v.value_bps) ctx.addIssue({ code: "custom", message: "Indica el porcentaje (1–100)", path: ["value_bps"] });
-    if (v.kind === "amount" && !v.value_cents) ctx.addIssue({ code: "custom", message: "Indica el monto del descuento", path: ["value_cents"] });
-    if (v.kind === "free_product" && !v.product_id) ctx.addIssue({ code: "custom", message: "Selecciona el producto gratis", path: ["product_id"] });
-    if (v.starts_at && v.ends_at && v.ends_at < v.starts_at) ctx.addIssue({ code: "custom", message: "La vigencia termina antes de empezar", path: ["ends_at"] });
+    if (v.kind === "pct" && !v.value_bps)
+      ctx.addIssue({
+        code: "custom",
+        message: "Indica el porcentaje (1–100)",
+        path: ["value_bps"],
+      });
+    if (v.kind === "amount" && !v.value_cents)
+      ctx.addIssue({
+        code: "custom",
+        message: "Indica el monto del descuento",
+        path: ["value_cents"],
+      });
+    if (v.kind === "free_product" && !v.product_id)
+      ctx.addIssue({
+        code: "custom",
+        message: "Selecciona el producto gratis",
+        path: ["product_id"],
+      });
+    if (v.starts_at && v.ends_at && v.ends_at < v.starts_at)
+      ctx.addIssue({
+        code: "custom",
+        message: "La vigencia termina antes de empezar",
+        path: ["ends_at"],
+      });
   });
 
 function parseCoupon(fd: FormData) {
@@ -81,9 +101,13 @@ export async function upsertCouponAction(_prev: ActionState, fd: FormData): Prom
         await sql`update coupons set code = ${c.code}, name = ${c.name ?? null}, kind = ${c.kind}::coupon_kind, value_bps = ${valueBps}, value_cents = ${valueCents},
                   product_id = ${productId}, min_subtotal_cents = ${c.min_subtotal_cents}, starts_at = ${c.starts_at ?? null}, ends_at = ${endsAt},
                   max_uses = ${c.max_uses ?? null}, max_uses_per_customer = ${c.max_uses_per_customer}, channels = ${channels}::price_channel[],
-                  segment = ${JSON.stringify(segment)}::jsonb, is_active = ${c.is_active} where id = ${c.id}`.execute(trx);
+                  segment = ${JSON.stringify(segment)}::jsonb, is_active = ${c.is_active} where id = ${c.id}`.execute(
+          trx,
+        );
       } else {
-        const r = await sql<{ id: string }>`insert into coupons(code, name, kind, value_bps, value_cents, product_id, min_subtotal_cents, starts_at, ends_at, max_uses, max_uses_per_customer, channels, segment, is_active, created_by)
+        const r = await sql<{
+          id: string;
+        }>`insert into coupons(code, name, kind, value_bps, value_cents, product_id, min_subtotal_cents, starts_at, ends_at, max_uses, max_uses_per_customer, channels, segment, is_active, created_by)
                   values (${c.code}, ${c.name ?? null}, ${c.kind}::coupon_kind, ${valueBps}, ${valueCents}, ${productId}, ${c.min_subtotal_cents}, ${c.starts_at ?? null}, ${endsAt},
                           ${c.max_uses ?? null}, ${c.max_uses_per_customer}, ${channels}::price_channel[], ${JSON.stringify(segment)}::jsonb, ${c.is_active}, ${s.staff.id}) returning id`.execute(
           trx,
@@ -101,12 +125,21 @@ export async function upsertCouponAction(_prev: ActionState, fd: FormData): Prom
   redirect(`/cupones/${id}?guardado=1`);
 }
 
-export async function setCouponActiveAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+export async function setCouponActiveAction(
+  _prev: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
   const s = await requireSession("loyalty.write");
-  const p = z.object({ id: uuid, active: z.enum(["1", "0"]) }).safeParse({ id: str(fd, "id"), active: str(fd, "active") });
+  const p = z
+    .object({ id: uuid, active: z.enum(["1", "0"]) })
+    .safeParse({ id: str(fd, "id"), active: str(fd, "active") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
-    await withStaff(db(), s.staff.id, (trx) => sql`update coupons set is_active = ${p.data.active === "1"} where id = ${p.data.id}`.execute(trx));
+    await withStaff(db(), s.staff.id, (trx) =>
+      sql`update coupons set is_active = ${p.data.active === "1"} where id = ${p.data.id}`.execute(
+        trx,
+      ),
+    );
     revalidatePath("/cupones");
     revalidatePath(`/cupones/${p.data.id}`);
     return { ok: p.data.active === "1" ? "Cupón activado" : "Cupón desactivado" };
@@ -130,7 +163,12 @@ const genSchema = z.object({
 /** Genera N cupones de un solo uso (o max_uses) copiando la configuración del cupón base. */
 export async function generateCodesAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("loyalty.write");
-  const p = genSchema.safeParse({ id: str(fd, "id"), prefix: str(fd, "prefix"), count: num(fd, "count"), max_uses: num(fd, "max_uses") ?? 1 });
+  const p = genSchema.safeParse({
+    id: str(fd, "id"),
+    prefix: str(fd, "prefix"),
+    count: num(fd, "count"),
+    max_uses: num(fd, "max_uses") ?? 1,
+  });
   if (!p.success) return { error: p.error.issues[0]?.message ?? "Datos inválidos" };
   const g = p.data;
   try {
@@ -177,29 +215,52 @@ export async function testCouponAction(_prev: ActionState, fd: FormData): Promis
     let customerId: string | null = null;
     let customerName: string | null = null;
     if (t.customer) {
-      const c = await sql<{ id: string; full_name: string }>`select id, full_name from find_customer(${t.customer})`.execute(d);
-      if (!c.rows[0]) return { error: `No se encontró el cliente "${t.customer}" (usa código PDP-…, teléfono o email)` };
+      const c = await sql<{
+        id: string;
+        full_name: string;
+      }>`select id, full_name from find_customer(${t.customer})`.execute(d);
+      if (!c.rows[0])
+        return {
+          error: `No se encontró el cliente "${t.customer}" (usa código PDP-…, teléfono o email)`,
+        };
       customerId = c.rows[0].id;
       customerName = c.rows[0].full_name;
     }
     let items: Array<Record<string, unknown>> = [];
     let subtotal = t.subtotal_cents;
     if (t.product_id) {
-      const pr = await sql<{ price: number | null; name: string }>`select current_price_cents(id, ${t.channel}::price_channel) as price, name from products where id = ${t.product_id}`.execute(d);
+      const pr = await sql<{
+        price: number | null;
+        name: string;
+      }>`select current_price_cents(id, ${t.channel}::price_channel) as price, name from products where id = ${t.product_id}`.execute(
+        d,
+      );
       const price = pr.rows[0]?.price ?? 0;
-      items = [{ product_id: t.product_id, qty: t.qty, unit_price_cents: price, total_cents: price * t.qty }];
+      items = [
+        {
+          product_id: t.product_id,
+          qty: t.qty,
+          unit_price_cents: price,
+          total_cents: price * t.qty,
+        },
+      ];
       if (subtotal === 0) subtotal = price * t.qty;
     }
-    const res = await callFn<{ valid: boolean; reason?: string; discount_cents?: number; kind?: string; code?: string; min_subtotal_cents?: number }>(d, "validate_coupon", [
-      t.code,
-      customerId,
-      subtotal,
-      t.channel,
-      JSON.stringify(items),
-    ]);
+    const res = await callFn<{
+      valid: boolean;
+      reason?: string;
+      discount_cents?: number;
+      kind?: string;
+      code?: string;
+      min_subtotal_cents?: number;
+    }>(d, "validate_coupon", [t.code, customerId, subtotal, t.channel, JSON.stringify(items)]);
     return {
-      ok: res.valid ? `Válido: descuento de $${((res.discount_cents ?? 0) / 100).toFixed(2)} sobre $${(subtotal / 100).toFixed(2)}` : undefined,
-      error: res.valid ? undefined : `No aplica: ${VALIDATE_REASONS[res.reason ?? ""] ?? res.reason}${res.reason === "min_subtotal" && res.min_subtotal_cents ? ` ($${(res.min_subtotal_cents / 100).toFixed(2)})` : ""}`,
+      ok: res.valid
+        ? `Válido: descuento de $${((res.discount_cents ?? 0) / 100).toFixed(2)} sobre $${(subtotal / 100).toFixed(2)}`
+        : undefined,
+      error: res.valid
+        ? undefined
+        : `No aplica: ${VALIDATE_REASONS[res.reason ?? ""] ?? res.reason}${res.reason === "min_subtotal" && res.min_subtotal_cents ? ` ($${(res.min_subtotal_cents / 100).toFixed(2)})` : ""}`,
       data: { ...res, subtotal_cents: subtotal, customer_name: customerName },
     };
   } catch (e) {

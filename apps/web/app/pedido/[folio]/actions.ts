@@ -14,8 +14,11 @@ export async function retryPaymentAction(formData: FormData) {
   const rl = await rateLimit("retry-payment", { max: 10 });
   if (!rl.allowed) redirect(orderUrl(order.folio, order.publicToken, { mp: "ratelimit" }));
   const business = await getBusiness();
-  const payable = ["new", "payment_pending"].includes(order.status) && ["pending", "failed"].includes(order.paymentStatus);
-  if (!payable || !mercadoPagoAvailable(business.flags)) redirect(orderUrl(order.folio, order.publicToken));
+  const payable =
+    ["new", "payment_pending"].includes(order.status) &&
+    ["pending", "failed"].includes(order.paymentStatus);
+  if (!payable || !mercadoPagoAvailable(business.flags))
+    redirect(orderUrl(order.folio, order.publicToken));
   let url: string;
   try {
     url = await startMercadoPago(order, business);

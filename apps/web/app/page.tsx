@@ -18,7 +18,11 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const business = await getBusiness();
-  const [featured, categories, promos] = await Promise.all([listFeatured(6), listCategories(), listPromos(4)]);
+  const [featured, categories, promos] = await Promise.all([
+    listFeatured(6),
+    listCategories(),
+    listPromos(4),
+  ]);
   const status = openStatus(business);
   const options = fulfillmentOptions(business);
   const address = fullAddress(business);
@@ -38,8 +42,8 @@ export default async function HomePage() {
               <span className="text-sage">hecho a mano</span> para tu mesa.
             </h1>
             <p className="mt-5 max-w-xl text-lg text-ink-2">
-              Croissants de mantequilla, roles de canela y galletas que salen del horno el mismo día que los
-              recoges. Pide en línea; nosotros horneamos para tu fecha.
+              Croissants de mantequilla, roles de canela y galletas que salen del horno el mismo día
+              que los recoges. Pide en línea; nosotros horneamos para tu fecha.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/menu" className="btn btn-primary btn-lg" data-testid="cta-menu">
@@ -49,7 +53,10 @@ export default async function HomePage() {
                 Pedir ahora
               </Link>
             </div>
-            <p className="mt-6 inline-flex items-center gap-2 rounded-pill border border-line bg-paper/80 px-4 py-2 text-sm" data-testid="open-status">
+            <p
+              className="mt-6 inline-flex items-center gap-2 rounded-pill border border-line bg-paper/80 px-4 py-2 text-sm"
+              data-testid="open-status"
+            >
               <span
                 className={`inline-block h-2.5 w-2.5 rounded-full ${status.open ? "bg-sage" : "bg-crust"}`}
                 aria-hidden="true"
@@ -57,21 +64,29 @@ export default async function HomePage() {
               {status.open ? (
                 <span>
                   <strong className="font-semibold">Abierto ahora</strong>
-                  {status.closesAt && <span className="text-ink-2"> · cerramos a las {hour12(status.closesAt)}</span>}
+                  {status.closesAt && (
+                    <span className="text-ink-2"> · cerramos a las {hour12(status.closesAt)}</span>
+                  )}
                 </span>
               ) : (
                 <span>
                   <strong className="font-semibold">Cerrado</strong>
                   <span className="text-ink-2">
                     {" "}
-                    · {status.opensAt && status.reason?.startsWith("Abrimos") ? `abrimos a las ${hour12(status.opensAt)}` : status.reason?.toLowerCase()}
+                    ·{" "}
+                    {status.opensAt && status.reason?.startsWith("Abrimos")
+                      ? `abrimos a las ${hour12(status.opensAt)}`
+                      : status.reason?.toLowerCase()}
                   </span>
                 </span>
               )}
             </p>
           </div>
           <div className="reveal reveal-2 relative mx-auto w-full max-w-[240px] sm:max-w-sm lg:max-w-md">
-            <div className="absolute -inset-6 rounded-full bg-crust/15 blur-2xl" aria-hidden="true" />
+            <div
+              className="absolute -inset-6 rounded-full bg-crust/15 blur-2xl"
+              aria-hidden="true"
+            />
             <div className="card relative aspect-square overflow-hidden rounded-full p-6">
               <Logo size={480} priority className="h-full w-full" />
             </div>
@@ -81,7 +96,12 @@ export default async function HomePage() {
 
       {/* Destacados */}
       {featured.length > 0 && (
-        <Section id="destacados" eyebrow="Favoritos de la casa" title="Lo que más se pide" action={{ href: "/menu", label: "Ver todo el menú" }}>
+        <Section
+          id="destacados"
+          eyebrow="Favoritos de la casa"
+          title="Lo que más se pide"
+          action={{ href: "/menu", label: "Ver todo el menú" }}
+        >
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((p, i) => (
               <ProductCard key={p.id} p={p} priority={i < 2} />
@@ -121,8 +141,14 @@ export default async function HomePage() {
         <ol className="grid gap-5 md:grid-cols-3">
           {[
             ["Elige tu pan", "Arma tu pedido desde el menú: croissants, roles, galletas y más."],
-            ["Escoge tu fecha", "Te mostramos las próximas fechas disponibles para recoger. Horneamos ese día."],
-            ["Recoge y disfruta", "Paga en línea, al recoger o por transferencia. Te avisamos cuando esté listo."],
+            [
+              "Escoge tu fecha",
+              "Te mostramos las próximas fechas disponibles para recoger. Horneamos ese día.",
+            ],
+            [
+              "Recoge y disfruta",
+              "Paga en línea, al recoger o por transferencia. Te avisamos cuando esté listo.",
+            ],
           ].map(([title, body], i) => (
             <li key={title} className="card p-6">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-sage font-display text-lg text-white">
@@ -136,16 +162,32 @@ export default async function HomePage() {
       </Section>
 
       {/* Próximas fechas */}
-      <Section id="fechas" eyebrow="Calendario" title="Próximas fechas de entrega" intro="Pide antes de la hora límite y tu pan sale del horno ese día.">
+      <Section
+        id="fechas"
+        eyebrow="Calendario"
+        title="Próximas fechas de entrega"
+        intro="Pide antes de la hora límite y tu pan sale del horno ese día."
+      >
         {options.length > 0 ? (
           <ul className="grid gap-4 md:grid-cols-2">
             {options.map((o) => (
-              <li key={`${o.windowId}-${o.date}`} className="card flex flex-col gap-2 p-5" data-testid="fulfillment-option">
+              <li
+                key={`${o.windowId}-${o.date}`}
+                className="card flex flex-col gap-2 p-5"
+                data-testid="fulfillment-option"
+              >
                 <p className="eyebrow">{FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}</p>
-                <p className="font-display text-2xl text-ink">{capitalize(formatLocalDate(o.date))}</p>
-                {(o.from || o.to) && <p className="text-sm text-ink-2">Horario de recolección: {hourRange(o.from, o.to)}</p>}
+                <p className="font-display text-2xl text-ink">
+                  {capitalize(formatLocalDate(o.date))}
+                </p>
+                {(o.from || o.to) && (
+                  <p className="text-sm text-ink-2">
+                    Horario de recolección: {hourRange(o.from, o.to)}
+                  </p>
+                )}
                 <p className="text-sm text-ink-2">
-                  Pide antes del <strong className="text-ink">{formatLocalDate(o.orderBy.date)}</strong> a las{" "}
+                  Pide antes del{" "}
+                  <strong className="text-ink">{formatLocalDate(o.orderBy.date)}</strong> a las{" "}
                   <strong className="text-ink">{hour12(o.orderBy.time)}</strong>.
                 </p>
                 <Link href="/menu" className="mt-2 text-sm font-medium text-sage hover:underline">
@@ -156,15 +198,20 @@ export default async function HomePage() {
           </ul>
         ) : (
           <div className="card p-6 text-ink-2">
-            Por ahora no tenemos fechas abiertas para pedidos en línea. Escríbenos por Instagram o WhatsApp y con gusto te
-            ayudamos.
+            Por ahora no tenemos fechas abiertas para pedidos en línea. Escríbenos por Instagram o
+            WhatsApp y con gusto te ayudamos.
           </div>
         )}
       </Section>
 
       {/* Promociones vigentes */}
       {promos.length > 0 && (
-        <Section id="promos" eyebrow="Por tiempo limitado" title="Promociones vigentes" className="bg-cream-2/50">
+        <Section
+          id="promos"
+          eyebrow="Por tiempo limitado"
+          title="Promociones vigentes"
+          className="bg-cream-2/50"
+        >
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {promos.map((p) => (
               <ProductCard key={p.id} p={p} />
@@ -181,10 +228,15 @@ export default async function HomePage() {
             {openDays.length > 0 ? (
               <ul className="mt-4 space-y-1.5 text-sm">
                 {business.hours.map((h) => (
-                  <li key={h.weekday} className="flex justify-between gap-4 border-b border-line/60 py-1.5 last:border-0">
+                  <li
+                    key={h.weekday}
+                    className="flex justify-between gap-4 border-b border-line/60 py-1.5 last:border-0"
+                  >
                     <span>{WEEKDAY_LABELS[h.weekday]}</span>
                     <span className={`tabular-nums ${h.isOpen ? "text-ink" : "text-ink-2"}`}>
-                      {h.isOpen && h.opensAt && h.closesAt ? hourRange(h.opensAt, h.closesAt) : "Cerrado"}
+                      {h.isOpen && h.opensAt && h.closesAt
+                        ? hourRange(h.opensAt, h.closesAt)
+                        : "Cerrado"}
                     </span>
                   </li>
                 ))}
@@ -194,9 +246,13 @@ export default async function HomePage() {
             )}
           </div>
           <div className="card p-6">
-            <h3 className="font-display text-xl text-ink">{point?.name ?? "Punto de recolección"}</h3>
+            <h3 className="font-display text-xl text-ink">
+              {point?.name ?? "Punto de recolección"}
+            </h3>
             <p className="mt-3 text-sm text-ink-2">
-              {point?.address && point.address !== "Dirección por configurar" ? point.address : (address ?? "Te compartimos la dirección exacta al confirmar tu pedido.")}
+              {point?.address && point.address !== "Dirección por configurar"
+                ? point.address
+                : (address ?? "Te compartimos la dirección exacta al confirmar tu pedido.")}
             </p>
             {point?.notes && <p className="mt-2 text-sm text-ink-2">{point.notes}</p>}
             <div className="mt-4 flex flex-wrap gap-3">
@@ -227,7 +283,9 @@ export default async function HomePage() {
               <h2 id="ig-title" className="display text-2xl sm:text-3xl">
                 Lo que sale del horno, cada día
               </h2>
-              <p className="mt-2 text-sm text-ink-2">Temporadas, novedades y el pan del día en @{business.instagramHandle}.</p>
+              <p className="mt-2 text-sm text-ink-2">
+                Temporadas, novedades y el pan del día en @{business.instagramHandle}.
+              </p>
             </div>
             <a
               href={`https://www.instagram.com/${business.instagramHandle}/`}
@@ -244,20 +302,29 @@ export default async function HomePage() {
       {/* Club */}
       <section className="container-x pb-8">
         <div className="card relative overflow-hidden bg-ink p-8 text-cream sm:p-12">
-          <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-crust/30 blur-3xl" aria-hidden="true" />
+          <div
+            className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-crust/30 blur-3xl"
+            aria-hidden="true"
+          />
           <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
             <div>
               <p className="eyebrow text-crust-2">Club El Pan de Paula</p>
-              <h2 className="display mt-2 text-3xl text-cream sm:text-4xl">Únete al club y acumula puntos en cada compra</h2>
+              <h2 className="display mt-2 text-3xl text-cream sm:text-4xl">
+                Únete al club y acumula puntos en cada compra
+              </h2>
               <p className="mt-3 max-w-xl text-cream/80">
-                Regístrate en 30 segundos, recibe tu tarjeta digital con QR y canjea recompensas en la panadería.
+                Regístrate en 30 segundos, recibe tu tarjeta digital con QR y canjea recompensas en
+                la panadería.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/unete" className="btn btn-lg bg-cream text-ink hover:bg-paper">
                 Quiero unirme
               </Link>
-              <Link href="/club" className="btn btn-lg border border-cream/40 text-cream hover:bg-cream/10">
+              <Link
+                href="/club"
+                className="btn btn-lg border border-cream/40 text-cream hover:bg-cream/10"
+              >
                 Conocer el programa
               </Link>
             </div>

@@ -5,7 +5,8 @@ import { getBusiness } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Nosotros",
-  description: "La historia de El Pan de Paula: una boulangerie artesanal hecha con manos, tiempo y mantequilla de verdad.",
+  description:
+    "La historia de El Pan de Paula: una boulangerie artesanal hecha con manos, tiempo y mantequilla de verdad.",
   alternates: { canonical: "/nosotros" },
 };
 
@@ -18,7 +19,12 @@ const FALLBACK = [
 export default async function AboutPage() {
   const business = await getBusiness();
   const about = business.policies.about;
-  const paragraphs = about ? about.split(/\n{2,}|\n/).map((s) => s.trim()).filter(Boolean) : FALLBACK;
+  const paragraphs = about
+    ? about
+        .split(/\n{2,}|\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : FALLBACK;
   return (
     <div className="container-x max-w-3xl py-10 sm:py-14">
       <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">

@@ -10,13 +10,16 @@ const isDate = (s: string | null): s is string => Boolean(s && /^\d{4}-\d{2}-\d{
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  if (!hasPermission(session, "reports.export")) return NextResponse.json({ error: "Sin permiso para exportar reportes" }, { status: 403 });
+  if (!hasPermission(session, "reports.export"))
+    return NextResponse.json({ error: "Sin permiso para exportar reportes" }, { status: 403 });
   const sp = req.nextUrl.searchParams;
   const kind = sp.get("report") as ReportKind | null;
-  if (!kind || !REPORT_KINDS.some((k) => k.key === kind)) return NextResponse.json({ error: "Reporte inválido" }, { status: 400 });
+  if (!kind || !REPORT_KINDS.some((k) => k.key === kind))
+    return NextResponse.json({ error: "Reporte inválido" }, { status: 400 });
   const from = sp.get("from");
   const to = sp.get("to");
-  if (!isDate(from) || !isDate(to) || from > to) return NextResponse.json({ error: "Rango inválido (from/to YYYY-MM-DD)" }, { status: 400 });
+  if (!isDate(from) || !isDate(to) || from > to)
+    return NextResponse.json({ error: "Rango inválido (from/to YYYY-MM-DD)" }, { status: 400 });
   try {
     const data = await exportRows(kind, from, to);
     const csv = toCsv(data.columns, data.rows);

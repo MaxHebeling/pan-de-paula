@@ -9,7 +9,11 @@ import { updateLeadAction } from "../actions";
 export const metadata = { title: "Leads" };
 export const dynamic = "force-dynamic";
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireSession("marketing.read");
   const canWrite = hasPermission(session, "marketing.write");
   const sp = await searchParams;
@@ -27,17 +31,31 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         }
       />
       <div className="mb-3 flex flex-wrap gap-2" role="tablist">
-        <Link href="/instagram/leads" role="tab" aria-selected={!status} className={`pill px-3 py-1.5 text-sm font-medium ${!status ? "bg-teal text-white" : "st-gray"}`}>
+        <Link
+          href="/instagram/leads"
+          role="tab"
+          aria-selected={!status}
+          className={`pill px-3 py-1.5 text-sm font-medium ${!status ? "bg-teal text-white" : "st-gray"}`}
+        >
           Todos
         </Link>
         {Object.entries(LEAD_STATUS).map(([k, v]) => (
-          <Link key={k} href={`/instagram/leads?estado=${k}`} role="tab" aria-selected={status === k} className={`pill px-3 py-1.5 text-sm font-medium ${status === k ? "bg-teal text-white" : "st-gray"}`}>
+          <Link
+            key={k}
+            href={`/instagram/leads?estado=${k}`}
+            role="tab"
+            aria-selected={status === k}
+            className={`pill px-3 py-1.5 text-sm font-medium ${status === k ? "bg-teal text-white" : "st-gray"}`}
+          >
             {v.label}
           </Link>
         ))}
       </div>
       {leads.length === 0 ? (
-        <EmptyState title="Sin leads" body="Crea leads desde una conversación de Instagram o llegarán solos por el webhook." />
+        <EmptyState
+          title="Sin leads"
+          body="Crea leads desde una conversación de Instagram o llegarán solos por el webhook."
+        />
       ) : (
         <Table>
           <thead>
@@ -54,10 +72,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <tbody>
             {leads.map((l) => (
               <tr key={l.id}>
-                <td className="whitespace-nowrap text-muted">{fmtDate(l.created_at, "datetime")}</td>
+                <td className="whitespace-nowrap text-muted">
+                  {fmtDate(l.created_at, "datetime")}
+                </td>
                 <td>
                   {l.source === "instagram" && l.source_ref ? (
-                    <Link href={`/instagram/${l.source_ref}`} className="text-teal-d hover:underline">
+                    <Link
+                      href={`/instagram/${l.source_ref}`}
+                      className="text-teal-d hover:underline"
+                    >
                       instagram
                     </Link>
                   ) : (
@@ -66,7 +89,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 </td>
                 <td>
                   <div>{l.name ?? l.handle ?? "—"}</div>
-                  <div className="text-xs text-muted">{[l.handle && `@${l.handle}`, l.phone, l.email].filter(Boolean).join(" · ")}</div>
+                  <div className="text-xs text-muted">
+                    {[l.handle && `@${l.handle}`, l.phone, l.email].filter(Boolean).join(" · ")}
+                  </div>
                 </td>
                 <td className="max-w-[240px]">
                   <div className="truncate" title={l.interest ?? ""}>
@@ -86,21 +111,48 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 </td>
                 <td>
                   <Badge tone={LEAD_STATUS[l.status]!.tone}>{LEAD_STATUS[l.status]!.label}</Badge>
-                  {l.converted_at && <div className="text-xs text-muted">{fmtDate(l.converted_at)}</div>}
+                  {l.converted_at && (
+                    <div className="text-xs text-muted">{fmtDate(l.converted_at)}</div>
+                  )}
                 </td>
                 {canWrite && (
                   <td>
-                    <ActionForm action={updateLeadAction} inline submitLabel="OK" variant="secondary" size="sm">
+                    <ActionForm
+                      action={updateLeadAction}
+                      inline
+                      submitLabel="OK"
+                      variant="secondary"
+                      size="sm"
+                    >
                       <input type="hidden" name="id" value={l.id} />
-                      <select name="status" className="input w-auto" defaultValue={l.status} aria-label="Estado">
+                      <select
+                        name="status"
+                        className="input w-auto"
+                        defaultValue={l.status}
+                        aria-label="Estado"
+                      >
                         {Object.entries(LEAD_STATUS).map(([k, v]) => (
                           <option key={k} value={k}>
                             {v.label}
                           </option>
                         ))}
                       </select>
-                      {!l.customer_id && <input name="customer" className="input w-[130px]" placeholder="PDP / tel." aria-label="Cliente" />}
-                      {!l.order_id && <input name="folio" className="input w-[140px]" placeholder="Folio pedido" aria-label="Folio" />}
+                      {!l.customer_id && (
+                        <input
+                          name="customer"
+                          className="input w-[130px]"
+                          placeholder="PDP / tel."
+                          aria-label="Cliente"
+                        />
+                      )}
+                      {!l.order_id && (
+                        <input
+                          name="folio"
+                          className="input w-[140px]"
+                          placeholder="Folio pedido"
+                          aria-label="Folio"
+                        />
+                      )}
                     </ActionForm>
                   </td>
                 )}

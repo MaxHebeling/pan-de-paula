@@ -16,10 +16,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ];
 
 function norm(s: string) {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
 export function MenuBrowser({
@@ -41,7 +38,13 @@ export function MenuBrowser({
       if (filter !== "todos" && !availability(p).badges.some((b) => b.key === filter)) return false;
       if (!needle) return true;
       const hay = norm(
-        [p.name, p.shortDescription ?? "", p.categoryName ?? "", ...p.tags, ...p.highlightedIngredients].join(" "),
+        [
+          p.name,
+          p.shortDescription ?? "",
+          p.categoryName ?? "",
+          ...p.tags,
+          ...p.highlightedIngredients,
+        ].join(" "),
       );
       return hay.includes(needle);
     });
@@ -56,7 +59,11 @@ export function MenuBrowser({
         <nav aria-label="Categorías" className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
           <ul className="flex gap-2 whitespace-nowrap">
             <li>
-              <Link href="/menu" className={`chip ${!activeCategory ? "chip-active" : ""}`} aria-current={!activeCategory ? "page" : undefined}>
+              <Link
+                href="/menu"
+                className={`chip ${!activeCategory ? "chip-active" : ""}`}
+                aria-current={!activeCategory ? "page" : undefined}
+              >
                 Todo
               </Link>
             </li>
@@ -83,7 +90,16 @@ export function MenuBrowser({
             className="input pl-10"
             data-testid="menu-search"
           />
-          <svg className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <svg
+            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-2"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
+          >
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
           </svg>
@@ -123,7 +139,10 @@ export function MenuBrowser({
           </button>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-testid="menu-grid">
+        <div
+          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          data-testid="menu-grid"
+        >
           {visible.map((p, i) => (
             <ProductCard key={p.id} p={p} priority={i < 4} headingLevel={2} />
           ))}

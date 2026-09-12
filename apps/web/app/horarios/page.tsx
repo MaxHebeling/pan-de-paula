@@ -20,8 +20,13 @@ export default async function HoursPage() {
       <p className="eyebrow mb-2">Horarios</p>
       <h1 className="display text-4xl sm:text-5xl">Cuándo encontrarnos</h1>
       <p className="mt-3 inline-flex items-center gap-2 text-ink-2">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${status.open ? "bg-sage" : "bg-crust"}`} aria-hidden="true" />
-        {status.open ? `Abierto ahora${status.closesAt ? ` · cerramos a las ${hour12(status.closesAt)}` : ""}` : `Cerrado${status.reason ? ` · ${status.reason.toLowerCase()}` : ""}`}
+        <span
+          className={`inline-block h-2.5 w-2.5 rounded-full ${status.open ? "bg-sage" : "bg-crust"}`}
+          aria-hidden="true"
+        />
+        {status.open
+          ? `Abierto ahora${status.closesAt ? ` · cerramos a las ${hour12(status.closesAt)}` : ""}`
+          : `Cerrado${status.reason ? ` · ${status.reason.toLowerCase()}` : ""}`}
       </p>
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -33,7 +38,11 @@ export default async function HoursPage() {
             {business.hours.map((h) => (
               <li key={h.weekday} className="flex justify-between py-2">
                 <span>{WEEKDAY_LABELS[h.weekday]}</span>
-                <span className={`tabular-nums ${h.isOpen ? "text-ink" : "text-ink-2"}`}>{h.isOpen && h.opensAt && h.closesAt ? hourRange(h.opensAt, h.closesAt) : "Cerrado"}</span>
+                <span className={`tabular-nums ${h.isOpen ? "text-ink" : "text-ink-2"}`}>
+                  {h.isOpen && h.opensAt && h.closesAt
+                    ? hourRange(h.opensAt, h.closesAt)
+                    : "Cerrado"}
+                </span>
               </li>
             ))}
           </ul>
@@ -50,11 +59,14 @@ export default async function HoursPage() {
                 <li key={w.id}>
                   <p className="font-medium text-ink">{w.name}</p>
                   <p className="text-ink-2">
-                    Pedidos {w.orderWeekdays.map((d) => WEEKDAY_LABELS[d]).join(", ")} hasta las {hour12(w.cutoffTime)}.
+                    Pedidos {w.orderWeekdays.map((d) => WEEKDAY_LABELS[d]).join(", ")} hasta las{" "}
+                    {hour12(w.cutoffTime)}.
                   </p>
                   <p className="text-ink-2">
                     {FULFILLMENT_LABELS[w.fulfillmentType]}: {WEEKDAY_LABELS[w.fulfillmentWeekday]}
-                    {(w.fulfillmentFrom || w.fulfillmentTo) && ` de ${hourRange(w.fulfillmentFrom, w.fulfillmentTo)}`}.
+                    {(w.fulfillmentFrom || w.fulfillmentTo) &&
+                      ` de ${hourRange(w.fulfillmentFrom, w.fulfillmentTo)}`}
+                    .
                   </p>
                 </li>
               ))}
@@ -74,8 +86,12 @@ export default async function HoursPage() {
             {options.map((o) => (
               <li key={`${o.windowId}-${o.date}`} className="card p-5">
                 <p className="eyebrow">{FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}</p>
-                <p className="font-display text-2xl text-ink">{capitalize(formatLocalDate(o.date))}</p>
-                {(o.from || o.to) && <p className="text-sm text-ink-2">{hourRange(o.from, o.to)}</p>}
+                <p className="font-display text-2xl text-ink">
+                  {capitalize(formatLocalDate(o.date))}
+                </p>
+                {(o.from || o.to) && (
+                  <p className="text-sm text-ink-2">{hourRange(o.from, o.to)}</p>
+                )}
                 <p className="mt-1 text-sm text-ink-2">
                   Pide antes del {formatLocalDate(o.orderBy.date)} a las {hour12(o.orderBy.time)}.
                 </p>
@@ -97,7 +113,9 @@ export default async function HoursPage() {
             {upcomingExceptions.map((e) => (
               <li key={e.date} className="card flex justify-between gap-3 px-4 py-3">
                 <span className="text-ink">{capitalize(formatLocalDate(e.date))}</span>
-                <span className="text-ink-2">{e.note ?? (e.isClosed ? "Cerrado" : "Sin pedidos")}</span>
+                <span className="text-ink-2">
+                  {e.note ?? (e.isClosed ? "Cerrado" : "Sin pedidos")}
+                </span>
               </li>
             ))}
           </ul>

@@ -39,8 +39,12 @@ export async function updateProgramAction(_prev: ActionState, fd: FormData): Pro
     await withStaff(db(), s.staff.id, async (trx) => {
       await sql`update loyalty_program set is_active = ${d.is_active}, points_per_unit = ${d.points_per_unit}, unit_cents = ${d.unit_cents},
                 min_purchase_cents = ${d.min_purchase_cents}, birthday_multiplier = ${d.birthday_multiplier}, signup_bonus_points = ${d.signup_bonus_points},
-                points_expire_days = ${d.points_expire_days ?? null}, rounding = ${d.rounding} where id = 1`.execute(trx);
-      await sql`update feature_flags set enabled = ${d.feature_enabled} where key = 'loyalty'`.execute(trx);
+                points_expire_days = ${d.points_expire_days ?? null}, rounding = ${d.rounding} where id = 1`.execute(
+        trx,
+      );
+      await sql`update feature_flags set enabled = ${d.feature_enabled} where key = 'loyalty'`.execute(
+        trx,
+      );
     });
     revalidatePath(path);
     return { ok: "Programa actualizado" };
@@ -88,7 +92,9 @@ export async function upsertTierAction(_prev: ActionState, fd: FormData): Promis
         trx,
       );
       // Reclasifica a todos los clientes activos con las reglas nuevas
-      await sql`select recompute_customer_tier(id) from customers where deleted_at is null and merged_into_id is null`.execute(trx);
+      await sql`select recompute_customer_tier(id) from customers where deleted_at is null and merged_into_id is null`.execute(
+        trx,
+      );
     });
     revalidatePath(path);
     revalidatePath("/clientes");
@@ -106,9 +112,12 @@ export async function deleteTierAction(_prev: ActionState, fd: FormData): Promis
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       const n = await sql<{ n: number }>`select count(*)::int as n from loyalty_tiers`.execute(trx);
-      if ((n.rows[0]?.n ?? 0) <= 1) throw Object.assign(new Error("Debe existir al menos un nivel"), { code: "P0001" });
+      if ((n.rows[0]?.n ?? 0) <= 1)
+        throw Object.assign(new Error("Debe existir al menos un nivel"), { code: "P0001" });
       await sql`delete from loyalty_tiers where key = ${key}`.execute(trx);
-      await sql`select recompute_customer_tier(id) from customers where deleted_at is null and merged_into_id is null`.execute(trx);
+      await sql`select recompute_customer_tier(id) from customers where deleted_at is null and merged_into_id is null`.execute(
+        trx,
+      );
     });
     revalidatePath(path);
     return { ok: "Nivel eliminado; clientes reclasificados" };
@@ -134,9 +143,12 @@ const rewardSchema = z
     ends_at: z.string().optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.kind === "discount_pct" && !v.value_bps) ctx.addIssue({ code: "custom", message: "Indica el porcentaje", path: ["value_bps"] });
-    if (v.kind === "discount_amount" && !v.value_cents) ctx.addIssue({ code: "custom", message: "Indica el monto", path: ["value_cents"] });
-    if (v.kind === "free_product" && !v.product_id) ctx.addIssue({ code: "custom", message: "Selecciona el producto", path: ["product_id"] });
+    if (v.kind === "discount_pct" && !v.value_bps)
+      ctx.addIssue({ code: "custom", message: "Indica el porcentaje", path: ["value_bps"] });
+    if (v.kind === "discount_amount" && !v.value_cents)
+      ctx.addIssue({ code: "custom", message: "Indica el monto", path: ["value_cents"] });
+    if (v.kind === "free_product" && !v.product_id)
+      ctx.addIssue({ code: "custom", message: "Selecciona el producto", path: ["product_id"] });
   });
 
 export async function upsertRewardAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -166,7 +178,9 @@ export async function upsertRewardAction(_prev: ActionState, fd: FormData): Prom
       if (r.id) {
         await sql`update rewards set name = ${r.name}, description = ${r.description ?? null}, kind = ${r.kind}::reward_kind, points_cost = ${r.points_cost},
                   value_bps = ${valueBps}, value_cents = ${valueCents}, product_id = ${productId}, min_tier_key = ${r.min_tier_key ?? null},
-                  is_active = ${r.is_active}, starts_at = ${r.starts_at ?? null}, ends_at = ${r.ends_at ?? null} where id = ${r.id}`.execute(trx);
+                  is_active = ${r.is_active}, starts_at = ${r.starts_at ?? null}, ends_at = ${r.ends_at ?? null} where id = ${r.id}`.execute(
+          trx,
+        );
       } else {
         await sql`insert into rewards(name, description, kind, points_cost, value_bps, value_cents, product_id, min_tier_key, is_active, starts_at, ends_at)
                   values (${r.name}, ${r.description ?? null}, ${r.kind}::reward_kind, ${r.points_cost}, ${valueBps}, ${valueCents}, ${productId}, ${r.min_tier_key ?? null}, ${r.is_active}, ${r.starts_at ?? null}, ${r.ends_at ?? null})`.execute(
@@ -184,10 +198,16 @@ export async function upsertRewardAction(_prev: ActionState, fd: FormData): Prom
 
 export async function toggleRewardAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("loyalty.write");
-  const p = z.object({ id: uuid, active: z.enum(["1", "0"]) }).safeParse({ id: str(fd, "id"), active: str(fd, "active") });
+  const p = z
+    .object({ id: uuid, active: z.enum(["1", "0"]) })
+    .safeParse({ id: str(fd, "id"), active: str(fd, "active") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
-    await withStaff(db(), s.staff.id, (trx) => sql`update rewards set is_active = ${p.data.active === "1"} where id = ${p.data.id}`.execute(trx));
+    await withStaff(db(), s.staff.id, (trx) =>
+      sql`update rewards set is_active = ${p.data.active === "1"} where id = ${p.data.id}`.execute(
+        trx,
+      ),
+    );
     revalidatePath(path);
     return { ok: p.data.active === "1" ? "Recompensa activada" : "Recompensa desactivada" };
   } catch (e) {
@@ -199,13 +219,23 @@ export async function toggleRewardAction(_prev: ActionState, fd: FormData): Prom
 export async function upsertBonusAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("loyalty.write");
   const p = z
-    .object({ product_id: uuid, bonus_points: z.number().int().min(0).max(10000), is_active: z.boolean() })
-    .safeParse({ product_id: str(fd, "product_id"), bonus_points: num(fd, "bonus_points"), is_active: bool(fd, "is_active") });
+    .object({
+      product_id: uuid,
+      bonus_points: z.number().int().min(0).max(10000),
+      is_active: z.boolean(),
+    })
+    .safeParse({
+      product_id: str(fd, "product_id"),
+      bonus_points: num(fd, "bonus_points"),
+      is_active: bool(fd, "is_active"),
+    });
   if (!p.success) return { error: p.error.issues[0]?.message ?? "Datos inválidos" };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
       sql`insert into loyalty_product_bonuses(product_id, bonus_points, is_active) values (${p.data.product_id}, ${p.data.bonus_points}, ${p.data.is_active})
-          on conflict (product_id) do update set bonus_points = excluded.bonus_points, is_active = excluded.is_active`.execute(trx),
+          on conflict (product_id) do update set bonus_points = excluded.bonus_points, is_active = excluded.is_active`.execute(
+        trx,
+      ),
     );
     revalidatePath(path);
     return { ok: "Bono guardado" };
@@ -220,7 +250,9 @@ export async function deleteBonusAction(_prev: ActionState, fd: FormData): Promi
   const p = uuid.safeParse(str(fd, "product_id"));
   if (!p.success) return { error: "Datos inválidos" };
   try {
-    await withStaff(db(), s.staff.id, (trx) => sql`delete from loyalty_product_bonuses where product_id = ${p.data}`.execute(trx));
+    await withStaff(db(), s.staff.id, (trx) =>
+      sql`delete from loyalty_product_bonuses where product_id = ${p.data}`.execute(trx),
+    );
     revalidatePath(path);
     return { ok: "Bono eliminado" };
   } catch (e) {
@@ -229,19 +261,36 @@ export async function deleteBonusAction(_prev: ActionState, fd: FormData): Promi
   }
 }
 
-export async function cancelRedemptionAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+export async function cancelRedemptionAction(
+  _prev: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
   const s = await requireSession("loyalty.write");
   const p = uuid.safeParse(str(fd, "id"));
   if (!p.success) return { error: "Datos inválidos" };
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       const r = await sql<{ customer_id: string; points_spent: number; status: string }>`
-        select customer_id, points_spent, status from reward_redemptions where id = ${p.data} for update`.execute(trx);
+        select customer_id, points_spent, status from reward_redemptions where id = ${p.data} for update`.execute(
+        trx,
+      );
       const red = r.rows[0];
       if (!red) throw Object.assign(new Error("Canje no existe"), { code: "P0001" });
-      if (red.status !== "issued") throw Object.assign(new Error("Solo se cancelan canjes emitidos y no aplicados"), { code: "P0001" });
-      await sql`update reward_redemptions set status = 'cancelled' where id = ${p.data}`.execute(trx);
-      await callFn(trx, "loyalty_post", [red.customer_id, "reversal", red.points_spent, null, p.data, "Cancelación de canje"]);
+      if (red.status !== "issued")
+        throw Object.assign(new Error("Solo se cancelan canjes emitidos y no aplicados"), {
+          code: "P0001",
+        });
+      await sql`update reward_redemptions set status = 'cancelled' where id = ${p.data}`.execute(
+        trx,
+      );
+      await callFn(trx, "loyalty_post", [
+        red.customer_id,
+        "reversal",
+        red.points_spent,
+        null,
+        p.data,
+        "Cancelación de canje",
+      ]);
     });
     revalidatePath(path);
     return { ok: "Canje cancelado y puntos devueltos" };

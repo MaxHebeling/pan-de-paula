@@ -36,8 +36,15 @@ export function customerSearchCondition(q: string) {
   if (isCustomerCode(term)) return sql`c.public_code = upper(${term})`;
   const digits = normalizePhone(term).replace(/\D/g, "");
   const like = `%${term}%`;
-  const parts = [sql`c.full_name ilike ${like}`, sql`c.email ilike ${like}`, sql`c.public_code ilike ${like}`];
-  if (digits.length >= 4) parts.push(sql`regexp_replace(coalesce(c.phone::text, ''), '\\D', '', 'g') like ${"%" + digits + "%"}`);
+  const parts = [
+    sql`c.full_name ilike ${like}`,
+    sql`c.email ilike ${like}`,
+    sql`c.public_code ilike ${like}`,
+  ];
+  if (digits.length >= 4)
+    parts.push(
+      sql`regexp_replace(coalesce(c.phone::text, ''), '\\D', '', 'g') like ${"%" + digits + "%"}`,
+    );
   return sql`(${sql.join(parts, sql` or `)})`;
 }
 
@@ -80,11 +87,22 @@ export async function listCustomers(f: CustomerFilters) {
       limit ${PAGE_SIZE} offset ${(page - 1) * PAGE_SIZE}`.execute(db()),
     sql<{ n: number }>`select count(*)::int as n from customers c where ${where}`.execute(db()),
   ]);
-  return { rows: rows.rows, total: total.rows[0]?.n ?? 0, page, pages: Math.max(1, Math.ceil((total.rows[0]?.n ?? 0) / PAGE_SIZE)) };
+  return {
+    rows: rows.rows,
+    total: total.rows[0]?.n ?? 0,
+    page,
+    pages: Math.max(1, Math.ceil((total.rows[0]?.n ?? 0) / PAGE_SIZE)),
+  };
 }
 
 export async function customerCounts() {
-  const r = await sql<{ total: number; frequent: number; inactive: number; birthday: number; marketing: number }>`
+  const r = await sql<{
+    total: number;
+    frequent: number;
+    inactive: number;
+    birthday: number;
+    marketing: number;
+  }>`
     with base as (select c.* from customers c where c.deleted_at is null and c.merged_into_id is null),
     bs as (select timezone from business_settings where id = 1)
     select (select count(*) from base)::int as total,
@@ -155,36 +173,46 @@ export async function getCustomer(id: string): Promise<CustomerDetail | null> {
 
 export async function customer360(id: string) {
   const d = db();
-  const [ledger, orders, favorites, events, addresses, redemptions, rewards, duplicates, mergedFrom, coupons] =
-    await Promise.all([
-      sql<{
-        id: number;
-        kind: string;
-        points: number;
-        balance_after: number;
-        note: string | null;
-        created_at: Date;
-        staff_name: string | null;
-        folio: string | null;
-      }>`select lt.id, lt.kind::text as kind, lt.points, lt.balance_after, lt.note, lt.created_at, su.full_name as staff_name, o.folio
+  const [
+    ledger,
+    orders,
+    favorites,
+    events,
+    addresses,
+    redemptions,
+    rewards,
+    duplicates,
+    mergedFrom,
+    coupons,
+  ] = await Promise.all([
+    sql<{
+      id: number;
+      kind: string;
+      points: number;
+      balance_after: number;
+      note: string | null;
+      created_at: Date;
+      staff_name: string | null;
+      folio: string | null;
+    }>`select lt.id, lt.kind::text as kind, lt.points, lt.balance_after, lt.note, lt.created_at, su.full_name as staff_name, o.folio
          from loyalty_transactions lt
          left join staff_users su on su.id = lt.staff_id
          left join sales s on s.id = lt.sale_id left join orders o on o.id = s.order_id
          where lt.customer_id = ${id} or lt.customer_id in (select id from customers where merged_into_id = ${id})
          order by lt.id desc limit 60`.execute(d),
-      sql<{
-        id: string;
-        folio: string;
-        channel: string;
-        status: string;
-        payment_status: string;
-        total_cents: number;
-        placed_at: Date;
-        items: number;
-        voided_at: Date | null;
-        points: number;
-        summary: string | null;
-      }>`select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.payment_status::text as payment_status,
+    sql<{
+      id: string;
+      folio: string;
+      channel: string;
+      status: string;
+      payment_status: string;
+      total_cents: number;
+      placed_at: Date;
+      items: number;
+      voided_at: Date | null;
+      points: number;
+      summary: string | null;
+    }>`select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.payment_status::text as payment_status,
                 o.total_cents, o.placed_at, coalesce((select sum(qty) from order_items where order_id = o.id), 0)::numeric as items,
                 s.voided_at,
                 coalesce((select sum(points) from loyalty_transactions where sale_id = s.id and kind = 'earn'), 0)::int as points,
@@ -192,63 +220,88 @@ export async function customer360(id: string) {
          from orders o left join sales s on s.order_id = o.id
          where o.customer_id = ${id}
          order by o.placed_at desc limit 60`.execute(d),
-      sql<{ product_id: string | null; name: string; units: string; revenue: number; last: Date }>`
+    sql<{ product_id: string | null; name: string; units: string; revenue: number; last: Date }>`
          select oi.product_id, oi.product_name as name, sum(oi.qty)::numeric as units, sum(oi.total_cents)::bigint as revenue, max(s.sold_at) as last
          from sales s join order_items oi on oi.order_id = s.order_id
          where s.customer_id = ${id} and s.voided_at is null
-         group by oi.product_id, oi.product_name order by units desc, revenue desc limit 8`.execute(d),
-      sql<{ id: number; kind: string; payload: Record<string, unknown>; handled_at: Date | null; created_at: Date }>`
+         group by oi.product_id, oi.product_name order by units desc, revenue desc limit 8`.execute(
+      d,
+    ),
+    sql<{
+      id: number;
+      kind: string;
+      payload: Record<string, unknown>;
+      handled_at: Date | null;
+      created_at: Date;
+    }>`
          select id, kind, payload, handled_at, created_at from customer_events where customer_id = ${id} order by created_at desc limit 40`.execute(
-        d,
-      ),
-      sql<{
-        id: string;
-        label: string | null;
-        street: string;
-        neighborhood: string | null;
-        city: string | null;
-        state: string | null;
-        postal_code: string | null;
-        references_note: string | null;
-        is_default: boolean;
-      }>`select id, label, street, neighborhood, city, state, postal_code, references_note, is_default
-         from customer_addresses where customer_id = ${id} order by is_default desc, created_at`.execute(d),
-      sql<{
-        id: string;
-        code: string;
-        status: string;
-        points_spent: number;
-        issued_at: Date;
-        applied_at: Date | null;
-        expires_at: Date | null;
-        reward_name: string;
-        folio: string | null;
-      }>`select rr.id, rr.code, rr.status, rr.points_spent, rr.issued_at, rr.applied_at, rr.expires_at, r.name as reward_name, o.folio
+      d,
+    ),
+    sql<{
+      id: string;
+      label: string | null;
+      street: string;
+      neighborhood: string | null;
+      city: string | null;
+      state: string | null;
+      postal_code: string | null;
+      references_note: string | null;
+      is_default: boolean;
+    }>`select id, label, street, neighborhood, city, state, postal_code, references_note, is_default
+         from customer_addresses where customer_id = ${id} order by is_default desc, created_at`.execute(
+      d,
+    ),
+    sql<{
+      id: string;
+      code: string;
+      status: string;
+      points_spent: number;
+      issued_at: Date;
+      applied_at: Date | null;
+      expires_at: Date | null;
+      reward_name: string;
+      folio: string | null;
+    }>`select rr.id, rr.code, rr.status, rr.points_spent, rr.issued_at, rr.applied_at, rr.expires_at, r.name as reward_name, o.folio
          from reward_redemptions rr join rewards r on r.id = rr.reward_id left join orders o on o.id = rr.order_id
          where rr.customer_id = ${id} order by rr.issued_at desc limit 30`.execute(d),
-      sql<{ id: string; name: string; kind: string; points_cost: number; min_tier_key: string | null; min_rank: number | null }>`
+    sql<{
+      id: string;
+      name: string;
+      kind: string;
+      points_cost: number;
+      min_tier_key: string | null;
+      min_rank: number | null;
+    }>`
          select r.id, r.name, r.kind::text as kind, r.points_cost, r.min_tier_key, t.rank as min_rank
          from rewards r left join loyalty_tiers t on t.key = r.min_tier_key
          where r.is_active and (r.starts_at is null or r.starts_at <= now()) and (r.ends_at is null or r.ends_at >= now())
          order by r.points_cost`.execute(d),
-      sql<{
-        id: string;
-        public_code: string;
-        full_name: string;
-        phone: string | null;
-        email: string | null;
-        total_orders: number;
-        points_balance: number;
-        last_purchase_at: Date | null;
-        reasons: string[];
-      }>`select * from customer_duplicates(${id})`.execute(d),
-      sql<{ id: string; public_code: string; full_name: string; created_at: Date }>`
-         select id, public_code, full_name, created_at from customers where merged_into_id = ${id} order by created_at`.execute(d),
-      sql<{ code: string; name: string | null; discount_cents: number; created_at: Date; folio: string | null }>`
+    sql<{
+      id: string;
+      public_code: string;
+      full_name: string;
+      phone: string | null;
+      email: string | null;
+      total_orders: number;
+      points_balance: number;
+      last_purchase_at: Date | null;
+      reasons: string[];
+    }>`select * from customer_duplicates(${id})`.execute(d),
+    sql<{ id: string; public_code: string; full_name: string; created_at: Date }>`
+         select id, public_code, full_name, created_at from customers where merged_into_id = ${id} order by created_at`.execute(
+      d,
+    ),
+    sql<{
+      code: string;
+      name: string | null;
+      discount_cents: number;
+      created_at: Date;
+      folio: string | null;
+    }>`
          select cp.code::text as code, cp.name, cr.discount_cents, cr.created_at, o.folio
          from coupon_redemptions cr join coupons cp on cp.id = cr.coupon_id left join orders o on o.id = cr.order_id
          where cr.customer_id = ${id} order by cr.created_at desc limit 20`.execute(d),
-    ]);
+  ]);
   return {
     ledger: ledger.rows,
     orders: orders.rows,
@@ -309,6 +362,10 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   refunded: "Reembolsado",
 };
 
-export function tierTone(color: string | null | undefined): "green" | "amber" | "red" | "blue" | "gray" {
-  return color === "green" || color === "amber" || color === "red" || color === "blue" ? color : "gray";
+export function tierTone(
+  color: string | null | undefined,
+): "green" | "amber" | "red" | "blue" | "gray" {
+  return color === "green" || color === "amber" || color === "red" || color === "blue"
+    ? color
+    : "gray";
 }

@@ -18,7 +18,10 @@ export function Bars({
             {i.label}
           </span>
           <div className="h-3 overflow-hidden rounded-full bg-black/[0.05]" aria-hidden>
-            <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.round((Math.abs(i.value) / max) * 100)}%` }} />
+            <div
+              className={`h-full rounded-full ${color}`}
+              style={{ width: `${Math.round((Math.abs(i.value) / max) * 100)}%` }}
+            />
           </div>
           <span className="tabular-nums" title={i.hint}>
             {format ? format(i.value) : i.value.toLocaleString("es-MX")}
@@ -41,7 +44,12 @@ export function Columns({
 }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
-    <div className="flex items-end gap-[3px] overflow-x-auto" style={{ height }} role="img" aria-label="Serie">
+    <div
+      className="flex items-end gap-[3px] overflow-x-auto"
+      style={{ height }}
+      role="img"
+      aria-label="Serie"
+    >
       {items.map((i) => (
         <div
           key={i.label}
@@ -49,7 +57,10 @@ export function Columns({
           style={{ height: "100%" }}
           title={`${i.label}: ${format ? format(i.value) : i.value}`}
         >
-          <div className="rounded-t bg-teal/80 group-hover:bg-teal" style={{ height: `${Math.max(2, Math.round((i.value / max) * 100))}%` }} />
+          <div
+            className="rounded-t bg-teal/80 group-hover:bg-teal"
+            style={{ height: `${Math.max(2, Math.round((i.value / max) * 100))}%` }}
+          />
         </div>
       ))}
     </div>

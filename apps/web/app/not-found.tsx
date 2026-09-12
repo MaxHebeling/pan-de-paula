@@ -7,7 +7,9 @@ export default function NotFound() {
       <Logo size={96} />
       <p className="eyebrow mt-6">Error 404</p>
       <h1 className="display mt-2 text-4xl">Esta página se nos quemó</h1>
-      <p className="mt-3 max-w-md text-ink-2">No encontramos lo que buscas. Puede que el enlace haya cambiado o que el pedido no exista.</p>
+      <p className="mt-3 max-w-md text-ink-2">
+        No encontramos lo que buscas. Puede que el enlace haya cambiado o que el pedido no exista.
+      </p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Link href="/" className="btn btn-primary">
           Ir al inicio

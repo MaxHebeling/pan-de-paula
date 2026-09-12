@@ -11,7 +11,10 @@ import { getProgram, listActiveRewards, listTiers, loyaltyEnabled } from "@/lib/
 import { cardUrl, qrDataUrl } from "@/lib/qr";
 import { getBusiness } from "@/lib/site";
 
-type Props = { params: Promise<{ token: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+type Props = {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export const metadata: Metadata = { title: "Mi tarjeta", robots: { index: false, follow: false } };
 
@@ -20,11 +23,20 @@ export default async function CardPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const customer = await findCustomer(decodeToken(token));
   if (!customer) notFound();
-  const [business, program, tiers, rewards] = await Promise.all([getBusiness(), getProgram(), listTiers(), listActiveRewards()]);
+  const [business, program, tiers, rewards] = await Promise.all([
+    getBusiness(),
+    getProgram(),
+    listTiers(),
+    listActiveRewards(),
+  ]);
   const enabled = loyaltyEnabled(business.flags, program);
   const url = cardUrl(customer.qrToken);
   const qr = await qrDataUrl(url);
-  const stats = { totalOrders: customer.totalOrders, totalSpentCents: customer.totalSpentCents, lifetimePoints: customer.lifetimePoints };
+  const stats = {
+    totalOrders: customer.totalOrders,
+    totalSpentCents: customer.totalSpentCents,
+    lifetimePoints: customer.lifetimePoints,
+  };
   const resolved = resolveTier(tiers, stats);
   const current = tiers.find((t) => t.key === (customer.tierKey ?? resolved?.key)) ?? null;
   const progress = tierProgress(tiers, current, stats);
@@ -35,7 +47,11 @@ export default async function CardPage({ params, searchParams }: Props) {
   return (
     <div className="container-x max-w-3xl py-10 sm:py-14">
       {welcome && (
-        <p className="mb-6 rounded-card border border-sage/40 bg-sage/10 px-4 py-3 text-sm text-ink" role="status" data-testid="welcome">
+        <p
+          className="mb-6 rounded-card border border-sage/40 bg-sage/10 px-4 py-3 text-sm text-ink"
+          role="status"
+          data-testid="welcome"
+        >
           ¡Bienvenido al club, {firstName}! Guarda esta página o descarga tu QR: es tu tarjeta.
         </p>
       )}
@@ -46,7 +62,10 @@ export default async function CardPage({ params, searchParams }: Props) {
             <p className="font-display text-2xl" data-testid="card-name">
               {customer.fullName}
             </p>
-            <p className="mt-1 font-mono text-sm tracking-widest text-cream/80" data-testid="card-code">
+            <p
+              className="mt-1 font-mono text-sm tracking-widest text-cream/80"
+              data-testid="card-code"
+            >
               {customer.publicCode}
             </p>
           </div>
@@ -54,7 +73,15 @@ export default async function CardPage({ params, searchParams }: Props) {
         </div>
         <div className="grid gap-6 p-6 sm:grid-cols-[220px_1fr] sm:items-center">
           <div className="mx-auto w-[220px] rounded-card border border-line bg-paper p-3">
-            <Image src={qr} alt={`QR de la tarjeta ${customer.publicCode}`} width={200} height={200} unoptimized className="h-auto w-full" data-testid="card-qr" />
+            <Image
+              src={qr}
+              alt={`QR de la tarjeta ${customer.publicCode}`}
+              width={200}
+              height={200}
+              unoptimized
+              className="h-auto w-full"
+              data-testid="card-qr"
+            />
           </div>
           <div>
             {enabled ? (
@@ -71,19 +98,36 @@ export default async function CardPage({ params, searchParams }: Props) {
                   <div className="mt-3">
                     <p className="text-xs text-ink-2">
                       Para llegar a <strong className="text-ink">{progress.next.name}</strong>:{" "}
-                      {progress.ordersLeft > 0 ? `${progress.ordersLeft} ${progress.ordersLeft === 1 ? "compra" : "compras"} más` : ""}
+                      {progress.ordersLeft > 0
+                        ? `${progress.ordersLeft} ${progress.ordersLeft === 1 ? "compra" : "compras"} más`
+                        : ""}
                       {progress.ordersLeft > 0 && progress.spendLeftCents > 0 ? " y " : ""}
-                      {progress.spendLeftCents > 0 ? `${money(progress.spendLeftCents, true)} más en compras` : ""}
-                      {progress.ordersLeft === 0 && progress.spendLeftCents === 0 ? "¡ya casi!" : ""}
+                      {progress.spendLeftCents > 0
+                        ? `${money(progress.spendLeftCents, true)} más en compras`
+                        : ""}
+                      {progress.ordersLeft === 0 && progress.spendLeftCents === 0
+                        ? "¡ya casi!"
+                        : ""}
                     </p>
-                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-pill bg-cream-2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressPct(stats, progress))}>
-                      <div className="h-full rounded-pill bg-sage transition-[width]" style={{ width: `${progressPct(stats, progress)}%` }} />
+                    <div
+                      className="mt-1.5 h-2 w-full overflow-hidden rounded-pill bg-cream-2"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(progressPct(stats, progress))}
+                    >
+                      <div
+                        className="h-full rounded-pill bg-sage transition-[width]"
+                        style={{ width: `${progressPct(stats, progress)}%` }}
+                      />
                     </div>
                   </div>
                 )}
               </>
             ) : (
-              <p className="text-sm text-ink-2">Muestra este QR en la panadería para identificarte y recibir tus beneficios.</p>
+              <p className="text-sm text-ink-2">
+                Muestra este QR en la panadería para identificarte y recibir tus beneficios.
+              </p>
             )}
           </div>
         </div>
@@ -108,12 +152,18 @@ export default async function CardPage({ params, searchParams }: Props) {
             <ul className="mt-3 space-y-2 text-sm">
               {rewards.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3">
-                  <span className={affordable.includes(r) ? "text-ink" : "text-ink-2"}>{r.name}</span>
-                  <span className="shrink-0 rounded-pill bg-cream-2 px-2.5 py-0.5 text-xs font-semibold text-ink">{r.pointsCost} pts</span>
+                  <span className={affordable.includes(r) ? "text-ink" : "text-ink-2"}>
+                    {r.name}
+                  </span>
+                  <span className="shrink-0 rounded-pill bg-cream-2 px-2.5 py-0.5 text-xs font-semibold text-ink">
+                    {r.pointsCost} pts
+                  </span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs text-ink-2">Los canjes se hacen en la panadería mostrando tu tarjeta.</p>
+            <p className="mt-3 text-xs text-ink-2">
+              Los canjes se hacen en la panadería mostrando tu tarjeta.
+            </p>
           </section>
         )}
       </div>
@@ -131,6 +181,7 @@ function progressPct(
   progress: { next: { minOrders: number; minSpentCents: number } },
 ): number {
   const byOrders = progress.next.minOrders > 0 ? stats.totalOrders / progress.next.minOrders : 1;
-  const bySpend = progress.next.minSpentCents > 0 ? stats.totalSpentCents / progress.next.minSpentCents : 1;
+  const bySpend =
+    progress.next.minSpentCents > 0 ? stats.totalSpentCents / progress.next.minSpentCents : 1;
   return Math.max(0, Math.min(100, Math.min(byOrders, bySpend) * 100));
 }

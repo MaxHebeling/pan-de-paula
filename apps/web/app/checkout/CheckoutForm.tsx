@@ -42,10 +42,14 @@ export function CheckoutForm({
   const [pending, startTransition] = useTransition();
   const [idem] = useState(() => newIdempotencyKey("web"));
 
-  const [optionKey, setOptionKey] = useState(options[0] ? `${options[0].windowId}|${options[0].date}` : "");
+  const [optionKey, setOptionKey] = useState(
+    options[0] ? `${options[0].windowId}|${options[0].date}` : "",
+  );
   const option = options.find((o) => `${o.windowId}|${o.date}` === optionKey) ?? null;
   const isDelivery = option?.fulfillmentType === "delivery";
-  const [pickupPointId, setPickupPointId] = useState(pickupPoints.find((p) => p.isDefault)?.id ?? pickupPoints[0]?.id ?? "");
+  const [pickupPointId, setPickupPointId] = useState(
+    pickupPoints.find((p) => p.isDefault)?.id ?? pickupPoints[0]?.id ?? "",
+  );
   const [street, setStreet] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
   const [references, setReferences] = useState("");
@@ -60,7 +64,9 @@ export function CheckoutForm({
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
 
-  const defaultMethod: CheckoutPayload["payment_method"] = payment.mercadopago ? "mercadopago" : "cash";
+  const defaultMethod: CheckoutPayload["payment_method"] = payment.mercadopago
+    ? "mercadopago"
+    : "cash";
   const [method, setMethod] = useState<CheckoutPayload["payment_method"]>(defaultMethod);
   const [error, setError] = useState<{ message: string; field?: string } | null>(null);
 
@@ -84,9 +90,17 @@ export function CheckoutForm({
     return (
       <div className="card mt-8 p-8">
         <p className="font-display text-2xl text-ink">Por ahora no hay fechas abiertas</p>
-        <p className="mt-2 text-ink-2">No tenemos ventanas de pedido activas en este momento. Escríbenos y lo resolvemos por mensaje.</p>
+        <p className="mt-2 text-ink-2">
+          No tenemos ventanas de pedido activas en este momento. Escríbenos y lo resolvemos por
+          mensaje.
+        </p>
         {whatsapp && (
-          <a href={whatsapp} target="_blank" rel="noopener noreferrer" className="btn btn-primary mt-5">
+          <a
+            href={whatsapp}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary mt-5"
+          >
             Escribir por WhatsApp
           </a>
         )}
@@ -113,15 +127,27 @@ export function CheckoutForm({
     e.preventDefault();
     setError(null);
     if (!option) return setError({ field: "date", message: "Elige una fecha de recolección." });
-    if (name.trim().length < 2) return setError({ field: "customer_name", message: "Escribe tu nombre completo." });
-    if (phone.replace(/\D/g, "").length < 10) return setError({ field: "customer_phone", message: "Escribe un teléfono de 10 dígitos." });
-    if (isDelivery && street.trim().length < 3) return setError({ field: "delivery_address", message: "Escribe la calle y número de entrega." });
+    if (name.trim().length < 2)
+      return setError({ field: "customer_name", message: "Escribe tu nombre completo." });
+    if (phone.replace(/\D/g, "").length < 10)
+      return setError({ field: "customer_phone", message: "Escribe un teléfono de 10 dígitos." });
+    if (isDelivery && street.trim().length < 3)
+      return setError({
+        field: "delivery_address",
+        message: "Escribe la calle y número de entrega.",
+      });
     const payload: CheckoutPayload = {
       items: cart.lines.map((l) => ({ product_id: l.productId, qty: l.qty })),
       window_id: option.windowId,
       date: option.date,
       pickup_point_id: isDelivery ? undefined : pickupPointId || undefined,
-      delivery_address: isDelivery ? { street: street.trim(), neighborhood: neighborhood.trim() || undefined, references_note: references.trim() || undefined } : undefined,
+      delivery_address: isDelivery
+        ? {
+            street: street.trim(),
+            neighborhood: neighborhood.trim() || undefined,
+            references_note: references.trim() || undefined,
+          }
+        : undefined,
       customer_name: name.trim(),
       customer_phone: phone.trim(),
       customer_email: email.trim() || undefined,
@@ -155,7 +181,9 @@ export function CheckoutForm({
         {/* Paso 1 */}
         <section className="card p-5 sm:p-6" aria-labelledby="paso-1">
           <h2 id="paso-1" className="flex items-center gap-3 font-display text-2xl text-ink">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">1</span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">
+              1
+            </span>
             ¿Cuándo lo recoges?
           </h2>
           <fieldset className="mt-4">
@@ -169,12 +197,27 @@ export function CheckoutForm({
                     key={key}
                     className={`cursor-pointer rounded-card border-2 p-4 transition ${checked ? "border-sage bg-sage/5" : "border-line bg-paper hover:border-ink/30"}`}
                   >
-                    <input type="radio" name="option" value={key} checked={checked} onChange={() => setOptionKey(key)} className="sr-only" data-testid="fulfillment-radio" />
-                    <span className="eyebrow block">{FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}</span>
-                    <span className="mt-1 block font-display text-xl text-ink">{capitalize(formatLocalDate(o.date))}</span>
-                    {(o.from || o.to) && <span className="block text-sm text-ink-2">{hourRange(o.from, o.to)}</span>}
+                    <input
+                      type="radio"
+                      name="option"
+                      value={key}
+                      checked={checked}
+                      onChange={() => setOptionKey(key)}
+                      className="sr-only"
+                      data-testid="fulfillment-radio"
+                    />
+                    <span className="eyebrow block">
+                      {FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}
+                    </span>
+                    <span className="mt-1 block font-display text-xl text-ink">
+                      {capitalize(formatLocalDate(o.date))}
+                    </span>
+                    {(o.from || o.to) && (
+                      <span className="block text-sm text-ink-2">{hourRange(o.from, o.to)}</span>
+                    )}
                     <span className="mt-1 block text-xs text-ink-2">
-                      Pide antes del {formatLocalDate(o.orderByDate, { weekday: false })} a las {hour12(o.orderByTime)}
+                      Pide antes del {formatLocalDate(o.orderByDate, { weekday: false })} a las{" "}
+                      {hour12(o.orderByTime)}
                     </span>
                   </label>
                 );
@@ -192,7 +235,12 @@ export function CheckoutForm({
               <label htmlFor="pickup" className="label">
                 Punto de recolección
               </label>
-              <select id="pickup" className="input" value={pickupPointId} onChange={(e) => setPickupPointId(e.target.value)}>
+              <select
+                id="pickup"
+                className="input"
+                value={pickupPointId}
+                onChange={(e) => setPickupPointId(e.target.value)}
+              >
                 {pickupPoints.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -205,31 +253,54 @@ export function CheckoutForm({
           {!isDelivery && pickupPoints.length === 1 && pickupPoints[0] && (
             <p className="mt-4 text-sm text-ink-2">
               Recoges en <strong className="text-ink">{pickupPoints[0].name}</strong>
-              {pickupPoints[0].address && pickupPoints[0].address !== "Dirección por configurar" ? ` · ${pickupPoints[0].address}` : ""}.
+              {pickupPoints[0].address && pickupPoints[0].address !== "Dirección por configurar"
+                ? ` · ${pickupPoints[0].address}`
+                : ""}
+              .
             </p>
           )}
 
           {isDelivery && (
             <div className="mt-5 grid gap-4">
-              {deliveryZone && <p className="text-sm text-ink-2">Zona de entrega: {deliveryZone}</p>}
+              {deliveryZone && (
+                <p className="text-sm text-ink-2">Zona de entrega: {deliveryZone}</p>
+              )}
               <div>
                 <label htmlFor="street" className="label">
                   Calle y número
                 </label>
-                <input id="street" className="input" value={street} onChange={(e) => setStreet(e.target.value)} autoComplete="street-address" required />
+                <input
+                  id="street"
+                  className="input"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  autoComplete="street-address"
+                  required
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="neighborhood" className="label">
                     Colonia
                   </label>
-                  <input id="neighborhood" className="input" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} autoComplete="address-level3" />
+                  <input
+                    id="neighborhood"
+                    className="input"
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    autoComplete="address-level3"
+                  />
                 </div>
                 <div>
                   <label htmlFor="references" className="label">
                     Referencias
                   </label>
-                  <input id="references" className="input" value={references} onChange={(e) => setReferences(e.target.value)} />
+                  <input
+                    id="references"
+                    className="input"
+                    value={references}
+                    onChange={(e) => setReferences(e.target.value)}
+                  />
                 </div>
               </div>
               {err("delivery_address") && (
@@ -244,7 +315,9 @@ export function CheckoutForm({
         {/* Paso 2 */}
         <section className="card p-5 sm:p-6" aria-labelledby="paso-2">
           <h2 id="paso-2" className="flex items-center gap-3 font-display text-2xl text-ink">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">2</span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">
+              2
+            </span>
             Tus datos
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -252,7 +325,16 @@ export function CheckoutForm({
               <label htmlFor="name" className="label">
                 Nombre completo
               </label>
-              <input id="name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required aria-invalid={Boolean(err("customer_name"))} data-testid="name" />
+              <input
+                id="name"
+                className="input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                required
+                aria-invalid={Boolean(err("customer_name"))}
+                data-testid="name"
+              />
               {err("customer_name") && (
                 <p className="error" role="alert">
                   {err("customer_name")}
@@ -263,7 +345,19 @@ export function CheckoutForm({
               <label htmlFor="phone" className="label">
                 Teléfono (WhatsApp)
               </label>
-              <input id="phone" type="tel" inputMode="numeric" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" required placeholder="10 dígitos" aria-invalid={Boolean(err("customer_phone"))} data-testid="phone" />
+              <input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                className="input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                autoComplete="tel"
+                required
+                placeholder="10 dígitos"
+                aria-invalid={Boolean(err("customer_phone"))}
+                data-testid="phone"
+              />
               <p className="help">Te avisamos por aquí cuando tu pedido esté listo.</p>
               {err("customer_phone") && (
                 <p className="error" role="alert">
@@ -275,7 +369,16 @@ export function CheckoutForm({
               <label htmlFor="email" className="label">
                 Correo (opcional)
               </label>
-              <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" aria-invalid={Boolean(err("customer_email"))} data-testid="email" />
+              <input
+                id="email"
+                type="email"
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                aria-invalid={Boolean(err("customer_email"))}
+                data-testid="email"
+              />
               <p className="help">Para enviarte la confirmación.</p>
               {err("customer_email") && (
                 <p className="error" role="alert">
@@ -287,10 +390,17 @@ export function CheckoutForm({
 
           <div className="mt-5 rounded-card border border-line bg-cream/60 p-4">
             <label className="flex cursor-pointer items-start gap-3">
-              <input type="checkbox" className="mt-1 h-5 w-5 accent-sage" checked={isMember} onChange={(e) => setIsMember(e.target.checked)} />
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5 accent-sage"
+                checked={isMember}
+                onChange={(e) => setIsMember(e.target.checked)}
+              />
               <span>
                 <span className="block font-medium text-ink">Ya soy cliente del club</span>
-                <span className="block text-sm text-ink-2">Vincula tu pedido para sumar puntos.</span>
+                <span className="block text-sm text-ink-2">
+                  Vincula tu pedido para sumar puntos.
+                </span>
               </span>
             </label>
             {isMember && (
@@ -299,8 +409,19 @@ export function CheckoutForm({
                   Teléfono registrado o código PDP
                 </label>
                 <div className="flex gap-2">
-                  <input id="lookup" className="input" value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="PDP-000123 o 6641234567" />
-                  <button type="button" className="btn btn-secondary shrink-0" onClick={doLookup} disabled={lookupBusy || lookup.trim().length < 6}>
+                  <input
+                    id="lookup"
+                    className="input"
+                    value={lookup}
+                    onChange={(e) => setLookup(e.target.value)}
+                    placeholder="PDP-000123 o 6641234567"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary shrink-0"
+                    onClick={doLookup}
+                    disabled={lookupBusy || lookup.trim().length < 6}
+                  >
                     {lookupBusy ? "Buscando…" : "Buscar"}
                   </button>
                 </div>
@@ -322,13 +443,25 @@ export function CheckoutForm({
             <label htmlFor="order-notes" className="label">
               Notas para la panadería (opcional)
             </label>
-            <textarea id="order-notes" className="input min-h-20 py-3" value={cart.notes} onChange={(e) => cart.setNotes(e.target.value)} maxLength={500} />
+            <textarea
+              id="order-notes"
+              className="input min-h-20 py-3"
+              value={cart.notes}
+              onChange={(e) => cart.setNotes(e.target.value)}
+              maxLength={500}
+            />
           </div>
 
           <label className="mt-4 flex cursor-pointer items-start gap-3">
-            <input type="checkbox" className="mt-1 h-5 w-5 accent-sage" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <input
+              type="checkbox"
+              className="mt-1 h-5 w-5 accent-sage"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+            />
             <span className="text-sm text-ink-2">
-              Quiero recibir novedades, temporadas y promociones por WhatsApp o correo. Puedes darte de baja cuando quieras.
+              Quiero recibir novedades, temporadas y promociones por WhatsApp o correo. Puedes darte
+              de baja cuando quieras.
             </span>
           </label>
         </section>
@@ -336,19 +469,39 @@ export function CheckoutForm({
         {/* Paso 3 */}
         <section className="card p-5 sm:p-6" aria-labelledby="paso-3">
           <h2 id="paso-3" className="flex items-center gap-3 font-display text-2xl text-ink">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">3</span>
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage text-base text-white">
+              3
+            </span>
             ¿Cómo pagas?
           </h2>
           <fieldset className="mt-4 grid gap-3">
             <legend className="sr-only">Método de pago</legend>
             {payment.mercadopago && (
-              <PayOption checked={method === "mercadopago"} onChange={() => setMethod("mercadopago")} title="Pagar en línea" body="Tarjeta, débito o saldo con Mercado Pago. Te redirigimos para pagar de forma segura." testId="pay-mercadopago" />
+              <PayOption
+                checked={method === "mercadopago"}
+                onChange={() => setMethod("mercadopago")}
+                title="Pagar en línea"
+                body="Tarjeta, débito o saldo con Mercado Pago. Te redirigimos para pagar de forma segura."
+                testId="pay-mercadopago"
+              />
             )}
             {payment.cash && (
-              <PayOption checked={method === "cash"} onChange={() => setMethod("cash")} title="Pagar al recoger" body="En efectivo o con tarjeta en el mostrador cuando pases por tu pedido." testId="pay-cash" />
+              <PayOption
+                checked={method === "cash"}
+                onChange={() => setMethod("cash")}
+                title="Pagar al recoger"
+                body="En efectivo o con tarjeta en el mostrador cuando pases por tu pedido."
+                testId="pay-cash"
+              />
             )}
             {payment.transfer && (
-              <PayOption checked={method === "transfer"} onChange={() => setMethod("transfer")} title="Transferencia" body="Te mostramos los datos bancarios al confirmar. Tu pedido queda apartado." testId="pay-transfer" />
+              <PayOption
+                checked={method === "transfer"}
+                onChange={() => setMethod("transfer")}
+                title="Transferencia"
+                body="Te mostramos los datos bancarios al confirmar. Tu pedido queda apartado."
+                testId="pay-transfer"
+              />
             )}
           </fieldset>
           {err("payment_method") && (
@@ -378,7 +531,9 @@ export function CheckoutForm({
                   <span className="block truncate text-ink">{l.name}</span>
                   <span className="text-ink-2">× {l.qty}</span>
                 </span>
-                <span className="text-sm font-medium tabular-nums">{money(l.unitPriceCents * l.qty)}</span>
+                <span className="text-sm font-medium tabular-nums">
+                  {money(l.unitPriceCents * l.qty)}
+                </span>
               </li>
             ))}
           </ul>
@@ -408,17 +563,29 @@ export function CheckoutForm({
           </dl>
           {option && (
             <p className="mt-3 rounded-[12px] bg-cream px-3 py-2 text-xs text-ink-2">
-              Recolección: <strong className="text-ink">{capitalize(formatLocalDate(option.date))}</strong>
+              Recolección:{" "}
+              <strong className="text-ink">{capitalize(formatLocalDate(option.date))}</strong>
               {(option.from || option.to) && ` · ${hourRange(option.from, option.to)}`}
             </p>
           )}
-          {error && (!error.field || ["items", "coupon_code", "date", "payment_method"].includes(error.field)) && (
-            <p className="error" role="alert" data-testid="checkout-error">
-              {error.message}
-            </p>
-          )}
-          <button type="submit" className="btn btn-primary btn-lg mt-5 w-full" disabled={pending} data-testid="place-order">
-            {pending ? "Registrando tu pedido…" : method === "mercadopago" ? "Continuar al pago" : "Confirmar pedido"}
+          {error &&
+            (!error.field ||
+              ["items", "coupon_code", "date", "payment_method"].includes(error.field)) && (
+              <p className="error" role="alert" data-testid="checkout-error">
+                {error.message}
+              </p>
+            )}
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg mt-5 w-full"
+            disabled={pending}
+            data-testid="place-order"
+          >
+            {pending
+              ? "Registrando tu pedido…"
+              : method === "mercadopago"
+                ? "Continuar al pago"
+                : "Confirmar pedido"}
           </button>
           <p className="mt-3 text-center text-xs text-ink-2">
             Al confirmar aceptas nuestros{" "}
@@ -440,10 +607,31 @@ export function CheckoutForm({
   );
 }
 
-function PayOption({ checked, onChange, title, body, testId }: { checked: boolean; onChange: () => void; title: string; body: string; testId: string }) {
+function PayOption({
+  checked,
+  onChange,
+  title,
+  body,
+  testId,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  body: string;
+  testId: string;
+}) {
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-card border-2 p-4 transition ${checked ? "border-sage bg-sage/5" : "border-line bg-paper hover:border-ink/30"}`}>
-      <input type="radio" name="payment" checked={checked} onChange={onChange} className="mt-1 h-5 w-5 accent-sage" data-testid={testId} />
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-card border-2 p-4 transition ${checked ? "border-sage bg-sage/5" : "border-line bg-paper hover:border-ink/30"}`}
+    >
+      <input
+        type="radio"
+        name="payment"
+        checked={checked}
+        onChange={onChange}
+        className="mt-1 h-5 w-5 accent-sage"
+        data-testid={testId}
+      />
       <span>
         <span className="block font-medium text-ink">{title}</span>
         <span className="block text-sm text-ink-2">{body}</span>

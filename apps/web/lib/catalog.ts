@@ -121,16 +121,18 @@ const BASE = sql`
 `;
 
 export const listProducts = cache(async (): Promise<CatalogProduct[]> => {
-  const r = await sql<Row>`${BASE} and p.parent_id is null order by c.sort_order nulls last, p.sort_order, p.name`.execute(
-    db(),
-  );
+  const r =
+    await sql<Row>`${BASE} and p.parent_id is null order by c.sort_order nulls last, p.sort_order, p.name`.execute(
+      db(),
+    );
   return r.rows.map(map);
 });
 
 export const listFeatured = cache(async (limit = 6): Promise<CatalogProduct[]> => {
-  const r = await sql<Row>`${BASE} and p.parent_id is null and p.is_featured order by p.sort_order, p.name limit ${limit}`.execute(
-    db(),
-  );
+  const r =
+    await sql<Row>`${BASE} and p.parent_id is null and p.is_featured order by p.sort_order, p.name limit ${limit}`.execute(
+      db(),
+    );
   return r.rows.map(map);
 });
 
@@ -139,7 +141,8 @@ export const listPromos = cache(async (limit = 6): Promise<CatalogProduct[]> => 
   const all = await listProducts();
   return all
     .filter(
-      (p) => p.priceCents !== null && p.regularPriceCents !== null && p.priceCents < p.regularPriceCents,
+      (p) =>
+        p.priceCents !== null && p.regularPriceCents !== null && p.priceCents < p.regularPriceCents,
     )
     .slice(0, limit);
 });
@@ -150,16 +153,20 @@ export const getProductBySlug = cache(async (slug: string): Promise<CatalogProdu
 });
 
 export const listVariants = cache(async (parentId: string): Promise<CatalogProduct[]> => {
-  const r = await sql<Row>`${BASE} and p.parent_id = ${parentId} order by p.sort_order, p.name`.execute(db());
+  const r =
+    await sql<Row>`${BASE} and p.parent_id = ${parentId} order by p.sort_order, p.name`.execute(
+      db(),
+    );
   return r.rows.map(map);
 });
 
 export const listRelated = cache(
   async (categoryId: string | null, excludeId: string, limit = 4): Promise<CatalogProduct[]> => {
     if (!categoryId) return [];
-    const r = await sql<Row>`${BASE} and p.parent_id is null and p.category_id = ${categoryId} and p.id <> ${excludeId} order by p.is_featured desc, p.sort_order, p.name limit ${limit}`.execute(
-      db(),
-    );
+    const r =
+      await sql<Row>`${BASE} and p.parent_id is null and p.category_id = ${categoryId} and p.id <> ${excludeId} order by p.is_featured desc, p.sort_order, p.name limit ${limit}`.execute(
+        db(),
+      );
     return r.rows.map(map);
   },
 );
@@ -196,7 +203,8 @@ export type Category = {
 export const listCategories = cache(async (): Promise<Category[]> => {
   const products = await listProducts();
   const counts = new Map<string, number>();
-  for (const p of products) if (p.categoryId) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
+  for (const p of products)
+    if (p.categoryId) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
   const rows = await db()
     .selectFrom("categories")
     .select(["id", "slug", "name", "description", "image_url"])

@@ -33,7 +33,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: c ? `${c.full_name} · Clientes` : "Cliente" };
 }
 
-const REASON_LABEL: Record<string, string> = { phone: "mismo teléfono", email: "mismo email", name: "nombre similar" };
+const REASON_LABEL: Record<string, string> = {
+  phone: "mismo teléfono",
+  email: "mismo email",
+  name: "nombre similar",
+};
 
 export default async function CustomerPage({
   params,
@@ -59,11 +63,20 @@ export default async function CustomerPage({
   }));
   const current = domainTiers.find((t) => t.key === c.tier_key) ?? null;
   const tierRow = tiers.find((t) => t.key === c.tier_key);
-  const stats = { totalOrders: c.total_orders, totalSpentCents: c.total_spent_cents, lifetimePoints: c.lifetime_points };
+  const stats = {
+    totalOrders: c.total_orders,
+    totalSpentCents: c.total_spent_cents,
+    lifetimePoints: c.lifetime_points,
+  };
   const progress = tierProgress(domainTiers, current, stats);
-  const pctOrders = progress ? Math.min(100, Math.round((c.total_orders / Math.max(1, progress.next.minOrders)) * 100)) : 100;
+  const pctOrders = progress
+    ? Math.min(100, Math.round((c.total_orders / Math.max(1, progress.next.minOrders)) * 100))
+    : 100;
   const pctSpend = progress
-    ? Math.min(100, Math.round((c.total_spent_cents / Math.max(1, progress.next.minSpentCents)) * 100))
+    ? Math.min(
+        100,
+        Math.round((c.total_spent_cents / Math.max(1, progress.next.minSpentCents)) * 100),
+      )
     : 100;
   const flash = sp.creado
     ? "Cliente registrado."
@@ -118,9 +131,25 @@ export default async function CustomerPage({
         </div>
       )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Puntos" value={c.points_balance} hint={`${c.lifetime_points} acumulados históricamente`} />
-        <Stat label="Compras" value={c.total_orders} hint={c.first_purchase_at ? `primera ${fmtDate(c.first_purchase_at)}` : "sin compras"} />
-        <Stat label="Gasto total" value={<Money cents={c.total_spent_cents} compact />} hint={c.total_orders ? `ticket promedio ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(c.total_spent_cents / c.total_orders / 100)}` : undefined} />
+        <Stat
+          label="Puntos"
+          value={c.points_balance}
+          hint={`${c.lifetime_points} acumulados históricamente`}
+        />
+        <Stat
+          label="Compras"
+          value={c.total_orders}
+          hint={c.first_purchase_at ? `primera ${fmtDate(c.first_purchase_at)}` : "sin compras"}
+        />
+        <Stat
+          label="Gasto total"
+          value={<Money cents={c.total_spent_cents} compact />}
+          hint={
+            c.total_orders
+              ? `ticket promedio ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(c.total_spent_cents / c.total_orders / 100)}`
+              : undefined
+          }
+        />
         <Stat
           label="Última compra"
           value={c.last_purchase_at ? fmtDate(c.last_purchase_at) : "—"}
@@ -139,7 +168,15 @@ export default async function CustomerPage({
               <dt className="text-muted">Email</dt>
               <dd className="break-all">{c.email ?? "—"}</dd>
               <dt className="text-muted">Cumpleaños</dt>
-              <dd>{c.birthday ? new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(c.birthday + "T00:00:00Z")) : "—"}</dd>
+              <dd>
+                {c.birthday
+                  ? new Intl.DateTimeFormat("es-MX", {
+                      day: "numeric",
+                      month: "long",
+                      timeZone: "UTC",
+                    }).format(new Date(c.birthday + "T00:00:00Z"))
+                  : "—"}
+              </dd>
               <dt className="text-muted">Notas</dt>
               <dd className="whitespace-pre-wrap">{c.notes ?? "—"}</dd>
             </dl>
@@ -147,20 +184,33 @@ export default async function CustomerPage({
               <div className="flex items-center justify-between gap-2">
                 <span>
                   Marketing:{" "}
-                  <Badge tone={c.marketing_consent ? "green" : "gray"}>{c.marketing_consent ? "acepta" : "no acepta"}</Badge>
+                  <Badge tone={c.marketing_consent ? "green" : "gray"}>
+                    {c.marketing_consent ? "acepta" : "no acepta"}
+                  </Badge>
                   {!c.marketing_consent && c.marketing_opt_out_at && (
-                    <span className="ml-1 text-xs text-muted">baja {fmtDate(c.marketing_opt_out_at)}</span>
+                    <span className="ml-1 text-xs text-muted">
+                      baja {fmtDate(c.marketing_opt_out_at)}
+                    </span>
                   )}
                 </span>
                 {canWrite && (
-                  <ActionForm action={setMarketingConsentAction} inline submitLabel={c.marketing_consent ? "Dar de baja" : "Activar"} variant="secondary" size="sm">
+                  <ActionForm
+                    action={setMarketingConsentAction}
+                    inline
+                    submitLabel={c.marketing_consent ? "Dar de baja" : "Activar"}
+                    variant="secondary"
+                    size="sm"
+                  >
                     <input type="hidden" name="id" value={c.id} />
                     <input type="hidden" name="value" value={c.marketing_consent ? "off" : "on"} />
                   </ActionForm>
                 )}
               </div>
               <div>
-                Avisos operativos: <Badge tone={c.operational_consent ? "green" : "gray"}>{c.operational_consent ? "sí" : "no"}</Badge>
+                Avisos operativos:{" "}
+                <Badge tone={c.operational_consent ? "green" : "gray"}>
+                  {c.operational_consent ? "sí" : "no"}
+                </Badge>
               </div>
             </div>
           </Card>
@@ -182,7 +232,10 @@ export default async function CustomerPage({
                     </>
                   )}
                 </p>
-                <ProgressBar label={`Compras ${c.total_orders}/${progress.next.minOrders}`} pct={pctOrders} />
+                <ProgressBar
+                  label={`Compras ${c.total_orders}/${progress.next.minOrders}`}
+                  pct={pctOrders}
+                />
                 <ProgressBar
                   label={`Gasto ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(c.total_spent_cents / 100)} / ${new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(progress.next.minSpentCents / 100)}`}
                   pct={pctSpend}
@@ -202,14 +255,28 @@ export default async function CustomerPage({
                   <li key={a.id} className="flex items-start justify-between gap-2 py-2">
                     <div>
                       <div className="font-medium">
-                        {a.label ?? "Dirección"} {a.is_default && <Badge tone="blue">principal</Badge>}
+                        {a.label ?? "Dirección"}{" "}
+                        {a.is_default && <Badge tone="blue">principal</Badge>}
                       </div>
                       <div>{a.street}</div>
-                      <div className="text-muted">{[a.neighborhood, a.city, a.state, a.postal_code].filter(Boolean).join(", ")}</div>
-                      {a.references_note && <div className="text-xs text-muted">Ref: {a.references_note}</div>}
+                      <div className="text-muted">
+                        {[a.neighborhood, a.city, a.state, a.postal_code]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </div>
+                      {a.references_note && (
+                        <div className="text-xs text-muted">Ref: {a.references_note}</div>
+                      )}
                     </div>
                     {canWrite && (
-                      <ActionForm action={deleteAddressAction} inline submitLabel="Quitar" variant="danger" size="sm" confirm="¿Eliminar esta dirección?">
+                      <ActionForm
+                        action={deleteAddressAction}
+                        inline
+                        submitLabel="Quitar"
+                        variant="danger"
+                        size="sm"
+                        confirm="¿Eliminar esta dirección?"
+                      >
                         <input type="hidden" name="id" value={c.id} />
                         <input type="hidden" name="address_id" value={a.id} />
                       </ActionForm>
@@ -220,16 +287,33 @@ export default async function CustomerPage({
             )}
             {canWrite && (
               <details className="mt-3">
-                <summary className="cursor-pointer text-sm font-medium text-teal-d">Agregar dirección</summary>
-                <ActionForm action={addAddressAction} submitLabel="Guardar dirección" resetOnOk className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-teal-d">
+                  Agregar dirección
+                </summary>
+                <ActionForm
+                  action={addAddressAction}
+                  submitLabel="Guardar dirección"
+                  resetOnOk
+                  className="mt-2"
+                >
                   <input type="hidden" name="id" value={c.id} />
                   <input name="label" className="input" placeholder="Etiqueta (Casa, Oficina)" />
                   <input name="street" className="input" placeholder="Calle y número *" required />
                   <div className="grid grid-cols-2 gap-2">
                     <input name="neighborhood" className="input" placeholder="Colonia" />
                     <input name="postal_code" className="input" placeholder="C.P." />
-                    <input name="city" className="input" placeholder="Ciudad" defaultValue="Tijuana" />
-                    <input name="state" className="input" placeholder="Estado" defaultValue="Baja California" />
+                    <input
+                      name="city"
+                      className="input"
+                      placeholder="Ciudad"
+                      defaultValue="Tijuana"
+                    />
+                    <input
+                      name="state"
+                      className="input"
+                      placeholder="Estado"
+                      defaultValue="Baja California"
+                    />
                   </div>
                   <input name="references_note" className="input" placeholder="Referencias" />
                   <label className="flex items-center gap-2 text-sm">
@@ -252,13 +336,28 @@ export default async function CustomerPage({
                     <label className="label" htmlFor="points">
                       Puntos (±)
                     </label>
-                    <input id="points" name="points" type="number" step={1} className="input" placeholder="-10 / 25" required />
+                    <input
+                      id="points"
+                      name="points"
+                      type="number"
+                      step={1}
+                      className="input"
+                      placeholder="-10 / 25"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="label" htmlFor="reason">
                       Motivo *
                     </label>
-                    <input id="reason" name="reason" className="input" placeholder="Cortesía por espera, corrección…" required minLength={3} />
+                    <input
+                      id="reason"
+                      name="reason"
+                      className="input"
+                      placeholder="Cortesía por espera, corrección…"
+                      required
+                      minLength={3}
+                    />
                   </div>
                 </div>
               </ActionForm>
@@ -267,19 +366,32 @@ export default async function CustomerPage({
           {canWrite && !c.merged_into_id && (
             <Card title="Canjear recompensa">
               {x.rewards.length === 0 ? (
-                <p className="text-sm text-muted">No hay recompensas activas. Configúralas en Fidelización.</p>
+                <p className="text-sm text-muted">
+                  No hay recompensas activas. Configúralas en Fidelización.
+                </p>
               ) : (
-                <ActionForm action={redeemRewardAction} submitLabel="Canjear" confirm="¿Descontar los puntos y emitir la recompensa?">
+                <ActionForm
+                  action={redeemRewardAction}
+                  submitLabel="Canjear"
+                  confirm="¿Descontar los puntos y emitir la recompensa?"
+                >
                   <input type="hidden" name="id" value={c.id} />
                   <select name="reward_id" className="input" defaultValue="" required>
                     <option value="" disabled>
                       Selecciona…
                     </option>
                     {x.rewards.map((r) => {
-                      const locked = r.points_cost > c.points_balance || (r.min_rank !== null && (tierRow?.rank ?? 0) < r.min_rank);
+                      const locked =
+                        r.points_cost > c.points_balance ||
+                        (r.min_rank !== null && (tierRow?.rank ?? 0) < r.min_rank);
                       return (
                         <option key={r.id} value={r.id} disabled={locked}>
-                          {r.name} · {r.points_cost} pts{locked ? (r.points_cost > c.points_balance ? " (puntos insuficientes)" : " (requiere nivel)") : ""}
+                          {r.name} · {r.points_cost} pts
+                          {locked
+                            ? r.points_cost > c.points_balance
+                              ? " (puntos insuficientes)"
+                              : " (requiere nivel)"
+                            : ""}
                         </option>
                       );
                     })}
@@ -298,7 +410,9 @@ export default async function CustomerPage({
                     <div>
                       <div className="font-medium">
                         {TX_LABELS[l.kind] ?? l.kind}
-                        {l.folio && <span className="ml-1 font-mono text-xs text-muted">{l.folio}</span>}
+                        {l.folio && (
+                          <span className="ml-1 font-mono text-xs text-muted">{l.folio}</span>
+                        )}
                       </div>
                       <div className="text-xs text-muted">
                         {fmtDate(l.created_at, "datetime")}
@@ -307,7 +421,11 @@ export default async function CustomerPage({
                       </div>
                     </div>
                     <div className="text-right tabular-nums">
-                      <div className={l.points >= 0 ? "font-semibold text-green-d" : "font-semibold text-red-d"}>
+                      <div
+                        className={
+                          l.points >= 0 ? "font-semibold text-green-d" : "font-semibold text-red-d"
+                        }
+                      >
                         {l.points > 0 ? "+" : ""}
                         {l.points}
                       </div>
@@ -343,21 +461,38 @@ export default async function CustomerPage({
                   <li key={r.id} className="flex items-center justify-between gap-2 py-1.5">
                     <span>
                       {r.reward_name} <span className="font-mono text-xs text-muted">{r.code}</span>
-                      {r.folio && <span className="ml-1 font-mono text-xs text-muted">{r.folio}</span>}
+                      {r.folio && (
+                        <span className="ml-1 font-mono text-xs text-muted">{r.folio}</span>
+                      )}
                     </span>
                     <span className="flex items-center gap-2 text-xs">
                       <span className="tabular-nums text-muted">−{r.points_spent} pts</span>
-                      <Badge tone={r.status === "applied" ? "green" : r.status === "issued" ? "blue" : "gray"}>
-                        {r.status === "applied" ? "aplicado" : r.status === "issued" ? "emitido" : r.status === "cancelled" ? "cancelado" : "vencido"}
+                      <Badge
+                        tone={
+                          r.status === "applied" ? "green" : r.status === "issued" ? "blue" : "gray"
+                        }
+                      >
+                        {r.status === "applied"
+                          ? "aplicado"
+                          : r.status === "issued"
+                            ? "emitido"
+                            : r.status === "cancelled"
+                              ? "cancelado"
+                              : "vencido"}
                       </Badge>
                     </span>
                   </li>
                 ))}
                 {x.coupons.map((cp, i) => (
-                  <li key={`${cp.code}-${i}`} className="flex items-center justify-between gap-2 py-1.5">
+                  <li
+                    key={`${cp.code}-${i}`}
+                    className="flex items-center justify-between gap-2 py-1.5"
+                  >
                     <span>
                       Cupón <span className="font-mono">{cp.code}</span>
-                      {cp.folio && <span className="ml-1 font-mono text-xs text-muted">{cp.folio}</span>}
+                      {cp.folio && (
+                        <span className="ml-1 font-mono text-xs text-muted">{cp.folio}</span>
+                      )}
                     </span>
                     <span className="text-xs text-muted">
                       −<Money cents={cp.discount_cents} compact /> · {fmtDate(cp.created_at)}
@@ -382,7 +517,17 @@ export default async function CustomerPage({
                       <span className="font-mono text-xs">{o.folio}</span>
                       <span className="flex items-center gap-1.5">
                         <Badge tone="blue">{CHANNEL_LABELS[o.channel] ?? o.channel}</Badge>
-                        <Badge tone={o.voided_at ? "red" : o.status === "completed" || o.status === "delivered" ? "green" : o.status === "cancelled" || o.status === "refunded" ? "red" : "amber"}>
+                        <Badge
+                          tone={
+                            o.voided_at
+                              ? "red"
+                              : o.status === "completed" || o.status === "delivered"
+                                ? "green"
+                                : o.status === "cancelled" || o.status === "refunded"
+                                  ? "red"
+                                  : "amber"
+                          }
+                        >
                           {o.voided_at ? "Anulada" : (ORDER_STATUS_LABELS[o.status] ?? o.status)}
                         </Badge>
                       </span>
@@ -393,7 +538,9 @@ export default async function CustomerPage({
                       </span>
                       <span className="whitespace-nowrap tabular-nums">
                         <Money cents={o.total_cents} />
-                        {o.points > 0 && <span className="ml-1 text-xs text-green-d">+{o.points} pts</span>}
+                        {o.points > 0 && (
+                          <span className="ml-1 text-xs text-green-d">+{o.points} pts</span>
+                        )}
                       </span>
                     </div>
                     <div className="text-xs text-muted">{fmtDate(o.placed_at, "datetime")}</div>
@@ -411,7 +558,9 @@ export default async function CustomerPage({
                 {x.events.map((e) => (
                   <li key={e.id} className="flex items-center justify-between gap-2 py-1.5">
                     <div>
-                      <div className={e.handled_at ? "text-muted" : "font-medium"}>{EVENT_LABELS[e.kind] ?? e.kind}</div>
+                      <div className={e.handled_at ? "text-muted" : "font-medium"}>
+                        {EVENT_LABELS[e.kind] ?? e.kind}
+                      </div>
                       <div className="text-xs text-muted">
                         {fmtDate(e.created_at)}
                         {typeof e.payload.days === "number" && ` · ${e.payload.days} días`}
@@ -420,7 +569,13 @@ export default async function CustomerPage({
                       </div>
                     </div>
                     {!e.handled_at && canWrite && (
-                      <ActionForm action={markEventHandledAction} inline submitLabel="Atendido" variant="secondary" size="sm">
+                      <ActionForm
+                        action={markEventHandledAction}
+                        inline
+                        submitLabel="Atendido"
+                        variant="secondary"
+                        size="sm"
+                      >
                         <input type="hidden" name="id" value={c.id} />
                         <input type="hidden" name="event_id" value={e.id} />
                       </ActionForm>
@@ -434,21 +589,25 @@ export default async function CustomerPage({
           {!c.merged_into_id && (
             <Card title="Posibles duplicados">
               {x.duplicates.length === 0 ? (
-                <p className="text-sm text-muted">No se detectaron duplicados por teléfono, email o nombre.</p>
+                <p className="text-sm text-muted">
+                  No se detectaron duplicados por teléfono, email o nombre.
+                </p>
               ) : (
                 <ul className="divide-y divide-line text-sm">
                   {x.duplicates.map((d) => (
                     <li key={d.id} className="py-2">
                       <div className="flex items-center justify-between gap-2">
                         <Link href={`/clientes/${d.id}`} className="font-medium hover:underline">
-                          {d.full_name} <span className="font-mono text-xs text-muted">{d.public_code}</span>
+                          {d.full_name}{" "}
+                          <span className="font-mono text-xs text-muted">{d.public_code}</span>
                         </Link>
                         <span className="text-xs text-muted">
                           {d.total_orders} compras · {d.points_balance} pts
                         </span>
                       </div>
                       <div className="text-xs text-muted">
-                        {d.phone ?? ""} {d.email ?? ""} · {d.reasons.map((r) => REASON_LABEL[r] ?? r).join(", ")}
+                        {d.phone ?? ""} {d.email ?? ""} ·{" "}
+                        {d.reasons.map((r) => REASON_LABEL[r] ?? r).join(", ")}
                       </div>
                       {canWrite && (
                         <div className="mt-1.5 flex flex-wrap gap-2">
@@ -482,7 +641,8 @@ export default async function CustomerPage({
               )}
               {x.mergedFrom.length > 0 && (
                 <p className="mt-3 border-t border-line pt-2 text-xs text-muted">
-                  Registros fusionados en este cliente: {x.mergedFrom.map((m) => `${m.public_code} (${m.full_name})`).join(", ")}
+                  Registros fusionados en este cliente:{" "}
+                  {x.mergedFrom.map((m) => `${m.public_code} (${m.full_name})`).join(", ")}
                 </p>
               )}
             </Card>
@@ -500,7 +660,13 @@ function ProgressBar({ label, pct }: { label: string; pct: number }) {
         <span>{label}</span>
         <span>{pct}%</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-black/[0.06]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div
+        className="h-2 overflow-hidden rounded-full bg-black/[0.06]"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
         <div className="h-full rounded-full bg-teal" style={{ width: `${pct}%` }} />
       </div>
     </div>

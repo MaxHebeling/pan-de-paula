@@ -20,9 +20,17 @@ export function ProductCard({
   const href = `/producto/${p.slug}`;
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
-    <article className="card lift group relative flex h-full flex-col overflow-hidden" data-testid="product-card">
+    <article
+      className="card lift group relative flex h-full flex-col overflow-hidden"
+      data-testid="product-card"
+    >
       {/* Enlace de imagen decorativo: el título ya enlaza, se oculta a lectores de pantalla y al tabulador */}
-      <Link href={href} className="relative block aspect-[4/3] overflow-hidden bg-cream-2" aria-hidden="true" tabIndex={-1}>
+      <Link
+        href={href}
+        className="relative block aspect-[4/3] overflow-hidden bg-cream-2"
+        aria-hidden="true"
+        tabIndex={-1}
+      >
         <ProductImage
           url={p.primaryImageUrl}
           alt={p.name}
@@ -40,7 +48,9 @@ export function ProductCard({
             {p.name}
           </Link>
         </Heading>
-        {p.shortDescription && <p className="line-clamp-2 text-sm text-ink-2">{p.shortDescription}</p>}
+        {p.shortDescription && (
+          <p className="line-clamp-2 text-sm text-ink-2">{p.shortDescription}</p>
+        )}
         <div className="mt-auto flex items-center justify-between gap-3 pt-2">
           <Price cents={p.priceCents} regularCents={p.regularPriceCents} />
           {av.canAdd ? (

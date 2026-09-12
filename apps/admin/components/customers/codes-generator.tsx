@@ -22,19 +22,43 @@ export function CodesGenerator({
           <label className="label" htmlFor="gen_prefix">
             Prefijo
           </label>
-          <input id="gen_prefix" name="prefix" className="input font-mono uppercase" defaultValue={defaultPrefix} required pattern="[A-Za-z0-9]{2,12}" />
+          <input
+            id="gen_prefix"
+            name="prefix"
+            className="input font-mono uppercase"
+            defaultValue={defaultPrefix}
+            required
+            pattern="[A-Za-z0-9]{2,12}"
+          />
         </div>
         <div>
           <label className="label" htmlFor="gen_count">
             Cantidad
           </label>
-          <input id="gen_count" name="count" type="number" min={1} max={200} className="input" defaultValue={10} required />
+          <input
+            id="gen_count"
+            name="count"
+            type="number"
+            min={1}
+            max={200}
+            className="input"
+            defaultValue={10}
+            required
+          />
         </div>
         <div>
           <label className="label" htmlFor="gen_max">
             Usos por código
           </label>
-          <input id="gen_max" name="max_uses" type="number" min={1} className="input" defaultValue={1} required />
+          <input
+            id="gen_max"
+            name="max_uses"
+            type="number"
+            min={1}
+            className="input"
+            defaultValue={1}
+            required
+          />
         </div>
       </div>
       {state.error && (
@@ -46,7 +70,13 @@ export function CodesGenerator({
         <div className="st-green rounded-[var(--r-btn)] px-3 py-2 text-sm">
           <p role="status">{state.ok}</p>
           {codes.length > 0 && (
-            <textarea readOnly className="input mt-2 h-32 font-mono text-xs" value={codes.join("\n")} aria-label="Códigos generados" onFocus={(e) => e.currentTarget.select()} />
+            <textarea
+              readOnly
+              className="input mt-2 h-32 font-mono text-xs"
+              value={codes.join("\n")}
+              aria-label="Códigos generados"
+              onFocus={(e) => e.currentTarget.select()}
+            />
           )}
         </div>
       )}

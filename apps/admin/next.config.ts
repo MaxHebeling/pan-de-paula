@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { config as loadEnv } from "dotenv";
+import { resolve } from "node:path";
+
+// Carga el .env de la raíz del monorepo en local (Next solo lee el .env de la app). En Vercel no existe y no hace nada.
+loadEnv({ path: resolve(process.cwd(), "../../.env"), override: false, quiet: true });
 import { withSentryConfig } from "@sentry/nextjs/config";
 
 const securityHeaders = [

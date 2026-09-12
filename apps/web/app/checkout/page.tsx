@@ -47,7 +47,12 @@ export default async function CheckoutPage() {
           orderByDate: o.orderBy.date,
           orderByTime: o.orderBy.time,
         }))}
-        pickupPoints={business.pickupPoints.map((p) => ({ id: p.id, name: p.name, address: p.address, isDefault: p.isDefault }))}
+        pickupPoints={business.pickupPoints.map((p) => ({
+          id: p.id,
+          name: p.name,
+          address: p.address,
+          isDefault: p.isDefault,
+        }))}
         payment={{
           mercadopago: mercadoPagoAvailable(business.flags),
           transfer: Boolean(business.policies.transfer_instructions),

@@ -20,7 +20,10 @@ export function ProductImage({
   className?: string;
   large?: boolean;
 }) {
-  if (!url) return <ProductArt name={alt} seed={seed} className={`h-full w-full ${className}`} large={large} />;
+  if (!url)
+    return (
+      <ProductArt name={alt} seed={seed} className={`h-full w-full ${className}`} large={large} />
+    );
   return (
     <Image
       src={url}

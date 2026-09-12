@@ -5,9 +5,32 @@ import { customerSearchCondition } from "./customers";
 
 export type SearchResults = {
   q: string;
-  customers: Array<{ id: string; public_code: string; full_name: string; phone: string | null; tier_key: string | null; points_balance: number }>;
-  orders: Array<{ id: string; folio: string; channel: string; status: string; total_cents: number; placed_at: Date; customer_name: string | null; customer_phone: string | null }>;
-  products: Array<{ id: string; name: string; category_name: string | null; price_cents: number | null; on_hand: string | null; is_active: boolean }>;
+  customers: Array<{
+    id: string;
+    public_code: string;
+    full_name: string;
+    phone: string | null;
+    tier_key: string | null;
+    points_balance: number;
+  }>;
+  orders: Array<{
+    id: string;
+    folio: string;
+    channel: string;
+    status: string;
+    total_cents: number;
+    placed_at: Date;
+    customer_name: string | null;
+    customer_phone: string | null;
+  }>;
+  products: Array<{
+    id: string;
+    name: string;
+    category_name: string | null;
+    price_cents: number | null;
+    on_hand: string | null;
+    is_active: boolean;
+  }>;
 };
 
 /** Búsqueda global: clientes (nombre/teléfono/email/código), pedidos (folio/teléfono/cliente) y productos (nombre). */
@@ -32,7 +55,9 @@ export async function globalSearch(q: string, limit = 6): Promise<SearchResults>
       select p.id, p.name, c.name as category_name, current_price_cents(p.id, 'pos') as price_cents, l.on_hand::text as on_hand, p.is_active
       from products p left join categories c on c.id = p.category_id left join inventory_levels l on l.product_id = p.id
       where p.deleted_at is null and (p.name ilike ${like} or p.sku ilike ${like} or c.name ilike ${like})
-      order by p.is_active desc, similarity(p.name, ${term}) desc, p.name limit ${limit}`.execute(d),
+      order by p.is_active desc, similarity(p.name, ${term}) desc, p.name limit ${limit}`.execute(
+      d,
+    ),
   ]);
   return { q: term, customers: customers.rows, orders: orders.rows, products: products.rows };
 }

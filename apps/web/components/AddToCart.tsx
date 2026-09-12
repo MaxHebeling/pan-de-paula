@@ -21,7 +21,11 @@ export function QuantityStepper({
 }) {
   const btn = size === "sm" ? "h-10 w-10 text-base" : "h-11 w-11 text-lg";
   return (
-    <div className="inline-flex items-center gap-1 rounded-pill border border-line bg-paper p-0.5" role="group" aria-label={label}>
+    <div
+      className="inline-flex items-center gap-1 rounded-pill border border-line bg-paper p-0.5"
+      role="group"
+      aria-label={label}
+    >
       <button
         type="button"
         className={`${btn} inline-flex items-center justify-center rounded-full text-ink transition hover:bg-cream-2 disabled:opacity-40`}
@@ -31,7 +35,10 @@ export function QuantityStepper({
       >
         −
       </button>
-      <output className="min-w-8 text-center text-base font-semibold tabular-nums" aria-live="polite">
+      <output
+        className="min-w-8 text-center text-base font-semibold tabular-nums"
+        aria-live="polite"
+      >
         {value}
       </output>
       <button

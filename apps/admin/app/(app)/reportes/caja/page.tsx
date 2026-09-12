@@ -6,8 +6,15 @@ import { reportContext, ReportShell } from "@/components/reports/report-shell";
 export const metadata = { title: "Caja" };
 export const dynamic = "force-dynamic";
 
-export default async function RegisterReport({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const ctx = await reportContext(await searchParams, "caja", (d) => ({ from: d.monthStart, to: d.today }));
+export default async function RegisterReport({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const ctx = await reportContext(await searchParams, "caja", (d) => ({
+    from: d.monthStart,
+    to: d.today,
+  }));
   const rows = await registerSessions(ctx.range.from, ctx.range.to);
   const closed = rows.filter((r) => r.status === "closed");
   const diff = closed.reduce((a, r) => a + (r.difference_cents ?? 0), 0);
@@ -16,10 +23,22 @@ export default async function RegisterReport({ searchParams }: { searchParams: P
   return (
     <ReportShell ctx={ctx} title="Sesiones de caja y diferencias">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Sesiones" value={rows.length} hint={`${closed.length} cerradas${rows.length - closed.length ? ` · ${rows.length - closed.length} abierta` : ""}`} />
+        <Stat
+          label="Sesiones"
+          value={rows.length}
+          hint={`${closed.length} cerradas${rows.length - closed.length ? ` · ${rows.length - closed.length} abierta` : ""}`}
+        />
         <Stat label="Ventas en caja" value={<Money cents={salesTotal} compact />} />
-        <Stat label="Diferencia acumulada" value={<Money cents={diff} />} tone={diff < 0 ? "red" : diff > 0 ? "amber" : "green"} hint={`${withDiff} cierres con diferencia`} />
-        <Stat label="Diferencia promedio" value={closed.length ? <Money cents={Math.round(diff / closed.length)} /> : "—"} />
+        <Stat
+          label="Diferencia acumulada"
+          value={<Money cents={diff} />}
+          tone={diff < 0 ? "red" : diff > 0 ? "amber" : "green"}
+          hint={`${withDiff} cierres con diferencia`}
+        />
+        <Stat
+          label="Diferencia promedio"
+          value={closed.length ? <Money cents={Math.round(diff / closed.length)} /> : "—"}
+        />
       </div>
       <div className="mt-4">
         <Table>
@@ -43,10 +62,18 @@ export default async function RegisterReport({ searchParams }: { searchParams: P
             {rows.map((r) => (
               <tr key={r.id}>
                 <td className="whitespace-nowrap">{fmtDate(r.opened_at, "datetime")}</td>
-                <td className="whitespace-nowrap">{r.closed_at ? fmtDate(r.closed_at, "datetime") : <Badge tone="amber">abierta</Badge>}</td>
+                <td className="whitespace-nowrap">
+                  {r.closed_at ? (
+                    fmtDate(r.closed_at, "datetime")
+                  ) : (
+                    <Badge tone="amber">abierta</Badge>
+                  )}
+                </td>
                 <td>
                   {r.opened_by}
-                  {r.closed_by && r.closed_by !== r.opened_by && <span className="text-muted"> / {r.closed_by}</span>}
+                  {r.closed_by && r.closed_by !== r.opened_by && (
+                    <span className="text-muted"> / {r.closed_by}</span>
+                  )}
                 </td>
                 <td className="text-right tabular-nums">
                   {r.sales_count} · <Money cents={r.sales_total_cents} compact />
@@ -61,7 +88,20 @@ export default async function RegisterReport({ searchParams }: { searchParams: P
                   <Money cents={r.counted_cash_cents} compact />
                 </td>
                 <td className="text-right">
-                  {r.difference_cents === null ? "—" : <Money cents={r.difference_cents} className={r.difference_cents < 0 ? "font-semibold text-red-d" : r.difference_cents > 0 ? "font-semibold text-amber-d" : "text-green-d"} />}
+                  {r.difference_cents === null ? (
+                    "—"
+                  ) : (
+                    <Money
+                      cents={r.difference_cents}
+                      className={
+                        r.difference_cents < 0
+                          ? "font-semibold text-red-d"
+                          : r.difference_cents > 0
+                            ? "font-semibold text-amber-d"
+                            : "text-green-d"
+                      }
+                    />
+                  )}
                 </td>
                 <td className="text-right">
                   <Money cents={r.card_cents} compact />

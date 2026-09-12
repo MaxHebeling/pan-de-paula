@@ -57,7 +57,9 @@ export function ActionForm({
       id={id}
       ref={ref}
       action={formAction}
-      className={inline ? `flex flex-wrap items-end gap-2 ${className}` : `flex flex-col gap-3 ${className}`}
+      className={
+        inline ? `flex flex-wrap items-end gap-2 ${className}` : `flex flex-col gap-3 ${className}`
+      }
       onSubmit={(e) => {
         if (confirm && !window.confirm(confirm)) e.preventDefault();
       }}

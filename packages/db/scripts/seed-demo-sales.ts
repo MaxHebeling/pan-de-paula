@@ -69,17 +69,67 @@ async function asStaff<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Clientes ──
 const FIRST = [
-  "Ana", "Luis", "María", "Jorge", "Sofía", "Carlos", "Valeria", "Diego", "Fernanda", "Andrés",
-  "Paula", "Ricardo", "Daniela", "Miguel", "Camila", "Eduardo", "Regina", "Javier", "Lucía", "Héctor",
-  "Mariana", "Alejandro", "Ximena", "Roberto", "Isabela", "Fernando", "Renata", "Óscar", "Julia", "Pablo",
-  "Elena", "Sergio", "Natalia", "Raúl", "Carmen", "Iván", "Andrea", "Gerardo", "Alicia", "Tomás",
+  "Ana",
+  "Luis",
+  "María",
+  "Jorge",
+  "Sofía",
+  "Carlos",
+  "Valeria",
+  "Diego",
+  "Fernanda",
+  "Andrés",
+  "Paula",
+  "Ricardo",
+  "Daniela",
+  "Miguel",
+  "Camila",
+  "Eduardo",
+  "Regina",
+  "Javier",
+  "Lucía",
+  "Héctor",
+  "Mariana",
+  "Alejandro",
+  "Ximena",
+  "Roberto",
+  "Isabela",
+  "Fernando",
+  "Renata",
+  "Óscar",
+  "Julia",
+  "Pablo",
+  "Elena",
+  "Sergio",
+  "Natalia",
+  "Raúl",
+  "Carmen",
+  "Iván",
+  "Andrea",
+  "Gerardo",
+  "Alicia",
+  "Tomás",
 ];
-const LAST = ["López", "García", "Martínez", "Hernández", "Ruiz", "Torres", "Flores", "Ramírez", "Castro", "Vega"];
+const LAST = [
+  "López",
+  "García",
+  "Martínez",
+  "Hernández",
+  "Ruiz",
+  "Torres",
+  "Flores",
+  "Ramírez",
+  "Castro",
+  "Vega",
+];
 const customers: Array<{ id: string; code: string }> = [];
 for (let i = 0; i < 40; i++) {
   const name = `${FIRST[i]} ${pick(LAST)} ${pick(LAST)}`;
   const phone = `664${String(2000000 + i * 7919).padStart(7, "0")}`;
-  const email = i % 3 === 0 ? `${FIRST[i]!.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()}${i}@example.com` : undefined;
+  const email =
+    i % 3 === 0
+      ? `${FIRST[i]!.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()}${i}@example.com`
+      : undefined;
   // Cumpleaños: 3 hoy, 5 este mes, resto aleatorio
   const bd = new Date(now);
   if (i < 3) bd.setFullYear(1985 + i);
@@ -138,7 +188,11 @@ if (hasProd.length === 0) {
     for (const p of stocked) {
       if (rnd() < 0.7) {
         await asStaff(() =>
-          q("select record_production($1, $2, 'demo', false, $3)", [p.id, int(12, 40), daysAgo(d, 7)]),
+          q("select record_production($1, $2, 'demo', false, $3)", [
+            p.id,
+            int(12, 40),
+            daysAgo(d, 7),
+          ]),
         );
         n++;
       }
@@ -208,7 +262,10 @@ if (salesExisting[0]!.n === 0) {
           "update orders set placed_at = $2, paid_at = $2, completed_at = $2, created_at = $2 where id = $1",
           [order_id, at],
         );
-        await q("update payments set confirmed_at = $2, created_at = $2 where order_id = $1", [order_id, at]);
+        await q("update payments set confirmed_at = $2, created_at = $2 where order_id = $1", [
+          order_id,
+          at,
+        ]);
         n++;
       } catch (e) {
         console.error(`Venta ${key} falló:`, (e as Error).message);
@@ -229,7 +286,12 @@ if (hasWaste.length === 0) {
   let n = 0;
   for (let d = DAYS; d >= 0; d -= int(1, 3)) {
     await asStaff(() =>
-      q("select record_waste($1, $2, $3, 'demo', $4)", [pick(stocked).id, int(1, 5), pick(reasons), daysAgo(d, 18)]),
+      q("select record_waste($1, $2, $3, 'demo', $4)", [
+        pick(stocked).id,
+        int(1, 5),
+        pick(reasons),
+        daysAgo(d, 18),
+      ]),
     );
     n++;
   }
@@ -249,28 +311,77 @@ if (hasDemoSession.length === 0 && openSession.length === 0) {
         idempotency_key: "demo-register-1",
         register_session_id: sid,
         items: [{ product_id: p.id, qty: 2 }],
-        payments: [{ provider: "cash", method: "cash", amount_cents: p.price * 2, tendered_cents: p.price * 2 }],
+        payments: [
+          {
+            provider: "cash",
+            method: "cash",
+            amount_cents: p.price * 2,
+            tendered_cents: p.price * 2,
+          },
+        ],
       }),
     ]),
   );
-  const pay = await q<{ id: string }>("select id from payments where order_id = $1", [sale[0]!.r.order_id]);
+  const pay = await q<{ id: string }>("select id from payments where order_id = $1", [
+    sale[0]!.r.order_id,
+  ]);
   await asStaff(() =>
     q("select record_refund($1)", [
-      JSON.stringify({ payment_id: pay[0]!.id, amount_cents: p.price, reason: "Producto en mal estado (demo)", idempotency_key: "demo-refund-1" }),
+      JSON.stringify({
+        payment_id: pay[0]!.id,
+        amount_cents: p.price,
+        reason: "Producto en mal estado (demo)",
+        idempotency_key: "demo-refund-1",
+      }),
     ]),
   );
-  await asStaff(() => q("select close_register($1, $2, 'demo')", [sid, 50000 + p.price * 2 - p.price - 2000]));
+  await asStaff(() =>
+    q("select close_register($1, $2, 'demo')", [sid, 50000 + p.price * 2 - p.price - 2000]),
+  );
   console.info("Caja: turno demo cerrado con reembolso y diferencia");
 }
 
 // ── Instagram: conversaciones, mensajes y leads ──
 const IG = [
-  { user: "demo-ig-1", handle: "sofi.bakes", intent: "precio", msgs: ["Hola! ¿cuánto cuesta el croissant Dubai?", "Y ¿hacen envíos a Playas?"] },
-  { user: "demo-ig-2", handle: "luis_tj", intent: "pedido", msgs: ["Quiero 12 roles de canela para el sábado", "¿Se puede pagar con transferencia?"] },
-  { user: "demo-ig-3", handle: "maru.gzz", intent: "horario", msgs: ["¿A qué hora abren los domingos?"] },
-  { user: "demo-ig-4", handle: "eventos_bc", intent: "mayoreo", msgs: ["Buen día, necesito cotización para 200 piezas para un evento corporativo", "Fecha: 28 del próximo mes"] },
-  { user: "demo-ig-5", handle: "karla.ph", intent: "producto", msgs: ["¿Tienen opciones sin gluten?"] },
-  { user: "demo-ig-6", handle: "dani_r", intent: "pedido", msgs: ["Me apartas una caja de 6 croissants para mañana por favor 🙏"] },
+  {
+    user: "demo-ig-1",
+    handle: "sofi.bakes",
+    intent: "precio",
+    msgs: ["Hola! ¿cuánto cuesta el croissant Dubai?", "Y ¿hacen envíos a Playas?"],
+  },
+  {
+    user: "demo-ig-2",
+    handle: "luis_tj",
+    intent: "pedido",
+    msgs: ["Quiero 12 roles de canela para el sábado", "¿Se puede pagar con transferencia?"],
+  },
+  {
+    user: "demo-ig-3",
+    handle: "maru.gzz",
+    intent: "horario",
+    msgs: ["¿A qué hora abren los domingos?"],
+  },
+  {
+    user: "demo-ig-4",
+    handle: "eventos_bc",
+    intent: "mayoreo",
+    msgs: [
+      "Buen día, necesito cotización para 200 piezas para un evento corporativo",
+      "Fecha: 28 del próximo mes",
+    ],
+  },
+  {
+    user: "demo-ig-5",
+    handle: "karla.ph",
+    intent: "producto",
+    msgs: ["¿Tienen opciones sin gluten?"],
+  },
+  {
+    user: "demo-ig-6",
+    handle: "dani_r",
+    intent: "pedido",
+    msgs: ["Me apartas una caja de 6 croissants para mañana por favor 🙏"],
+  },
 ];
 let igN = 0;
 for (let i = 0; i < IG.length; i++) {
@@ -278,7 +389,13 @@ for (let i = 0; i < IG.length; i++) {
   const conv = await q<{ id: string }>(
     `insert into instagram_conversations(ig_user_id, ig_username, status, last_intent, last_message_at)
      values ($1, $2, $3, $4, $5) on conflict (ig_user_id) do nothing returning id`,
-    [c.user, c.handle, i < 3 ? "open" : i === 3 ? "handled" : "converted", c.intent, daysAgo(i * 2, 12)],
+    [
+      c.user,
+      c.handle,
+      i < 3 ? "open" : i === 3 ? "handled" : "converted",
+      c.intent,
+      daysAgo(i * 2, 12),
+    ],
   );
   if (!conv[0]) continue;
   let t = daysAgo(i * 2, 11).getTime();
@@ -291,7 +408,13 @@ for (let i = 0; i < IG.length; i++) {
     if (i >= 3) {
       await q(
         `insert into instagram_messages(conversation_id, external_mid, direction, text, auto_reply, sent_by, created_at) values ($1, $2, 'out', $3, false, $4, $5)`,
-        [conv[0].id, `${c.user}-out-${t}`, "¡Hola! Claro que sí, te comparto la info por aquí 😊", staffId, new Date(t)],
+        [
+          conv[0].id,
+          `${c.user}-out-${t}`,
+          "¡Hola! Claro que sí, te comparto la info por aquí 😊",
+          staffId,
+          new Date(t),
+        ],
       );
       t += 10 * 60_000;
     }
@@ -300,7 +423,14 @@ for (let i = 0; i < IG.length; i++) {
     await q(
       `insert into leads(source, source_ref, name, handle, interest, status, created_at)
        select 'instagram', $1, $2, $3, $4, $5, $6 where not exists (select 1 from leads where source_ref = $1)`,
-      [conv[0].id, c.handle, c.handle, c.msgs[0], i >= 4 ? "converted" : i === 3 ? "contacted" : "new", daysAgo(i * 2, 12)],
+      [
+        conv[0].id,
+        c.handle,
+        c.handle,
+        c.msgs[0],
+        i >= 4 ? "converted" : i === 3 ? "contacted" : "new",
+        daysAgo(i * 2, 12),
+      ],
     );
   }
   igN++;

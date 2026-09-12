@@ -23,7 +23,9 @@ export function Header() {
       <div className="container-x relative flex h-16 items-center justify-between gap-3 sm:h-[72px]">
         <Link href="/" className="flex items-center gap-3" aria-label="El Pan de Paula, inicio">
           <Logo size={44} priority />
-          <span className="hidden font-display text-lg leading-none text-ink sm:block">El Pan de Paula</span>
+          <span className="hidden font-display text-lg leading-none text-ink sm:block">
+            El Pan de Paula
+          </span>
         </Link>
         <nav aria-label="Navegación principal" className="hidden md:block">
           <ul className="flex items-center gap-1">

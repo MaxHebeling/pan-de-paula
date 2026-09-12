@@ -71,10 +71,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       addressCountry: "MX",
     };
   }
-  if (business.instagramHandle) bakeryLd.sameAs = [`https://www.instagram.com/${business.instagramHandle}/`];
+  if (business.instagramHandle)
+    bakeryLd.sameAs = [`https://www.instagram.com/${business.instagramHandle}/`];
 
   return (
-    <html lang="es-MX" className={`${display.variable} ${body.variable}`} data-scroll-behavior="smooth">
+    <html
+      lang="es-MX"
+      className={`${display.variable} ${body.variable}`}
+      data-scroll-behavior="smooth"
+    >
       <body className="paper-bg flex min-h-dvh flex-col">
         <CartProvider>
           <Header />

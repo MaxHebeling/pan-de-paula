@@ -1,6 +1,13 @@
 /** Store externo del carrito (useSyncExternalStore): hidratación segura, persistencia y sync entre pestañas sin efectos. */
 import { loadCart, saveCart } from "./storage";
-import { CART_STORAGE_KEY, EMPTY_CART, MAX_QTY, type CartCoupon, type CartLine, type CartState } from "./types";
+import {
+  CART_STORAGE_KEY,
+  EMPTY_CART,
+  MAX_QTY,
+  type CartCoupon,
+  type CartLine,
+  type CartState,
+} from "./types";
 
 let state: CartState = EMPTY_CART;
 let loaded = false;
@@ -50,7 +57,9 @@ export const cartStore = {
       const existing = s.lines.find((l) => l.productId === line.productId);
       const lines = existing
         ? s.lines.map((l) =>
-            l.productId === line.productId ? { ...l, ...line, qty: Math.min(MAX_QTY, l.qty + qty) } : l,
+            l.productId === line.productId
+              ? { ...l, ...line, qty: Math.min(MAX_QTY, l.qty + qty) }
+              : l,
           )
         : [...s.lines, { ...line, qty: Math.min(MAX_QTY, qty) }];
       return { ...s, lines };
@@ -62,7 +71,9 @@ export const cartStore = {
         ? { ...s, lines: s.lines.filter((l) => l.productId !== productId) }
         : {
             ...s,
-            lines: s.lines.map((l) => (l.productId === productId ? { ...l, qty: Math.min(MAX_QTY, qty) } : l)),
+            lines: s.lines.map((l) =>
+              l.productId === productId ? { ...l, qty: Math.min(MAX_QTY, qty) } : l,
+            ),
           },
     );
   },

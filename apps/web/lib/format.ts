@@ -8,7 +8,11 @@ export function hour12(hm: string | null | undefined): string {
   if (!hm) return "";
   const [h, m] = hm.slice(0, 5).split(":").map(Number) as [number, number];
   const d = new Date(Date.UTC(2000, 0, 1, h, m));
-  return new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(d);
+  return new Intl.DateTimeFormat("es-MX", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(d);
 }
 
 export function hourRange(from: string | null | undefined, to: string | null | undefined): string {
@@ -32,7 +36,12 @@ export function dateTimeMX(d: Date | string, timeZone: string): string {
 
 export function dateMX(d: Date | string, timeZone: string): string {
   const dt = typeof d === "string" ? new Date(d) : d;
-  return new Intl.DateTimeFormat("es-MX", { timeZone, weekday: "long", day: "numeric", month: "long" }).format(dt);
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(dt);
 }
 
 export function capitalize(s: string): string {

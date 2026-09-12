@@ -5,7 +5,13 @@ import { callFn, db, dbErrorMessage, sql } from "@/lib/db";
 import { listProductsByIds } from "@/lib/catalog";
 import { availability } from "@/lib/availability";
 import { findCustomer, partialName } from "@/lib/customers";
-import { getOrderByFolio, mercadoPagoAvailable, orderUrl, sendOrderConfirmationEmail, startMercadoPago } from "@/lib/orders";
+import {
+  getOrderByFolio,
+  mercadoPagoAvailable,
+  orderUrl,
+  sendOrderConfirmationEmail,
+  startMercadoPago,
+} from "@/lib/orders";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { fulfillmentOptions, getBusiness } from "@/lib/site";
 import { zonedToUtc } from "@/lib/tz";
@@ -20,7 +26,11 @@ export async function lookupCustomerAction(query: string): Promise<LookupResult>
     const rl = await rateLimit("lookup", { max: 20 });
     if (!rl.allowed) return { found: false, error: RATE_LIMIT_MESSAGE };
     const c = await findCustomer(q);
-    if (!c) return { found: false, error: "No encontramos esa cuenta. Revisa el dato o continúa sin vincular." };
+    if (!c)
+      return {
+        found: false,
+        error: "No encontramos esa cuenta. Revisa el dato o continúa sin vincular.",
+      };
     return { found: true, hint: partialName(c.fullName) };
   } catch (e) {
     console.error("[lookupCustomerAction]", e);
@@ -45,7 +55,8 @@ export type CheckoutPayload = {
   idempotency_key: string;
 };
 
-export type CheckoutResult = { ok: true; redirect: string } | { ok: false; error: string; field?: string };
+export type CheckoutResult =
+  { ok: true; redirect: string } | { ok: false; error: string; field?: string };
 
 export async function placeOrderAction(payload: CheckoutPayload): Promise<CheckoutResult> {
   try {
@@ -54,14 +65,22 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
 
     const business = await getBusiness();
     if (!business.flags.web_checkout) {
-      return { ok: false, error: "Los pedidos en línea están pausados por el momento. Escríbenos por WhatsApp o Instagram." };
+      return {
+        ok: false,
+        error:
+          "Los pedidos en línea están pausados por el momento. Escríbenos por WhatsApp o Instagram.",
+      };
     }
 
     // 1) Fecha/ventana: se revalida en el servidor con el calendario real.
     const options = fulfillmentOptions(business);
     const option = options.find((o) => o.windowId === payload.window_id && o.date === payload.date);
     if (!option) {
-      return { ok: false, field: "date", error: "Esa fecha ya no está disponible. Elige otra de la lista." };
+      return {
+        ok: false,
+        field: "date",
+        error: "Esa fecha ya no está disponible. Elige otra de la lista.",
+      };
     }
     const window = business.windows.find((w) => w.id === option.windowId)!;
     const isDelivery = window.fulfillmentType === "delivery";
@@ -109,18 +128,35 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     const products = await listProductsByIds(data.items.map((i) => i.product_id));
     for (const item of data.items) {
       const p = products.find((x) => x.id === item.product_id);
-      if (!p) return { ok: false, field: "items", error: "Uno de los productos ya no está disponible. Revisa tu carrito." };
+      if (!p)
+        return {
+          ok: false,
+          field: "items",
+          error: "Uno de los productos ya no está disponible. Revisa tu carrito.",
+        };
       if (!availability(p).canAdd)
-        return { ok: false, field: "items", error: `"${p.name}" ya no está disponible. Quítalo del carrito para continuar.` };
+        return {
+          ok: false,
+          field: "items",
+          error: `"${p.name}" ya no está disponible. Quítalo del carrito para continuar.`,
+        };
     }
 
     // 4) Método de pago permitido según flags/configuración.
     const mpOk = mercadoPagoAvailable(business.flags);
     const transferOk = Boolean(business.policies.transfer_instructions);
     if (data.payment_method === "mercadopago" && !mpOk)
-      return { ok: false, field: "payment_method", error: "El pago en línea no está disponible ahora. Elige otro método." };
+      return {
+        ok: false,
+        field: "payment_method",
+        error: "El pago en línea no está disponible ahora. Elige otro método.",
+      };
     if (data.payment_method === "transfer" && !transferOk)
-      return { ok: false, field: "payment_method", error: "La transferencia no está disponible ahora. Elige otro método." };
+      return {
+        ok: false,
+        field: "payment_method",
+        error: "La transferencia no está disponible ahora. Elige otro método.",
+      };
 
     // 5) Punto de retiro (si aplica).
     let pickupPointId: string | undefined;
@@ -184,7 +220,11 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     // Reintento idempotente: si el pedido ya avanzó, solo devolvemos su página.
     if (row.status !== "new") return { ok: true, redirect: orderUrl(row.folio, row.public_token) };
 
-    const methodLabel = { cash: "efectivo al recoger", transfer: "transferencia", mercadopago: "Mercado Pago" }[data.payment_method];
+    const methodLabel = {
+      cash: "efectivo al recoger",
+      transfer: "transferencia",
+      mercadopago: "Mercado Pago",
+    }[data.payment_method];
     await sql`update orders set internal_notes = concat_ws(E'\n', internal_notes, ${"Web: pago elegido = " + methodLabel}::text) where id = ${orderId}`.execute(
       db(),
     );
@@ -223,8 +263,17 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
   } catch (e) {
     console.error("[placeOrderAction]", e);
     const { message } = dbErrorMessage(e);
-    if (/Cupón inválido/.test(message)) return { ok: false, field: "coupon_code", error: "El cupón ya no aplica. Quítalo del carrito e inténtalo de nuevo." };
-    if (/no está disponible|no se vende en línea|no tiene precio/.test(message)) return { ok: false, field: "items", error: message };
-    return { ok: false, error: "No pudimos registrar tu pedido. Inténtalo de nuevo en un momento." };
+    if (/Cupón inválido/.test(message))
+      return {
+        ok: false,
+        field: "coupon_code",
+        error: "El cupón ya no aplica. Quítalo del carrito e inténtalo de nuevo.",
+      };
+    if (/no está disponible|no se vende en línea|no tiene precio/.test(message))
+      return { ok: false, field: "items", error: message };
+    return {
+      ok: false,
+      error: "No pudimos registrar tu pedido. Inténtalo de nuevo en un momento.",
+    };
   }
 }

@@ -8,7 +8,15 @@ import { fmtDate } from "@/lib/format";
 import { getConversation, conversationLeads, CONV_STATUS, LEAD_STATUS } from "@/lib/instagram";
 import { activeProducts } from "@/lib/loyalty";
 import { ActionForm } from "@/components/customers/action-form";
-import { replyAction, setConversationStatusAction, assignConversationAction, linkCustomerAction, unlinkCustomerAction, createLeadAction, updateLeadAction } from "../actions";
+import {
+  replyAction,
+  setConversationStatusAction,
+  assignConversationAction,
+  linkCustomerAction,
+  unlinkCustomerAction,
+  createLeadAction,
+  updateLeadAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +36,12 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const [leads, products, staff] = await Promise.all([
     conversationLeads(id),
     activeProducts(),
-    sql<{ id: string; full_name: string }>`select id, full_name from staff_users where is_active and deleted_at is null order by full_name`.execute(db()),
+    sql<{
+      id: string;
+      full_name: string;
+    }>`select id, full_name from staff_users where is_active and deleted_at is null order by full_name`.execute(
+      db(),
+    ),
   ]);
   const configured = isInstagramConfigured();
   return (
@@ -54,17 +67,31 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           <Card title="Conversación">
             <ol className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto pr-1">
               {messages.map((m) => (
-                <li key={m.id} className={`flex ${m.direction === "out" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-[var(--r-card)] px-3 py-2 text-sm ${m.direction === "out" ? "bg-teal text-white" : "bg-black/[0.05]"}`}>
+                <li
+                  key={m.id}
+                  className={`flex ${m.direction === "out" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-[var(--r-card)] px-3 py-2 text-sm ${m.direction === "out" ? "bg-teal text-white" : "bg-black/[0.05]"}`}
+                  >
                     <div className="whitespace-pre-wrap">{m.text ?? "(adjunto)"}</div>
-                    <div className={`mt-1 flex flex-wrap items-center gap-1.5 text-[11px] ${m.direction === "out" ? "text-white/80" : "text-muted"}`}>
+                    <div
+                      className={`mt-1 flex flex-wrap items-center gap-1.5 text-[11px] ${m.direction === "out" ? "text-white/80" : "text-muted"}`}
+                    >
                       <span>{fmtDate(m.created_at, "datetime")}</span>
                       {m.direction === "out" && m.sent_by_name && <span>· {m.sent_by_name}</span>}
                       {m.auto_reply && <span>· bot</span>}
                       {m.intent && m.direction === "in" && <span>· {m.intent}</span>}
-                      {m.direction === "out" && m.delivery_status === "pending" && <span className="rounded bg-white/90 px-1 font-semibold text-amber-d">NO ENVIADO · pendiente</span>}
+                      {m.direction === "out" && m.delivery_status === "pending" && (
+                        <span className="rounded bg-white/90 px-1 font-semibold text-amber-d">
+                          NO ENVIADO · pendiente
+                        </span>
+                      )}
                       {m.direction === "out" && m.delivery_status === "failed" && (
-                        <span className="rounded bg-white/90 px-1 font-semibold text-red-d" title={m.delivery_error ?? ""}>
+                        <span
+                          className="rounded bg-white/90 px-1 font-semibold text-red-d"
+                          title={m.delivery_error ?? ""}
+                        >
                           FALLÓ
                         </span>
                       )}
@@ -77,16 +104,32 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
               <div className="mt-4 border-t border-line pt-3">
                 {!configured && (
                   <div className="mb-2">
-                    <Alert tone="amber">Instagram no está conectado: lo que escribas se guardará como pendiente y NO se enviará.</Alert>
+                    <Alert tone="amber">
+                      Instagram no está conectado: lo que escribas se guardará como pendiente y NO
+                      se enviará.
+                    </Alert>
                   </div>
                 )}
-                <ActionForm action={replyAction} submitLabel={configured ? "Enviar" : "Guardar como pendiente"} resetOnOk>
+                <ActionForm
+                  action={replyAction}
+                  submitLabel={configured ? "Enviar" : "Guardar como pendiente"}
+                  resetOnOk
+                >
                   <input type="hidden" name="id" value={c.id} />
-                  <textarea name="text" className="input" rows={3} maxLength={1000} placeholder="Escribe la respuesta…" required />
+                  <textarea
+                    name="text"
+                    className="input"
+                    rows={3}
+                    maxLength={1000}
+                    placeholder="Escribe la respuesta…"
+                    required
+                  />
                 </ActionForm>
               </div>
             ) : (
-              <p className="mt-3 text-xs text-muted">Necesitas permiso de marketing para responder.</p>
+              <p className="mt-3 text-xs text-muted">
+                Necesitas permiso de marketing para responder.
+              </p>
             )}
           </Card>
         </div>
@@ -97,7 +140,14 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                 {(["open", "handled", "converted", "closed"] as const)
                   .filter((s) => s !== c.status)
                   .map((s) => (
-                    <ActionForm key={s} action={setConversationStatusAction} inline submitLabel={`Marcar ${CONV_STATUS[s]!.label}`} variant={s === "converted" ? "confirm" : "secondary"} size="sm">
+                    <ActionForm
+                      key={s}
+                      action={setConversationStatusAction}
+                      inline
+                      submitLabel={`Marcar ${CONV_STATUS[s]!.label}`}
+                      variant={s === "converted" ? "confirm" : "secondary"}
+                      size="sm"
+                    >
                       <input type="hidden" name="id" value={c.id} />
                       <input type="hidden" name="status" value={s} />
                     </ActionForm>
@@ -107,13 +157,25 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
               <Badge tone={CONV_STATUS[c.status]!.tone}>{CONV_STATUS[c.status]!.label}</Badge>
             )}
             {canWrite && (
-              <ActionForm action={assignConversationAction} inline submitLabel="Asignar" variant="secondary" size="sm" className="mt-3">
+              <ActionForm
+                action={assignConversationAction}
+                inline
+                submitLabel="Asignar"
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+              >
                 <input type="hidden" name="id" value={c.id} />
                 <div className="min-w-[180px] flex-1">
                   <label className="label" htmlFor="staff_id">
                     Responsable
                   </label>
-                  <select id="staff_id" name="staff_id" className="input" defaultValue={c.assigned_to ?? ""}>
+                  <select
+                    id="staff_id"
+                    name="staff_id"
+                    className="input"
+                    defaultValue={c.assigned_to ?? ""}
+                  >
                     <option value="">Sin asignar</option>
                     {staff.rows.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -129,10 +191,17 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             {c.customer_id ? (
               <div className="flex items-center justify-between gap-2 text-sm">
                 <Link href={`/clientes/${c.customer_id}`} className="font-medium hover:underline">
-                  {c.customer_name} <span className="font-mono text-xs text-muted">{c.public_code}</span>
+                  {c.customer_name}{" "}
+                  <span className="font-mono text-xs text-muted">{c.public_code}</span>
                 </Link>
                 {canWrite && (
-                  <ActionForm action={unlinkCustomerAction} inline submitLabel="Desvincular" variant="secondary" size="sm">
+                  <ActionForm
+                    action={unlinkCustomerAction}
+                    inline
+                    submitLabel="Desvincular"
+                    variant="secondary"
+                    size="sm"
+                  >
                     <input type="hidden" name="id" value={c.id} />
                   </ActionForm>
                 )}
@@ -141,9 +210,20 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
               <>
                 <p className="mb-2 text-sm text-muted">Sin cliente vinculado.</p>
                 {canWrite && (
-                  <ActionForm action={linkCustomerAction} inline submitLabel="Vincular" variant="secondary" size="sm">
+                  <ActionForm
+                    action={linkCustomerAction}
+                    inline
+                    submitLabel="Vincular"
+                    variant="secondary"
+                    size="sm"
+                  >
                     <input type="hidden" name="id" value={c.id} />
-                    <input name="query" className="input min-w-[200px] flex-1" placeholder="PDP-000123, teléfono o email" required />
+                    <input
+                      name="query"
+                      className="input min-w-[200px] flex-1"
+                      placeholder="PDP-000123, teléfono o email"
+                      required
+                    />
                   </ActionForm>
                 )}
                 <p className="mt-2 text-xs text-muted">
@@ -163,7 +243,9 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                   <li key={l.id} className="py-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{l.interest ?? "—"}</span>
-                      <Badge tone={LEAD_STATUS[l.status]!.tone}>{LEAD_STATUS[l.status]!.label}</Badge>
+                      <Badge tone={LEAD_STATUS[l.status]!.tone}>
+                        {LEAD_STATUS[l.status]!.label}
+                      </Badge>
                     </div>
                     <div className="text-xs text-muted">
                       {fmtDate(l.created_at)}
@@ -171,7 +253,14 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                       {l.folio && ` · pedido ${l.folio}`}
                     </div>
                     {canWrite && l.status !== "converted" && (
-                      <ActionForm action={updateLeadAction} inline className="mt-1.5" submitLabel="Actualizar" variant="secondary" size="sm">
+                      <ActionForm
+                        action={updateLeadAction}
+                        inline
+                        className="mt-1.5"
+                        submitLabel="Actualizar"
+                        variant="secondary"
+                        size="sm"
+                      >
                         <input type="hidden" name="id" value={l.id} />
                         <input type="hidden" name="conversation_id" value={c.id} />
                         <select name="status" className="input w-auto" defaultValue={l.status}>
@@ -181,7 +270,11 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                             </option>
                           ))}
                         </select>
-                        <input name="folio" className="input w-[150px]" placeholder="Folio pedido" />
+                        <input
+                          name="folio"
+                          className="input w-[150px]"
+                          placeholder="Folio pedido"
+                        />
                       </ActionForm>
                     )}
                   </li>
@@ -190,10 +283,23 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             )}
             {canWrite && (
               <details>
-                <summary className="cursor-pointer text-sm font-medium text-teal-d">Crear lead desde esta conversación</summary>
-                <ActionForm action={createLeadAction} submitLabel="Crear lead" variant="secondary" resetOnOk className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-teal-d">
+                  Crear lead desde esta conversación
+                </summary>
+                <ActionForm
+                  action={createLeadAction}
+                  submitLabel="Crear lead"
+                  variant="secondary"
+                  resetOnOk
+                  className="mt-2"
+                >
                   <input type="hidden" name="id" value={c.id} />
-                  <input name="interest" className="input" placeholder="Interés (ej. 12 roles para el sábado) *" required />
+                  <input
+                    name="interest"
+                    className="input"
+                    placeholder="Interés (ej. 12 roles para el sábado) *"
+                    required
+                  />
                   <select name="product_id" className="input" defaultValue="">
                     <option value="">Producto (opcional)</option>
                     {products.map((p) => (

@@ -9,17 +9,33 @@ import { Bars } from "@/components/reports/bars";
 export const metadata = { title: "Canales y métodos de pago" };
 export const dynamic = "force-dynamic";
 
-export default async function ChannelsReport({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const ctx = await reportContext(await searchParams, "canales", (d) => ({ from: d.monthStart, to: d.today }));
+export default async function ChannelsReport({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const ctx = await reportContext(await searchParams, "canales", (d) => ({
+    from: d.monthStart,
+    to: d.today,
+  }));
   const { range } = ctx;
-  const [cur, prev] = await Promise.all([summary(range.from, range.to), summary(range.prevFrom, range.prevTo)]);
+  const [cur, prev] = await Promise.all([
+    summary(range.from, range.to),
+    summary(range.prevFrom, range.prevTo),
+  ]);
   const fmt = (v: number) => money(v, { compact: true });
   const totalPay = cur.payments.reduce((a, p) => a + p.amount_cents - p.refunded_cents, 0);
   return (
     <ReportShell ctx={ctx} title="Canales y métodos de pago">
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Ventas por canal">
-          <Bars items={cur.channels.map((c) => ({ label: CHANNEL_LABELS[c.channel] ?? c.channel, value: c.revenue_cents }))} format={fmt} />
+          <Bars
+            items={cur.channels.map((c) => ({
+              label: CHANNEL_LABELS[c.channel] ?? c.channel,
+              value: c.revenue_cents,
+            }))}
+            format={fmt}
+          />
           <Table className="mt-3 !border-0 !shadow-none">
             <thead>
               <tr>
@@ -62,7 +78,13 @@ export default async function ChannelsReport({ searchParams }: { searchParams: P
           </Table>
         </Card>
         <Card title="Métodos de pago">
-          <Bars items={cur.payments.map((p) => ({ label: PAYMENT_LABELS[p.method] ?? p.method, value: p.amount_cents - p.refunded_cents }))} format={fmt} />
+          <Bars
+            items={cur.payments.map((p) => ({
+              label: PAYMENT_LABELS[p.method] ?? p.method,
+              value: p.amount_cents - p.refunded_cents,
+            }))}
+            format={fmt}
+          />
           <Table className="mt-3 !border-0 !shadow-none">
             <thead>
               <tr>
@@ -86,13 +108,24 @@ export default async function ChannelsReport({ searchParams }: { searchParams: P
                     <td className="text-right">
                       <Money cents={p.amount_cents} compact />
                     </td>
-                    <td className="text-right">{p.refunded_cents ? <Money cents={p.refunded_cents} compact className="text-red-d" /> : "—"}</td>
+                    <td className="text-right">
+                      {p.refunded_cents ? (
+                        <Money cents={p.refunded_cents} compact className="text-red-d" />
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="text-right">
                       <Money cents={net} compact />
                     </td>
-                    <td className="text-right tabular-nums">{totalPay ? Math.round((net / totalPay) * 100) : 0}%</td>
+                    <td className="text-right tabular-nums">
+                      {totalPay ? Math.round((net / totalPay) * 100) : 0}%
+                    </td>
                     <td className="text-right">
-                      <Delta current={net} previous={pv ? pv.amount_cents - pv.refunded_cents : 0} />
+                      <Delta
+                        current={net}
+                        previous={pv ? pv.amount_cents - pv.refunded_cents : 0}
+                      />
                     </td>
                   </tr>
                 );
@@ -106,7 +139,9 @@ export default async function ChannelsReport({ searchParams }: { searchParams: P
               )}
             </tbody>
           </Table>
-          <p className="mt-2 text-xs text-muted">Pagos confirmados de ventas no anuladas, menos reembolsos completados del mismo pago.</p>
+          <p className="mt-2 text-xs text-muted">
+            Pagos confirmados de ventas no anuladas, menos reembolsos completados del mismo pago.
+          </p>
         </Card>
       </div>
     </ReportShell>

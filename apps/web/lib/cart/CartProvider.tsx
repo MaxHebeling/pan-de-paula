@@ -112,7 +112,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           qty: l.qty,
           unitPriceCents: l.unitPriceCents,
         })),
-        { discounts: state.coupon ? [{ kind: "amount", valueCents: state.coupon.discountCents }] : [] },
+        {
+          discounts: state.coupon
+            ? [{ kind: "amount", valueCents: state.coupon.discountCents }]
+            : [],
+        },
       ),
     [state.lines, state.coupon],
   );
@@ -147,7 +151,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       },
       setNotes: cartStore.setNotes,
       setCustomerLookup: cartStore.setCustomerLookup,
-      applyCoupon: (code) => runCouponValidation(code, getSnapshot().lines, getSnapshot().customerLookup),
+      applyCoupon: (code) =>
+        runCouponValidation(code, getSnapshot().lines, getSnapshot().customerLookup),
       removeCoupon: () => {
         seq.current++;
         setCouponBusy(false);

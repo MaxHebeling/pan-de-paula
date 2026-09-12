@@ -126,7 +126,9 @@ export function CustomerForm({
           </label>
         )}
       </div>
-      <p className="text-xs text-muted">Se requiere teléfono o email. Si ya existe un cliente con ese teléfono/email, se reutiliza.</p>
+      <p className="text-xs text-muted">
+        Se requiere teléfono o email. Si ya existe un cliente con ese teléfono/email, se reutiliza.
+      </p>
     </ActionForm>
   );
 }

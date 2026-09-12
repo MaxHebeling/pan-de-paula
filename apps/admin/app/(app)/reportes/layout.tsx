@@ -5,7 +5,10 @@ export default function ReportsLayout({ children }: { children: React.ReactNode 
   return (
     <>
       <div className="no-print">
-        <PageHeader title="Reportes" subtitle="Ventas anuladas excluidas · reembolsos restados · fechas en horario del negocio" />
+        <PageHeader
+          title="Reportes"
+          subtitle="Ventas anuladas excluidas · reembolsos restados · fechas en horario del negocio"
+        />
       </div>
       {children}
     </>

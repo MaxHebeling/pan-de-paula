@@ -12,7 +12,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!cat) return { title: "Categoría no encontrada" };
   return {
     title: cat.name,
-    description: cat.description ?? `${cat.name} artesanales de El Pan de Paula. Pide en línea y recoge en tu fecha.`,
+    description:
+      cat.description ??
+      `${cat.name} artesanales de El Pan de Paula. Pide en línea y recoge en tu fecha.`,
     alternates: { canonical: `/menu/${cat.slug}` },
   };
 }

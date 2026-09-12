@@ -1,6 +1,11 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
-import { createMercadoPagoPreference, isEmailConfigured, isMercadoPagoConfigured, sendEmail } from "@pdp/integrations";
+import {
+  createMercadoPagoPreference,
+  isEmailConfigured,
+  isMercadoPagoConfigured,
+  sendEmail,
+} from "@pdp/integrations";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@pdp/domain";
 import { db, sql } from "@/lib/db";
 import { dateMX, hourRange, money } from "@/lib/format";
@@ -34,7 +39,12 @@ export type OrderView = {
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
-  pickupPoint: { name: string; address: string | null; notes: string | null; mapUrl: string | null } | null;
+  pickupPoint: {
+    name: string;
+    address: string | null;
+    notes: string | null;
+    mapUrl: string | null;
+  } | null;
   deliveryAddress: { street?: string; neighborhood?: string; references_note?: string } | null;
   scheduledFor: Date | null;
   windowName: string | null;
@@ -63,7 +73,10 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 /** Pedido por folio + token público. Token incorrecto → null (la página responde 404). */
-export async function getOrderByFolio(folio: string, token: string | null | undefined): Promise<OrderView | null> {
+export async function getOrderByFolio(
+  folio: string,
+  token: string | null | undefined,
+): Promise<OrderView | null> {
   if (!token || !/^[0-9a-f]{32}$/i.test(token) || !/^PDP-\d{4}-\d{6}$/.test(folio)) return null;
   const d = db();
   const o = await d
@@ -106,7 +119,15 @@ export async function getOrderByFolio(folio: string, token: string | null | unde
   const [items, history, payments] = await Promise.all([
     d
       .selectFrom("order_items")
-      .select(["id", "product_name", "variant_label", "qty", "unit_price_cents", "total_cents", "notes"])
+      .select([
+        "id",
+        "product_name",
+        "variant_label",
+        "qty",
+        "unit_price_cents",
+        "total_cents",
+        "notes",
+      ])
       .where("order_id", "=", o.id)
       .orderBy("sort_order")
       .execute(),
@@ -118,7 +139,15 @@ export async function getOrderByFolio(folio: string, token: string | null | unde
       .execute(),
     d
       .selectFrom("payments")
-      .select(["id", "provider", "method", "status", "amount_cents", "external_status", "created_at"])
+      .select([
+        "id",
+        "provider",
+        "method",
+        "status",
+        "amount_cents",
+        "external_status",
+        "created_at",
+      ])
       .where("order_id", "=", o.id)
       .orderBy("created_at", "desc")
       .execute(),
@@ -135,7 +164,9 @@ export async function getOrderByFolio(folio: string, token: string | null | unde
   }));
   const paymentMethod: OrderView["paymentMethod"] = pays.some((p) => p.method === "transfer")
     ? "transfer"
-    : pays.some((p) => p.provider === "mercadopago") || o.status === "new" || o.status === "payment_pending"
+    : pays.some((p) => p.provider === "mercadopago") ||
+        o.status === "new" ||
+        o.status === "payment_pending"
       ? "mercadopago"
       : "cash";
 
@@ -149,7 +180,9 @@ export async function getOrderByFolio(folio: string, token: string | null | unde
     customerName: o.customer_name,
     customerPhone: o.customer_phone,
     customerEmail: o.customer_email,
-    pickupPoint: o.pp_name ? { name: o.pp_name, address: o.pp_address, notes: o.pp_notes, mapUrl: o.pp_map } : null,
+    pickupPoint: o.pp_name
+      ? { name: o.pp_name, address: o.pp_address, notes: o.pp_notes, mapUrl: o.pp_map }
+      : null,
     deliveryAddress: (o.delivery_address as OrderView["deliveryAddress"]) ?? null,
     scheduledFor: o.scheduled_for,
     windowName: o.win_name,
@@ -222,11 +255,17 @@ export async function startMercadoPago(order: OrderView, business: Business): Pr
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 }
 
 /** Email de confirmación (solo si el proveedor está configurado). Nunca interrumpe el flujo del pedido. */
-export async function sendOrderConfirmationEmail(order: OrderView, business: Business): Promise<void> {
+export async function sendOrderConfirmationEmail(
+  order: OrderView,
+  business: Business,
+): Promise<void> {
   if (!order.customerEmail || !isEmailConfigured()) return;
   const when = order.scheduledFor ? dateMX(order.scheduledFor, business.timezone) : "por confirmar";
   const hours = hourRange(order.windowFrom, order.windowTo);

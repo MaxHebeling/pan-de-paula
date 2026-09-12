@@ -13,7 +13,14 @@ const tagsSchema = z
   .string()
   .max(300)
   .transform((s) =>
-    Array.from(new Set(s.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))).slice(0, 20),
+    Array.from(
+      new Set(
+        s
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ).slice(0, 20),
   );
 
 export async function createCustomerAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -35,11 +42,15 @@ export async function createCustomerAction(_prev: ActionState, fd: FormData): Pr
   let created = true;
   try {
     const r = await withStaff(db(), s.staff.id, async (trx) => {
-      const res = await callFn<{ customer_id: string; created: boolean }>(trx, "register_customer", [
-        JSON.stringify({ ...parsed.data, notes: extra.data.notes }),
-      ]);
+      const res = await callFn<{ customer_id: string; created: boolean }>(
+        trx,
+        "register_customer",
+        [JSON.stringify({ ...parsed.data, notes: extra.data.notes })],
+      );
       if (res.created && extra.data.tags.length) {
-        await sql`update customers set tags = ${extra.data.tags} where id = ${res.customer_id}`.execute(trx);
+        await sql`update customers set tags = ${extra.data.tags} where id = ${res.customer_id}`.execute(
+          trx,
+        );
       }
       return res;
     });
@@ -102,9 +113,14 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
   redirect(`/clientes/${d.id}?actualizado=1`);
 }
 
-export async function setMarketingConsentAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+export async function setMarketingConsentAction(
+  _prev: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = z.object({ id: uuid, value: z.enum(["on", "off"]) }).safeParse({ id: str(fd, "id"), value: str(fd, "value") });
+  const p = z
+    .object({ id: uuid, value: z.enum(["on", "off"]) })
+    .safeParse({ id: str(fd, "id"), value: str(fd, "value") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
@@ -117,22 +133,42 @@ export async function setMarketingConsentAction(_prev: ActionState, fd: FormData
     return { error: dbErrorMessage(e).message };
   }
   revalidatePath(`/clientes/${p.data.id}`);
-  return { ok: p.data.value === "on" ? "Consentimiento de marketing activado" : "Cliente dado de baja de marketing" };
+  return {
+    ok:
+      p.data.value === "on"
+        ? "Consentimiento de marketing activado"
+        : "Cliente dado de baja de marketing",
+  };
 }
 
 const adjustSchema = z.object({
   id: uuid,
-  points: z.coerce.number().int("Debe ser un entero").refine((n) => n !== 0, "Indica un número distinto de 0").refine((n) => Math.abs(n) <= 100000, "Máximo 100,000"),
+  points: z.coerce
+    .number()
+    .int("Debe ser un entero")
+    .refine((n) => n !== 0, "Indica un número distinto de 0")
+    .refine((n) => Math.abs(n) <= 100000, "Máximo 100,000"),
   reason: z.string().trim().min(3, "Escribe el motivo (mínimo 3 caracteres)").max(200),
 });
 
 export async function adjustPointsAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = adjustSchema.safeParse({ id: str(fd, "id"), points: str(fd, "points"), reason: str(fd, "reason") });
+  const p = adjustSchema.safeParse({
+    id: str(fd, "id"),
+    points: str(fd, "points"),
+    reason: str(fd, "reason"),
+  });
   if (!p.success) return { error: p.error.issues[0]?.message ?? "Datos inválidos" };
   try {
     const balance = await withStaff(db(), s.staff.id, (trx) =>
-      callFn<number>(trx, "loyalty_post", [p.data.id, "adjust", p.data.points, null, null, `Ajuste manual: ${p.data.reason}`]),
+      callFn<number>(trx, "loyalty_post", [
+        p.data.id,
+        "adjust",
+        p.data.points,
+        null,
+        null,
+        `Ajuste manual: ${p.data.reason}`,
+      ]),
     );
     await withStaff(db(), s.staff.id, (trx) => callFn(trx, "recompute_customer_tier", [p.data.id]));
     revalidatePath(`/clientes/${p.data.id}`);
@@ -145,11 +181,16 @@ export async function adjustPointsAction(_prev: ActionState, fd: FormData): Prom
 
 export async function redeemRewardAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = z.object({ id: uuid, reward_id: uuid }).safeParse({ id: str(fd, "id"), reward_id: str(fd, "reward_id") });
+  const p = z
+    .object({ id: uuid, reward_id: uuid })
+    .safeParse({ id: str(fd, "id"), reward_id: str(fd, "reward_id") });
   if (!p.success) return { error: "Selecciona una recompensa" };
   try {
     const r = await withStaff(db(), s.staff.id, (trx) =>
-      callFn<{ redemption_id: string; code: string }>(trx, "redeem_reward", [p.data.id, p.data.reward_id]),
+      callFn<{ redemption_id: string; code: string }>(trx, "redeem_reward", [
+        p.data.id,
+        p.data.reward_id,
+      ]),
     );
     revalidatePath(`/clientes/${p.data.id}`);
     return { ok: `Recompensa canjeada. Código ${r.code} (aplícalo en el POS)` };
@@ -161,10 +202,14 @@ export async function redeemRewardAction(_prev: ActionState, fd: FormData): Prom
 
 export async function mergeCustomersAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = z.object({ keep_id: uuid, merge_id: uuid }).safeParse({ keep_id: str(fd, "keep_id"), merge_id: str(fd, "merge_id") });
+  const p = z
+    .object({ keep_id: uuid, merge_id: uuid })
+    .safeParse({ keep_id: str(fd, "keep_id"), merge_id: str(fd, "merge_id") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
-    await withStaff(db(), s.staff.id, (trx) => callFn(trx, "merge_customers", [p.data.keep_id, p.data.merge_id]));
+    await withStaff(db(), s.staff.id, (trx) =>
+      callFn(trx, "merge_customers", [p.data.keep_id, p.data.merge_id]),
+    );
   } catch (e) {
     console.error("[clientes] fusión falló", e);
     return { error: dbErrorMessage(e).message };
@@ -203,7 +248,10 @@ export async function addAddressAction(_prev: ActionState, fd: FormData): Promis
   const a = p.data;
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
-      if (a.is_default) await sql`update customer_addresses set is_default = false where customer_id = ${a.id}`.execute(trx);
+      if (a.is_default)
+        await sql`update customer_addresses set is_default = false where customer_id = ${a.id}`.execute(
+          trx,
+        );
       await sql`insert into customer_addresses(customer_id, label, street, neighborhood, city, state, postal_code, references_note, is_default)
                 values (${a.id}, ${a.label ?? null}, ${a.street}, ${a.neighborhood ?? null}, ${a.city ?? null}, ${a.state ?? null}, ${a.postal_code ?? null}, ${a.references_note ?? null}, ${a.is_default})`.execute(
         trx,
@@ -219,11 +267,15 @@ export async function addAddressAction(_prev: ActionState, fd: FormData): Promis
 
 export async function deleteAddressAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = z.object({ id: uuid, address_id: uuid }).safeParse({ id: str(fd, "id"), address_id: str(fd, "address_id") });
+  const p = z
+    .object({ id: uuid, address_id: uuid })
+    .safeParse({ id: str(fd, "id"), address_id: str(fd, "address_id") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
-      sql`delete from customer_addresses where id = ${p.data.address_id} and customer_id = ${p.data.id}`.execute(trx),
+      sql`delete from customer_addresses where id = ${p.data.address_id} and customer_id = ${p.data.id}`.execute(
+        trx,
+      ),
     );
     revalidatePath(`/clientes/${p.data.id}`);
     return { ok: "Dirección eliminada" };
@@ -233,13 +285,20 @@ export async function deleteAddressAction(_prev: ActionState, fd: FormData): Pro
   }
 }
 
-export async function markEventHandledAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+export async function markEventHandledAction(
+  _prev: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const p = z.object({ id: uuid, event_id: z.coerce.number().int().positive() }).safeParse({ id: str(fd, "id"), event_id: str(fd, "event_id") });
+  const p = z
+    .object({ id: uuid, event_id: z.coerce.number().int().positive() })
+    .safeParse({ id: str(fd, "id"), event_id: str(fd, "event_id") });
   if (!p.success) return { error: "Datos inválidos" };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
-      sql`update customer_events set handled_at = now() where id = ${p.data.event_id} and customer_id = ${p.data.id} and handled_at is null`.execute(trx),
+      sql`update customer_events set handled_at = now() where id = ${p.data.event_id} and customer_id = ${p.data.id} and handled_at is null`.execute(
+        trx,
+      ),
     );
     revalidatePath(`/clientes/${p.data.id}`);
     return { ok: "Evento atendido" };

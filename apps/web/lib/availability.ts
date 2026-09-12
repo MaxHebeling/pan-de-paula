@@ -25,9 +25,11 @@ export type Availability = {
 export function availability(p: ProductLike): Availability {
   const badges: Badge[] = [];
   const soldOut = p.trackStock && p.onHand <= 0;
-  const promo = p.priceCents !== null && p.regularPriceCents !== null && p.priceCents < p.regularPriceCents;
+  const promo =
+    p.priceCents !== null && p.regularPriceCents !== null && p.priceCents < p.regularPriceCents;
   if (promo) badges.push({ key: "promo", label: "Promo" });
-  if (p.tags.includes("nuevo") || p.categorySlug === "nuevos") badges.push({ key: "nuevo", label: "Nuevo" });
+  if (p.tags.includes("nuevo") || p.categorySlug === "nuevos")
+    badges.push({ key: "nuevo", label: "Nuevo" });
   if (p.seasonStart || p.seasonEnd || p.categorySlug === "temporada")
     badges.push({ key: "temporada", label: "Temporada" });
   if (p.requiresPreorder) badges.push({ key: "pedido", label: "Bajo pedido" });

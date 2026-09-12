@@ -90,7 +90,8 @@ describe("sitio público: rate_limits", () => {
   });
 
   it("separa contadores por clave y por ruta", async () => {
-    for (let i = 0; i < 3; i++) await callFn(db, "rate_limit_hit", ["10.0.0.1", "checkout", 600, 3]);
+    for (let i = 0; i < 3; i++)
+      await callFn(db, "rate_limit_hit", ["10.0.0.1", "checkout", 600, 3]);
     const blocked = await callFn<{ allowed: boolean }>(db, "rate_limit_hit", [
       "10.0.0.1",
       "checkout",

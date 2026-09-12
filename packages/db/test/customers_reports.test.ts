@@ -32,7 +32,9 @@ afterAll(async () => {
 });
 
 const today = () =>
-  sql<{ d: string }>`select (now() at time zone (select timezone from business_settings where id = 1))::date::text as d`
+  sql<{
+    d: string;
+  }>`select (now() at time zone (select timezone from business_settings where id = 1))::date::text as d`
     .execute(db)
     .then((r) => r.rows[0]!.d);
 
@@ -119,9 +121,9 @@ describe("merge_customers", () => {
     );
     expect(ledger.rows.at(-1)).toMatchObject({ kind: "adjust", points: 14, balance_after: 23 });
     // El fusionado ya no se resuelve por código/QR ni acepta otra fusión
-    const found = await sql<{ id: string }>`select id from find_customer(${dup.public_code})`.execute(
-      db,
-    );
+    const found = await sql<{
+      id: string;
+    }>`select id from find_customer(${dup.public_code})`.execute(db);
     expect(found.rows.length).toBe(0);
     await expect(
       withStaff(db, staff, (trx) =>

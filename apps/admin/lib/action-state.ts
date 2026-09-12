@@ -2,7 +2,8 @@
 export type ActionState = { error?: string; ok?: string; data?: Record<string, unknown> };
 
 export const str = (fd: FormData, name: string): string => String(fd.get(name) ?? "").trim();
-export const optStr = (fd: FormData, name: string): string | undefined => str(fd, name) || undefined;
+export const optStr = (fd: FormData, name: string): string | undefined =>
+  str(fd, name) || undefined;
 export const bool = (fd: FormData, name: string): boolean => {
   const v = fd.get(name);
   return v === "on" || v === "true" || v === "1";

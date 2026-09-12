@@ -53,7 +53,10 @@ export function CartPage() {
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <Link href={`/producto/${l.slug}`} className="font-display text-lg text-ink hover:text-sage">
+                    <Link
+                      href={`/producto/${l.slug}`}
+                      className="font-display text-lg text-ink hover:text-sage"
+                    >
                       {l.name}
                     </Link>
                     <p className="text-sm text-ink-2">{money(l.unitPriceCents)} c/u</p>
@@ -64,14 +67,28 @@ export function CartPage() {
                     className="tap -mr-2 shrink-0 rounded-full text-ink-2 hover:bg-cream-2 hover:text-wine"
                     aria-label={`Quitar ${l.name}`}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      aria-hidden="true"
+                    >
                       <path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
                     </svg>
                   </button>
                 </div>
                 <div className="mt-auto flex items-center justify-between gap-3">
-                  <QuantityStepper value={l.qty} onChange={(q) => cart.setQty(l.productId, q)} label={`Cantidad de ${l.name}`} />
-                  <span className="font-semibold tabular-nums">{money(l.unitPriceCents * l.qty)}</span>
+                  <QuantityStepper
+                    value={l.qty}
+                    onChange={(q) => cart.setQty(l.productId, q)}
+                    label={`Cantidad de ${l.name}`}
+                  />
+                  <span className="font-semibold tabular-nums">
+                    {money(l.unitPriceCents * l.qty)}
+                  </span>
                 </div>
               </div>
             </li>
@@ -83,7 +100,9 @@ export function CartPage() {
             <h2 className="font-display text-xl text-ink">Resumen</h2>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-ink-2">Subtotal ({cart.count} {cart.count === 1 ? "pieza" : "piezas"})</dt>
+                <dt className="text-ink-2">
+                  Subtotal ({cart.count} {cart.count === 1 ? "pieza" : "piezas"})
+                </dt>
                 <dd className="tabular-nums">{money(cart.totals.subtotalCents)}</dd>
               </div>
               {cart.coupon && (
@@ -99,8 +118,14 @@ export function CartPage() {
                 </dd>
               </div>
             </dl>
-            <p className="mt-2 text-xs text-ink-2">El total final se calcula en el servidor al confirmar el pedido.</p>
-            <Link href="/checkout" className="btn btn-primary btn-lg mt-5 w-full" data-testid="go-checkout">
+            <p className="mt-2 text-xs text-ink-2">
+              El total final se calcula en el servidor al confirmar el pedido.
+            </p>
+            <Link
+              href="/checkout"
+              className="btn btn-primary btn-lg mt-5 w-full"
+              data-testid="go-checkout"
+            >
               Continuar al pedido
             </Link>
             <Link href="/menu" className="btn btn-ghost mt-2 w-full">
@@ -139,7 +164,11 @@ export function CartPage() {
                   autoComplete="off"
                   maxLength={40}
                 />
-                <button type="submit" className="btn btn-secondary shrink-0" disabled={cart.couponBusy || !code.trim()}>
+                <button
+                  type="submit"
+                  className="btn btn-secondary shrink-0"
+                  disabled={cart.couponBusy || !code.trim()}
+                >
                   {cart.couponBusy ? "Validando…" : "Aplicar"}
                 </button>
               </div>

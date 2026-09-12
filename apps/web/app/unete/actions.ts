@@ -5,7 +5,13 @@ import { customerRegistrationSchema } from "@pdp/domain";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
-export type JoinValues = { full_name: string; phone: string; email: string; birthday: string; marketing_consent: boolean };
+export type JoinValues = {
+  full_name: string;
+  phone: string;
+  email: string;
+  birthday: string;
+  marketing_consent: boolean;
+};
 export type JoinState = { error?: string; field?: string; values?: JoinValues } | null;
 
 export async function joinClubAction(_prev: JoinState, formData: FormData): Promise<JoinState> {
@@ -37,11 +43,12 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
   try {
     const rl = await rateLimit("register");
     if (!rl.allowed) return { error: RATE_LIMIT_MESSAGE, values: { ...raw } };
-    const r = await callFn<{ customer_id: string; public_code: string; qr_token: string; created: boolean }>(
-      db(),
-      "register_customer",
-      [JSON.stringify(parsed.data)],
-    );
+    const r = await callFn<{
+      customer_id: string;
+      public_code: string;
+      qr_token: string;
+      created: boolean;
+    }>(db(), "register_customer", [JSON.stringify(parsed.data)]);
     token = r.qr_token;
     if (!r.created) {
       console.info(`[club] registro repetido, se reutiliza la cuenta ${r.public_code}`);

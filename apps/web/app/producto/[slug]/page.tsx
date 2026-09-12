@@ -114,7 +114,9 @@ export default async function ProductPage({ params }: Props) {
             </div>
             <div className="card p-4">
               <dt className="eyebrow mb-2">Entrega</dt>
-              <dd className="text-sm text-ink">Eliges la fecha de recolección al finalizar tu pedido.</dd>
+              <dd className="text-sm text-ink">
+                Eliges la fecha de recolección al finalizar tu pedido.
+              </dd>
             </div>
           </dl>
 

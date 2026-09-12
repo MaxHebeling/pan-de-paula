@@ -30,7 +30,10 @@ export function Footer({ business }: { business: Business }) {
           ) : (
             <p className="text-sm text-ink-2">Consulta nuestros horarios en Instagram.</p>
           )}
-          <Link href="/horarios" className="mt-3 inline-block text-sm font-medium text-sage hover:underline">
+          <Link
+            href="/horarios"
+            className="mt-3 inline-block text-sm font-medium text-sage hover:underline"
+          >
             Ver horarios y fechas de entrega
           </Link>
         </div>
@@ -40,7 +43,10 @@ export function Footer({ business }: { business: Business }) {
             {address ? <p>{address}</p> : <p>Dirección disponible en Instagram y WhatsApp.</p>}
             {business.phone && (
               <p className="mt-1">
-                <a href={`tel:${business.phone.replace(/[^0-9+]/g, "")}`} className="hover:text-sage">
+                <a
+                  href={`tel:${business.phone.replace(/[^0-9+]/g, "")}`}
+                  className="hover:text-sage"
+                >
                   {business.phone}
                 </a>
               </p>
@@ -65,7 +71,12 @@ export function Footer({ business }: { business: Business }) {
               </a>
             )}
             {wa && (
-              <a href={wa} target="_blank" rel="noopener noreferrer" className="text-sage hover:underline">
+              <a
+                href={wa}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sage hover:underline"
+              >
                 WhatsApp
               </a>
             )}

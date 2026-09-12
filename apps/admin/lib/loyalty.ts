@@ -16,7 +16,9 @@ export async function loyaltyProgram() {
     }>`select is_active, points_per_unit, unit_cents, min_purchase_cents, birthday_multiplier::text, signup_bonus_points, points_expire_days, rounding, updated_at from loyalty_program where id = 1`.execute(
       db(),
     ),
-    sql<{ enabled: boolean }>`select enabled from feature_flags where key = 'loyalty'`.execute(db()),
+    sql<{ enabled: boolean }>`select enabled from feature_flags where key = 'loyalty'`.execute(
+      db(),
+    ),
   ]);
   return { ...p.rows[0]!, feature_enabled: f.rows[0]?.enabled ?? false };
 }
@@ -46,15 +48,24 @@ export async function rewardsList() {
 }
 
 export async function productBonuses() {
-  const r = await sql<{ product_id: string; name: string; bonus_points: number; is_active: boolean }>`
+  const r = await sql<{
+    product_id: string;
+    name: string;
+    bonus_points: number;
+    is_active: boolean;
+  }>`
     select b.product_id, p.name, b.bonus_points, b.is_active
-    from loyalty_product_bonuses b join products p on p.id = b.product_id order by p.name`.execute(db());
+    from loyalty_product_bonuses b join products p on p.id = b.product_id order by p.name`.execute(
+    db(),
+  );
   return r.rows;
 }
 
 export async function activeProducts() {
   const r = await sql<{ id: string; name: string }>`
-    select id, name from products where deleted_at is null and is_active and parent_id is null order by name`.execute(db());
+    select id, name from products where deleted_at is null and is_active and parent_id is null order by name`.execute(
+    db(),
+  );
   return r.rows;
 }
 
@@ -96,12 +107,28 @@ export async function loyaltyDashboard() {
              coalesce((select sum(points) from loyalty_transactions lt, bs where lt.kind in ('adjust','reversal','expire') and date_trunc('month', lt.created_at at time zone bs.tz)::date = m.month), 0)::int as adjusted,
              coalesce((select count(distinct customer_id) from loyalty_transactions lt, bs where lt.kind = 'earn' and date_trunc('month', lt.created_at at time zone bs.tz)::date = m.month), 0)::int as customers
       from m order by m.month`.execute(d),
-    sql<{ key: string; name: string; color: string | null; rank: number; customers: number; points: number }>`
+    sql<{
+      key: string;
+      name: string;
+      color: string | null;
+      rank: number;
+      customers: number;
+      points: number;
+    }>`
       select t.key, t.name, t.color, t.rank,
              (select count(*) from customers c where c.tier_key = t.key and c.deleted_at is null and c.merged_into_id is null)::int as customers,
              coalesce((select sum(points_balance) from customers c where c.tier_key = t.key and c.deleted_at is null and c.merged_into_id is null), 0)::int as points
       from loyalty_tiers t order by t.rank`.execute(d),
-    sql<{ id: string; public_code: string; full_name: string; birthday: string; next_birthday: string; phone: string | null; marketing_consent: boolean; days: number }>`
+    sql<{
+      id: string;
+      public_code: string;
+      full_name: string;
+      birthday: string;
+      next_birthday: string;
+      phone: string | null;
+      marketing_consent: boolean;
+      days: number;
+    }>`
       with bs as (select (now() at time zone timezone)::date as today from business_settings where id = 1),
       x as (
         select c.id, c.public_code, c.full_name, c.birthday, c.phone::text as phone, c.marketing_consent,
@@ -111,15 +138,27 @@ export async function loyaltyDashboard() {
                bs.today
         from customers c, bs where c.birthday is not null and c.deleted_at is null and c.merged_into_id is null)
       select id, public_code, full_name, birthday::text, next_birthday::text, phone, marketing_consent, (next_birthday - today)::int as days
-      from x where next_birthday <= today + 30 order by next_birthday, full_name limit 40`.execute(d),
-    sql<{ outstanding: number; customers_with_points: number; redemptions_30d: number; issued_30d: number }>`
+      from x where next_birthday <= today + 30 order by next_birthday, full_name limit 40`.execute(
+      d,
+    ),
+    sql<{
+      outstanding: number;
+      customers_with_points: number;
+      redemptions_30d: number;
+      issued_30d: number;
+    }>`
       select coalesce(sum(points_balance), 0)::int as outstanding,
              count(*) filter (where points_balance > 0)::int as customers_with_points,
              (select count(*) from reward_redemptions where issued_at >= now() - interval '30 days' and status <> 'cancelled')::int as redemptions_30d,
              coalesce((select sum(points) from loyalty_transactions where kind in ('earn','bonus') and created_at >= now() - interval '30 days'), 0)::int as issued_30d
       from customers where deleted_at is null and merged_into_id is null`.execute(d),
   ]);
-  return { months: months.rows, tiers: tiers.rows, birthdays: birthdays.rows, totals: totals.rows[0]! };
+  return {
+    months: months.rows,
+    tiers: tiers.rows,
+    birthdays: birthdays.rows,
+    totals: totals.rows[0]!,
+  };
 }
 
 export const REWARD_KIND_LABELS: Record<string, string> = {

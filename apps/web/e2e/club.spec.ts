@@ -22,7 +22,10 @@ test.describe("club de clientes", () => {
     await expect(page.getByTestId("card-code")).toHaveText(/PDP-\d{6}/);
     await expect(page.getByTestId("card-qr")).toBeVisible();
     await expect(page.getByTestId("card-points")).toHaveText("0");
-    await expect(page.getByRole("link", { name: "Guardar en el teléfono" })).toHaveAttribute("download", /tarjeta-PDP-\d{6}\.png/);
+    await expect(page.getByRole("link", { name: "Guardar en el teléfono" })).toHaveAttribute(
+      "download",
+      /tarjeta-PDP-\d{6}\.png/,
+    );
 
     // La tarjeta se puede volver a abrir sin el parámetro de bienvenida
     const url = new URL(page.url());

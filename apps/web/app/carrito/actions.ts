@@ -46,7 +46,14 @@ export async function validateCouponAction(input: {
     const priced = items.flatMap((i) => {
       const p = products.find((x) => x.id === i.productId);
       if (!p || p.priceCents === null) return [];
-      return [{ product_id: p.id, qty: i.qty, unit_price_cents: p.priceCents, total_cents: p.priceCents * i.qty }];
+      return [
+        {
+          product_id: p.id,
+          qty: i.qty,
+          unit_price_cents: p.priceCents,
+          total_cents: p.priceCents * i.qty,
+        },
+      ];
     });
     const subtotal = priced.reduce((s, l) => s + l.total_cents, 0);
     let customerId: string | null = null;
@@ -59,8 +66,14 @@ export async function validateCouponAction(input: {
       kind?: "pct" | "amount" | "free_product";
       discount_cents?: number;
     }>(db(), "validate_coupon", [code, customerId, subtotal, "web", JSON.stringify(priced)]);
-    if (!r.valid) return { ok: false, error: REASONS[r.reason ?? ""] ?? "Ese cupón no se puede aplicar." };
-    return { ok: true, code: r.code ?? code, kind: r.kind ?? "amount", discountCents: r.discount_cents ?? 0 };
+    if (!r.valid)
+      return { ok: false, error: REASONS[r.reason ?? ""] ?? "Ese cupón no se puede aplicar." };
+    return {
+      ok: true,
+      code: r.code ?? code,
+      kind: r.kind ?? "amount",
+      discountCents: r.discount_cents ?? 0,
+    };
   } catch (e) {
     console.error("[validateCouponAction]", e);
     return { ok: false, error: dbErrorMessage(e).message };

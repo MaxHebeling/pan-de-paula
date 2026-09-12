@@ -60,8 +60,12 @@ export const hm = (t: string | null | undefined): string | null => (t ? t.slice(
 function policiesFrom(raw: unknown): Policies {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const p = raw as Record<string, unknown>;
-  const str = (k: string) => (typeof p[k] === "string" && p[k].trim() ? (p[k] as string) : undefined);
-  const fee = typeof p.delivery_fee_cents === "number" ? Math.max(0, Math.round(p.delivery_fee_cents)) : undefined;
+  const str = (k: string) =>
+    typeof p[k] === "string" && p[k].trim() ? (p[k] as string) : undefined;
+  const fee =
+    typeof p.delivery_fee_cents === "number"
+      ? Math.max(0, Math.round(p.delivery_fee_cents))
+      : undefined;
   return {
     about: str("about"),
     transfer_instructions: str("transfer_instructions"),

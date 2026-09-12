@@ -35,7 +35,9 @@ export function loadCart(): CartState {
       version: 1,
       lines,
       coupon:
-        parsed.coupon && typeof parsed.coupon.code === "string" && Number.isInteger(parsed.coupon.discountCents)
+        parsed.coupon &&
+        typeof parsed.coupon.code === "string" &&
+        Number.isInteger(parsed.coupon.discountCents)
           ? parsed.coupon
           : null,
       notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 500) : "",

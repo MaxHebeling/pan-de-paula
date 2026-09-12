@@ -24,5 +24,11 @@ export type CartState = {
 };
 
 export const CART_STORAGE_KEY = "pdp.cart.v1";
-export const EMPTY_CART: CartState = { version: 1, lines: [], coupon: null, notes: "", customerLookup: null };
+export const EMPTY_CART: CartState = {
+  version: 1,
+  lines: [],
+  coupon: null,
+  notes: "",
+  customerLookup: null,
+};
 export const MAX_QTY = 50;

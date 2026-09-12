@@ -36,9 +36,15 @@ const LIST = sql`
 export async function listConversations(opts: { status?: string; q?: string; mine?: string } = {}) {
   const conds = [sql`true`];
   if (opts.status && opts.status !== "all") conds.push(sql`c.status = ${opts.status}`);
-  if (opts.q) conds.push(sql`(c.ig_username ilike ${"%" + opts.q + "%"} or cu.full_name ilike ${"%" + opts.q + "%"} or exists (select 1 from instagram_messages m where m.conversation_id = c.id and m.text ilike ${"%" + opts.q + "%"}))`);
+  if (opts.q)
+    conds.push(
+      sql`(c.ig_username ilike ${"%" + opts.q + "%"} or cu.full_name ilike ${"%" + opts.q + "%"} or exists (select 1 from instagram_messages m where m.conversation_id = c.id and m.text ilike ${"%" + opts.q + "%"}))`,
+    );
   if (opts.mine) conds.push(sql`c.assigned_to = ${opts.mine}`);
-  const r = await sql<ConversationRow>`${LIST} where ${sql.join(conds, sql` and `)} order by c.last_message_at desc nulls last limit 200`.execute(db());
+  const r =
+    await sql<ConversationRow>`${LIST} where ${sql.join(conds, sql` and `)} order by c.last_message_at desc nulls last limit 200`.execute(
+      db(),
+    );
   return r.rows;
 }
 
@@ -64,7 +70,10 @@ export async function getConversation(id: string) {
 }
 
 export async function conversationLeads(conversationId: string) {
-  const r = await sql<LeadRow>`${LEADS} where l.source_ref = ${conversationId} order by l.created_at desc`.execute(db());
+  const r =
+    await sql<LeadRow>`${LEADS} where l.source_ref = ${conversationId} order by l.created_at desc`.execute(
+      db(),
+    );
   return r.rows;
 }
 
@@ -102,7 +111,10 @@ export async function listLeads(opts: { status?: string; source?: string } = {})
   const conds = [sql`true`];
   if (opts.status) conds.push(sql`l.status = ${opts.status}`);
   if (opts.source) conds.push(sql`l.source = ${opts.source}`);
-  const r = await sql<LeadRow>`${LEADS} where ${sql.join(conds, sql` and `)} order by (l.status = 'new') desc, l.created_at desc limit 300`.execute(db());
+  const r =
+    await sql<LeadRow>`${LEADS} where ${sql.join(conds, sql` and `)} order by (l.status = 'new') desc, l.created_at desc limit 300`.execute(
+      db(),
+    );
   return r.rows;
 }
 
@@ -117,7 +129,17 @@ export async function instagramMetrics() {
              (select count(distinct m.conversation_id) from instagram_messages m, bs where m.direction = 'in' and date_trunc('week', m.created_at at time zone bs.tz)::date = w.week)::int as conversations,
              (select count(*) from instagram_conversations c, bs where c.status = 'converted' and date_trunc('week', c.updated_at at time zone bs.tz)::date = w.week)::int as converted
       from w order by w.week`.execute(d),
-    sql<{ open: number; unanswered: number; total: number; converted: number; leads_new: number; leads_total: number; leads_converted: number; pending_out: number; avg_first_reply_min: number | null }>`
+    sql<{
+      open: number;
+      unanswered: number;
+      total: number;
+      converted: number;
+      leads_new: number;
+      leads_total: number;
+      leads_converted: number;
+      pending_out: number;
+      avg_first_reply_min: number | null;
+    }>`
       select (select count(*) from instagram_conversations where status = 'open')::int as open,
              (select count(*) from instagram_conversations c where c.status in ('open','handled') and (select direction from instagram_messages m where m.conversation_id = c.id order by created_at desc limit 1) = 'in')::int as unanswered,
              (select count(*) from instagram_conversations)::int as total,
@@ -130,18 +152,29 @@ export async function instagramMetrics() {
                 from (select conversation_id, min(created_at) t from instagram_messages where direction = 'in' group by conversation_id) fi
                 join (select conversation_id, min(created_at) t from instagram_messages where direction = 'out' group by conversation_id) fo on fo.conversation_id = fi.conversation_id
                where fo.t > fi.t) as avg_first_reply_min`.execute(d),
-    sql<{ intent: string; n: number }>`select coalesce(last_intent, 'sin clasificar') as intent, count(*)::int as n from instagram_conversations group by 1 order by 2 desc limit 8`.execute(d),
+    sql<{
+      intent: string;
+      n: number;
+    }>`select coalesce(last_intent, 'sin clasificar') as intent, count(*)::int as n from instagram_conversations group by 1 order by 2 desc limit 8`.execute(
+      d,
+    ),
   ]);
   return { weeks: weeks.rows, totals: totals.rows[0]!, intents: intents.rows };
 }
 
-export const CONV_STATUS: Record<string, { label: string; tone: "green" | "blue" | "amber" | "gray" }> = {
+export const CONV_STATUS: Record<
+  string,
+  { label: string; tone: "green" | "blue" | "amber" | "gray" }
+> = {
   open: { label: "abierta", tone: "amber" },
   handled: { label: "atendida", tone: "blue" },
   converted: { label: "convertida", tone: "green" },
   closed: { label: "cerrada", tone: "gray" },
 };
-export const LEAD_STATUS: Record<string, { label: string; tone: "green" | "blue" | "amber" | "gray" | "red" }> = {
+export const LEAD_STATUS: Record<
+  string,
+  { label: string; tone: "green" | "blue" | "amber" | "gray" | "red" }
+> = {
   new: { label: "nuevo", tone: "amber" },
   contacted: { label: "contactado", tone: "blue" },
   converted: { label: "convertido", tone: "green" },

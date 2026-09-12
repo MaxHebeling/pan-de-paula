@@ -13,7 +13,10 @@ export async function clientIp(): Promise<string> {
 }
 
 /** Ventana fija de 10 minutos, máximo 20 intentos por IP y ruta (tabla rate_limits, migración 0050). */
-export async function rateLimit(route: string, opts: { max?: number; windowSeconds?: number } = {}) {
+export async function rateLimit(
+  route: string,
+  opts: { max?: number; windowSeconds?: number } = {},
+) {
   const ip = await clientIp();
   const r = await callFn<RateLimitResult>(db(), "rate_limit_hit", [
     ip,

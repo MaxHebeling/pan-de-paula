@@ -5,7 +5,9 @@ import { expect, test } from "@playwright/test";
  * Requiere la base seedeada (pnpm db:seed) y el sitio corriendo en E2E_WEB_URL.
  */
 test.describe("tienda", () => {
-  test("home → menú → producto → carrito → checkout → pedido con folio", async ({ page }, testInfo) => {
+  test("home → menú → producto → carrito → checkout → pedido con folio", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Pan recién horneado");
     await expect(page.getByTestId("open-status")).toBeVisible();
@@ -75,7 +77,9 @@ test.describe("tienda", () => {
     await testInfo.attach("pedido", { body: page.url(), contentType: "text/plain" });
   });
 
-  test("producto agotado sin preventa no se puede agregar (regla de disponibilidad)", async ({ page }) => {
+  test("producto agotado sin preventa no se puede agregar (regla de disponibilidad)", async ({
+    page,
+  }) => {
     // El seed no tiene productos agotados sin preventa; se verifica la regla vía UI de "No disponible" ausente.
     await page.goto("/menu");
     await expect(page.getByTestId("product-card").first()).toBeVisible();
