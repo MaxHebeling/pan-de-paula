@@ -46,7 +46,7 @@ export function ActionForm({
       {children}
       <FormMessage state={state} />
       {state.data && secret && state.data[secret.valueKey] ? (
-        <OneTimeSecret label={secret.label} value={state.data[secret.valueKey]!} hint={secret.hint} />
+        <OneTimeSecret label={secret.label} value={String(state.data[secret.valueKey])} hint={secret.hint} />
       ) : null}
     </form>
   );
