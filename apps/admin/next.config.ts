@@ -14,9 +14,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   transpilePackages: ["@pdp/db", "@pdp/domain", "@pdp/auth", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
+  // Subida de imágenes de catálogo por server action (máximo 5 MB por imagen + campos del formulario).
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   images: {
     formats: ["image/avif", "image/webp"],
-    remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "http", hostname: "localhost" },
+    ],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
