@@ -1,0 +1,38 @@
+/* Vista imprimible (reportes y tarjeta QR): oculta navegación y controles, deja solo el contenido. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html {
+    background: #fff;
+    font-size: 12px;
+  }
+  aside,
+  header,
+  .no-print,
+  form button,
+  nav[aria-label="Paginación"] {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+  .print-area {
+    max-width: none !important;
+  }
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+  table {
+    font-size: 11px;
+  }
+  .print-break {
+    break-before: page;
+  }
+}
