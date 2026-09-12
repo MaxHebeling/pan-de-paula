@@ -242,7 +242,7 @@ test("conteo físico: crear → capturar → revisar diferencias → descartar s
   await expect(page.getByText("Paso 3 de 3")).toBeVisible();
   const diffRow = page.getByRole("row", { name: new RegExp(product) }).first();
   await expect(diffRow).toBeVisible();
-  await expect(diffRow.getByRole("cell", { name: "1", exact: true }).first()).toBeVisible();
+  await expect(diffRow.getByRole("cell", { name: /^\+?1$/ }).first()).toBeVisible();
 
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Descartar", exact: true }).click();
