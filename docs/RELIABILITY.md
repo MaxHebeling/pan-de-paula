@@ -7,15 +7,15 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 
 ### Correctitud
 
-| Elemento                                                                                                              | Estado | Evidencia                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------------------- | :----: | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Lógica crítica en funciones SQL transaccionales (venta, pago, inventario, puntos, caja, reembolso, producción, merma) |   ✅   | `packages/db/migrations/0008_transactions.sql`, `0070_import_historical_sales.sql`                                                      |
-| Tests de integración de DB (POS, pedidos/pagos, inventario/producción, paridad dominio↔SQL, importación)              |   ✅   | `packages/db/test/*.test.ts` — 52 tests; `global-setup` recrea la base                                                                  |
-| Tests unitarios de dominio (dinero, unidades, costeo, calendario, puntos)                                             |   ✅   | `packages/domain/test`                                                                                                                  |
-| Paridad costeo TS ↔ SQL (`costRecipe` vs `product_cost_cents`)                                                        |   ✅   | tests de dominio y de DB                                                                                                                |
-| E2E Playwright (login, POS, checkout web)                                                                             |   ⚠️   | `apps/*/playwright.config.ts` listo y CI los ejecuta con `--pass-with-no-tests`; los specs en `apps/*/e2e` llegan con cada módulo de UI |
-| Idempotencia: `idempotency_key` (pedido, pago, reembolso), `(provider, external_id)`, `source_ref` importación        |   ✅   | tests `es idempotente…`, `import.test.ts`                                                                                               |
-| Dinero en centavos enteros; precios del servidor                                                                      |   ✅   | `orders_total_chk`, test "usa precio del servidor"                                                                                      |
+| Elemento                                                                                                              | Estado | Evidencia                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------- | :----: | ----------------------------------------------------------------------------------------------------------------------------- |
+| Lógica crítica en funciones SQL transaccionales (venta, pago, inventario, puntos, caja, reembolso, producción, merma) |   ✅   | `packages/db/migrations/0008_transactions.sql`, `0070_import_historical_sales.sql`                                            |
+| Tests de integración de DB (POS, pedidos/pagos, inventario/producción, paridad dominio↔SQL, importación)              |   ✅   | `packages/db/test/*.test.ts` — 78 tests; `global-setup` recrea la base                                                        |
+| Tests unitarios de dominio (dinero, unidades, costeo, calendario, puntos)                                             |   ✅   | `packages/domain/test`                                                                                                        |
+| Paridad costeo TS ↔ SQL (`costRecipe` vs `product_cost_cents`)                                                        |   ✅   | tests de dominio y de DB                                                                                                      |
+| E2E Playwright (login, POS con caja, producción→inventario→pedido, clientes/cupones/reportes, tienda y club)          |   ✅   | `apps/admin/e2e/{pos,ops,customers}.spec.ts`, `apps/web/e2e/{shop,club}.spec.ts` — Chromium móvil + desktop, un worker, en CI |
+| Idempotencia: `idempotency_key` (pedido, pago, reembolso), `(provider, external_id)`, `source_ref` importación        |   ✅   | tests `es idempotente…`, `import.test.ts`                                                                                     |
+| Dinero en centavos enteros; precios del servidor                                                                      |   ✅   | `orders_total_chk`, test "usa precio del servidor"                                                                            |
 
 ### Datos
 
@@ -33,14 +33,14 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 
 ### Entrega
 
-| Elemento                                                                        |              Estado              | Evidencia                                                |
-| ------------------------------------------------------------------------------- | :------------------------------: | -------------------------------------------------------- |
-| CI: secrets, migraciones, formato, lint, typecheck, tests, audit, build, e2e    |                ✅                | `.github/workflows/ci.yml`                               |
-| Deploy controlado (verify → backup → migrate → deploy → smoke → tag)            |                ✅                | `scripts/deploy.sh`, `scripts/smoke.sh`                  |
-| Rollback de aplicación                                                          |                ✅                | `scripts/rollback.sh`                                    |
-| Validación de variables por ambiente                                            |                ✅                | `scripts/check-env.mjs`, `apps/*/lib/env.ts`             |
-| Proyectos Vercel y Supabase creados, dominios, variables cargadas               |                ⏳                | `DEPLOYMENT.md`                                          |
-| Protección de rama `main` (PR + CI obligatorio); `CODEOWNERS` y plantilla de PR | ⏳ regla en GitHub / ✅ archivos | `.github/CODEOWNERS`, `.github/pull_request_template.md` |
+| Elemento                                                                                                       | Estado | Evidencia                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------- |
+| CI: secrets, migraciones, formato, lint, typecheck, tests, audit, build, e2e                                   |   ✅   | `.github/workflows/ci.yml`                                                                                                |
+| Deploy controlado (verify → backup → migrate → deploy → smoke → tag)                                           |   ✅   | `scripts/deploy.sh`, `scripts/smoke.sh`                                                                                   |
+| Rollback de aplicación                                                                                         |   ✅   | `scripts/rollback.sh`                                                                                                     |
+| Validación de variables por ambiente                                                                           |   ✅   | `scripts/check-env.mjs`, `apps/*/lib/env.ts`                                                                              |
+| Proyectos Vercel y Supabase creados, dominios, variables cargadas                                              |   ⏳   | `DEPLOYMENT.md`                                                                                                           |
+| Protección de rama `main` (check de CI obligatorio, sin force-push ni borrado); `CODEOWNERS` y plantilla de PR |   ✅   | GitHub `MaxHebeling/pan-de-paula` → branch protection en `main`; `.github/CODEOWNERS`, `.github/pull_request_template.md` |
 
 ### Observabilidad
 
