@@ -53,7 +53,7 @@ por separado (credenciales de prueba de Mercado Pago en Preview).
 Desactiva el auto-deploy por push del proyecto (Settings → Git → Ignored Build Step `exit 0`, o desconecta el
 repo) para que **la única vía a producción sea `deploy.sh`**; así nunca sube código sin migrar primero.
 
-Vincula cada carpeta con su proyecto una vez: `cd apps/web && vercel link`, `cd apps/admin && vercel link`
+Vincula el monorepo a ambos proyectos una sola vez desde la raíz: `vercel link --repo --yes --scope max-ab784c70` (crea `.vercel/repo.json`, ignorado por git). Los proyectos ya existen: `pan-de-paula-web` (`prj_E9OqTGtAEBtdiD9qaUHqouU6jLNE`, root `apps/web`) y `pan-de-paula-admin` (`prj_bHF8vS3Ec58pELW0rZHD2uzWK8Qj`, root `apps/admin`), conectados a `MaxHebeling/pan-de-paula` con build `pnpm turbo run build --filter=@pdp/<app>` y Node 22
 (crea `apps/*/.vercel`, ignorado en git). Requiere `vercel` CLI autenticado.
 
 ### Archivos de entorno locales

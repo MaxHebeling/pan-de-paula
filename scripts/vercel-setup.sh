@@ -11,7 +11,6 @@ VENV="production"; [ "$ENV" = "staging" ] && VENV="preview"
 setup_app() {
   local app="$1" name="$2"
   pushd "apps/$app" >/dev/null
-  vercel link --yes --scope "$TEAM" --project "$name" >/dev/null 2>&1 || vercel project add "$name" --scope "$TEAM" >/dev/null && vercel link --yes --scope "$TEAM" --project "$name" >/dev/null
   # Variables: una por una, sin newline (printf), sobreescribiendo si existe
   while IFS='=' read -r key value; do
     [[ -z "$key" || "$key" =~ ^# ]] && continue
@@ -23,6 +22,8 @@ setup_app() {
   popd >/dev/null
   echo "✔ $name ($VENV) listo"
 }
+# Vinculación en modo monorepo (una vez): crea .vercel/repo.json con ambos proyectos
+vercel link --repo --yes --scope "$TEAM" >/dev/null
 setup_app web pan-de-paula-web
 setup_app admin pan-de-paula-admin
 cat <<MSG
