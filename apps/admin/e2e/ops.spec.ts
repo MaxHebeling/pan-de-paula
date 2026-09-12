@@ -235,12 +235,14 @@ test("conteo físico: crear → capturar → revisar diferencias → descartar s
   const row = page.getByRole("row", { name: new RegExp(`^${product} `) });
   const expected = num(await row.getByRole("cell").nth(1).textContent());
   const counted = page.getByLabel(`Contado de ${product}`);
-  await counted.fill(String(expected - 1));
+  // +1 (no -1): en una base recién sembrada el esperado puede ser 0 y un contado negativo se rechaza.
+  await counted.fill(String(expected + 1));
   await page.getByRole("button", { name: /Guardar y revisar/ }).click();
   await page.waitForURL(/paso=revisar/);
   await expect(page.getByText("Paso 3 de 3")).toBeVisible();
-  await expect(page.getByRole("cell", { name: product })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "-1" })).toBeVisible();
+  const diffRow = page.getByRole("row", { name: new RegExp(product) }).first();
+  await expect(diffRow).toBeVisible();
+  await expect(diffRow.getByRole("cell", { name: "1", exact: true }).first()).toBeVisible();
 
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Descartar", exact: true }).click();
