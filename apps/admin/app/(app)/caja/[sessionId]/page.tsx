@@ -29,7 +29,14 @@ export default async function CajaDetallePage({
       select o.full_name as opened_by, c.full_name as closed_by, rs.notes
       from register_sessions rs join staff_users o on o.id = rs.opened_by left join staff_users c on c.id = rs.closed_by
       where rs.id = ${sessionId}::uuid`.execute(db()),
-    sql<{ order_id: string; folio: string; sold_at: Date; total_cents: number; voided_at: Date | null; methods: string[] | null }>`
+    sql<{
+      order_id: string;
+      folio: string;
+      sold_at: Date;
+      total_cents: number;
+      voided_at: Date | null;
+      methods: string[] | null;
+    }>`
       select s.order_id, o.folio, s.sold_at, s.total_cents, s.voided_at,
              (select array_agg(distinct p.method::text) from payments p where p.order_id = o.id and p.status in ('paid','partially_refunded','refunded')) as methods
       from sales s join orders o on o.id = s.order_id
@@ -46,7 +53,12 @@ export default async function CajaDetallePage({
             <Link href="/caja" className="btn btn-secondary">
               Volver a caja
             </Link>
-            <a href={`/corte/${sessionId}?print=1`} target="_blank" rel="noopener" className="btn btn-primary">
+            <a
+              href={`/corte/${sessionId}?print=1`}
+              target="_blank"
+              rel="noopener"
+              className="btn btn-primary"
+            >
               Imprimir corte
             </a>
           </>
@@ -56,12 +68,21 @@ export default async function CajaDetallePage({
         <div className="mb-4">
           <Alert tone={summary.difference_cents === 0 ? "green" : "amber"}>
             Caja cerrada.{" "}
-            {summary.difference_cents === 0 ? "Sin diferencia: el efectivo cuadró." : `Diferencia registrada: se notificó al encargado.`}
+            {summary.difference_cents === 0
+              ? "Sin diferencia: el efectivo cuadró."
+              : `Diferencia registrada: se notificó al encargado.`}
           </Alert>
         </div>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Resumen" action={<Badge tone={summary.status === "open" ? "green" : "gray"}>{summary.status === "open" ? "Abierta" : "Cerrada"}</Badge>}>
+        <Card
+          title="Resumen"
+          action={
+            <Badge tone={summary.status === "open" ? "green" : "gray"}>
+              {summary.status === "open" ? "Abierta" : "Cerrada"}
+            </Badge>
+          }
+        >
           <RegisterSummaryTable s={summary} />
           {m.notes && <p className="mt-3 text-sm text-muted">Observaciones: {m.notes}</p>}
         </Card>
@@ -82,12 +103,19 @@ export default async function CajaDetallePage({
                 {sales.rows.map((r) => (
                   <tr key={r.order_id} className={r.voided_at ? "text-muted line-through" : ""}>
                     <td>
-                      <Link href={`/pos/ventas?q=${encodeURIComponent(r.folio)}`} className="text-teal-d hover:underline">
+                      <Link
+                        href={`/pos/ventas?q=${encodeURIComponent(r.folio)}`}
+                        className="text-teal-d hover:underline"
+                      >
                         {r.folio}
                       </Link>
                     </td>
                     <td>{fmtDate(r.sold_at, "time")}</td>
-                    <td>{(r.methods ?? []).map((x) => PAYMENT_METHOD_LABELS[x as PaymentMethod] ?? x).join(" + ") || "—"}</td>
+                    <td>
+                      {(r.methods ?? [])
+                        .map((x) => PAYMENT_METHOD_LABELS[x as PaymentMethod] ?? x)
+                        .join(" + ") || "—"}
+                    </td>
                     <td className="text-right">
                       <Money cents={r.total_cents} />
                     </td>

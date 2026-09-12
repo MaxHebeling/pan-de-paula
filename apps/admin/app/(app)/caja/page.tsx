@@ -10,7 +10,11 @@ import { RegisterSummaryTable } from "@/components/pos/register-summary";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Caja" };
 
-export default async function CajaPage({ searchParams }: { searchParams: Promise<{ abierta?: string }> }) {
+export default async function CajaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ abierta?: string }>;
+}) {
   await requireSession("pos.register");
   const sp = await searchParams;
   const open = await getOpenRegister();
@@ -36,7 +40,11 @@ export default async function CajaPage({ searchParams }: { searchParams: Promise
     <>
       <PageHeader
         title="Caja"
-        subtitle={open ? `Abierta desde ${fmtDate(open.openedAt, "datetime")} por ${open.openedByName}` : "No hay caja abierta. Las ventas en efectivo requieren abrirla."}
+        subtitle={
+          open
+            ? `Abierta desde ${fmtDate(open.openedAt, "datetime")} por ${open.openedByName}`
+            : "No hay caja abierta. Las ventas en efectivo requieren abrirla."
+        }
         actions={
           <Link href="/pos" className="btn btn-secondary">
             Ir al POS
@@ -52,16 +60,26 @@ export default async function CajaPage({ searchParams }: { searchParams: Promise
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <Card title="Sesión actual" action={<Badge tone="green">Abierta</Badge>}>
             <RegisterSummaryTable s={summary} compact />
-            {open.notes && <p className="mt-3 text-sm text-muted">Notas de apertura: {open.notes}</p>}
+            {open.notes && (
+              <p className="mt-3 text-sm text-muted">Notas de apertura: {open.notes}</p>
+            )}
           </Card>
           <Card title="Cierre de caja">
-            <p className="mb-3 text-sm text-muted">Cuenta el efectivo del cajón (incluido el fondo) y captúralo. El sistema calcula la diferencia contra lo esperado.</p>
-            <RegisterCloseForm sessionId={open.id} expectedCashCents={summary.expected_cash_cents} />
+            <p className="mb-3 text-sm text-muted">
+              Cuenta el efectivo del cajón (incluido el fondo) y captúralo. El sistema calcula la
+              diferencia contra lo esperado.
+            </p>
+            <RegisterCloseForm
+              sessionId={open.id}
+              expectedCashCents={summary.expected_cash_cents}
+            />
           </Card>
         </div>
       ) : (
         <Card title="Abrir caja">
-          <p className="mb-3 text-sm text-muted">Captura el fondo inicial en efectivo con el que inicia el turno.</p>
+          <p className="mb-3 text-sm text-muted">
+            Captura el fondo inicial en efectivo con el que inicia el turno.
+          </p>
           <RegisterOpenForm />
         </Card>
       )}
@@ -87,12 +105,24 @@ export default async function CajaPage({ searchParams }: { searchParams: Promise
             {history.rows.map((r) => (
               <tr key={r.id}>
                 <td>{fmtDate(r.opened_at, "datetime")}</td>
-                <td>{r.closed_at ? fmtDate(r.closed_at, "datetime") : <Badge tone="green">Abierta</Badge>}</td>
+                <td>
+                  {r.closed_at ? (
+                    fmtDate(r.closed_at, "datetime")
+                  ) : (
+                    <Badge tone="green">Abierta</Badge>
+                  )}
+                </td>
                 <td className="hidden xl:table-cell">{r.opened_by}</td>
                 <td className="text-right tabular-nums">{r.sales_count}</td>
-                <td className="hidden text-right lg:table-cell">{r.expected_cash_cents === null ? "—" : <Money cents={r.expected_cash_cents} />}</td>
-                <td className="text-right">{r.counted_cash_cents === null ? "—" : <Money cents={r.counted_cash_cents} />}</td>
-                <td className={`text-right font-semibold ${r.difference_cents ? "text-red-d" : "text-green-d"}`}>
+                <td className="hidden text-right lg:table-cell">
+                  {r.expected_cash_cents === null ? "—" : <Money cents={r.expected_cash_cents} />}
+                </td>
+                <td className="text-right">
+                  {r.counted_cash_cents === null ? "—" : <Money cents={r.counted_cash_cents} />}
+                </td>
+                <td
+                  className={`text-right font-semibold ${r.difference_cents ? "text-red-d" : "text-green-d"}`}
+                >
                   {r.difference_cents === null ? "—" : <Money cents={r.difference_cents} />}
                 </td>
                 <td className="text-right">

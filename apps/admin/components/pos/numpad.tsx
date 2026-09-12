@@ -32,7 +32,11 @@ export function Numpad({
     { k: "00", label: "00", act: () => push("00") },
   ];
   return (
-    <div className={`grid grid-cols-3 gap-2 ${className}`} role="group" aria-label="Teclado numérico">
+    <div
+      className={`grid grid-cols-3 gap-2 ${className}`}
+      role="group"
+      aria-label="Teclado numérico"
+    >
       {keys.map((b) => (
         <button
           key={b.k}

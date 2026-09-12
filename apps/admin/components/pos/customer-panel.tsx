@@ -35,7 +35,9 @@ export function CustomerPanel({
       setLoading(true);
       setError(null);
       try {
-        const r = await apiFetch<{ customers: PosCustomer[] }>(`/api/pos/customers?q=${encodeURIComponent(term)}`);
+        const r = await apiFetch<{ customers: PosCustomer[] }>(
+          `/api/pos/customers?q=${encodeURIComponent(term)}`,
+        );
         if (!r.ok) {
           setError(r.error);
           return;
@@ -49,7 +51,11 @@ export function CustomerPanel({
         }
         setResults(r.data.customers);
       } catch (e) {
-        setError(e instanceof NetworkError ? "Sin conexión: no se puede buscar clientes" : (e as Error).message);
+        setError(
+          e instanceof NetworkError
+            ? "Sin conexión: no se puede buscar clientes"
+            : (e as Error).message,
+        );
       } finally {
         setLoading(false);
       }
@@ -69,7 +75,10 @@ export function CustomerPanel({
     setLoading(true);
     setError(null);
     try {
-      const r = await postJson<{ customer: PosCustomer | null; created: boolean }>("/api/pos/customers", form);
+      const r = await postJson<{ customer: PosCustomer | null; created: boolean }>(
+        "/api/pos/customers",
+        form,
+      );
       if (!r.ok) {
         setError(r.error);
         return;
@@ -80,7 +89,11 @@ export function CustomerPanel({
         setMode("search");
       }
     } catch (e) {
-      setError(e instanceof NetworkError ? "Sin conexión: no se puede dar de alta ahora" : (e as Error).message);
+      setError(
+        e instanceof NetworkError
+          ? "Sin conexión: no se puede dar de alta ahora"
+          : (e as Error).message,
+      );
     } finally {
       setLoading(false);
     }
@@ -88,7 +101,10 @@ export function CustomerPanel({
 
   if (customer) {
     return (
-      <div className="st-blue flex items-start justify-between gap-2 rounded-[var(--r-card)] px-3 py-2.5" data-testid="pos-customer">
+      <div
+        className="st-blue flex items-start justify-between gap-2 rounded-[var(--r-card)] px-3 py-2.5"
+        data-testid="pos-customer"
+      >
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 font-semibold">
             <span className="truncate">{customer.fullName}</span>
@@ -101,11 +117,17 @@ export function CustomerPanel({
           {loyaltyEnabled && (
             <div className="mt-0.5 text-xs">
               <strong className="tabular-nums">{customer.pointsBalance}</strong> puntos
-              {customer.tierName ? ` · nivel ${customer.tierName}` : ""} · {customer.totalOrders} compras
+              {customer.tierName ? ` · nivel ${customer.tierName}` : ""} · {customer.totalOrders}{" "}
+              compras
             </div>
           )}
         </div>
-        <button type="button" onClick={onClear} className="btn btn-secondary btn-sm min-h-11 min-w-11 bg-white/70" aria-label="Quitar cliente">
+        <button
+          type="button"
+          onClick={onClear}
+          className="btn btn-secondary btn-sm min-h-11 min-w-11 bg-white/70"
+          aria-label="Quitar cliente"
+        >
           <X size={16} />
         </button>
       </div>
@@ -134,11 +156,21 @@ export function CustomerPanel({
               enterKeyHint="search"
             />
             {canScan && (
-              <button type="button" onClick={() => setScanning(true)} className="btn btn-secondary min-h-11 min-w-11 px-3" aria-label="Escanear QR con la cámara">
+              <button
+                type="button"
+                onClick={() => setScanning(true)}
+                className="btn btn-secondary min-h-11 min-w-11 px-3"
+                aria-label="Escanear QR con la cámara"
+              >
                 <QrCode size={18} />
               </button>
             )}
-            <button type="button" onClick={() => setMode("new")} className="btn btn-secondary min-h-11 min-w-11 px-3" aria-label="Alta rápida de cliente">
+            <button
+              type="button"
+              onClick={() => setMode("new")}
+              className="btn btn-secondary min-h-11 min-w-11 px-3"
+              aria-label="Alta rápida de cliente"
+            >
               <UserPlus size={18} />
             </button>
           </div>
@@ -146,7 +178,11 @@ export function CustomerPanel({
           {results && results.length === 0 && !loading && (
             <p className="text-xs text-muted">
               Sin resultados.{" "}
-              <button type="button" className="font-semibold text-teal-d underline" onClick={() => setMode("new")}>
+              <button
+                type="button"
+                className="font-semibold text-teal-d underline"
+                onClick={() => setMode("new")}
+              >
                 Dar de alta
               </button>
             </p>
@@ -171,7 +207,11 @@ export function CustomerPanel({
                         {c.phone ? ` · ${c.phone}` : ""}
                       </span>
                     </span>
-                    {loyaltyEnabled && <span className="shrink-0 text-xs tabular-nums text-muted">{c.pointsBalance} pts</span>}
+                    {loyaltyEnabled && (
+                      <span className="shrink-0 text-xs tabular-nums text-muted">
+                        {c.pointsBalance} pts
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -188,7 +228,11 @@ export function CustomerPanel({
         >
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold">Alta rápida</span>
-            <button type="button" className="btn btn-secondary btn-sm min-h-9" onClick={() => setMode("search")}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm min-h-9"
+              onClick={() => setMode("search")}
+            >
               Cancelar
             </button>
           </div>

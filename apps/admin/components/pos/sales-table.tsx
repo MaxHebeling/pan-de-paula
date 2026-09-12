@@ -2,7 +2,11 @@
 import { useActionState, useState } from "react";
 import { ChevronDown, ChevronUp, Printer } from "lucide-react";
 import { formatMXN, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@pdp/domain";
-import { refundPaymentAction, voidSaleAction, type ActionState } from "@/app/(app)/pos/ventas/actions";
+import {
+  refundPaymentAction,
+  voidSaleAction,
+  type ActionState,
+} from "@/app/(app)/pos/ventas/actions";
 import { Badge } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 
@@ -19,21 +23,36 @@ export type SaleRow = {
   totalCents: number;
   refundedCents: number;
   paymentStatus: string;
-  items: Array<{ name: string; variantLabel: string | null; qty: number; totalCents: number; notes: string | null }>;
-  payments: Array<{ id: string; method: string; status: string; amountCents: number; reference: string | null; refundedCents: number }>;
+  items: Array<{
+    name: string;
+    variantLabel: string | null;
+    qty: number;
+    totalCents: number;
+    notes: string | null;
+  }>;
+  payments: Array<{
+    id: string;
+    method: string;
+    status: string;
+    amountCents: number;
+    reference: string | null;
+    refundedCents: number;
+  }>;
   refunds: Array<{ amountCents: number; reason: string | null; createdAt: string }>;
 };
 
 function statusBadge(s: SaleRow) {
   if (s.voidedAt) return <Badge tone="gray">Anulada</Badge>;
   if (s.paymentStatus === "refunded") return <Badge tone="red">Reembolsada</Badge>;
-  if (s.paymentStatus === "partially_refunded") return <Badge tone="amber">Reembolso parcial</Badge>;
+  if (s.paymentStatus === "partially_refunded")
+    return <Badge tone="amber">Reembolso parcial</Badge>;
   return <Badge tone="green">Completada</Badge>;
 }
 
 export function SalesTable({ sales, canRefund }: { sales: SaleRow[]; canRefund: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
-  if (sales.length === 0) return <p className="card p-6 text-center text-sm text-muted">No hay ventas para mostrar.</p>;
+  if (sales.length === 0)
+    return <p className="card p-6 text-center text-sm text-muted">No hay ventas para mostrar.</p>;
   return (
     <div className="card overflow-hidden">
       <ul className="divide-y divide-line">
@@ -49,11 +68,18 @@ export function SalesTable({ sales, canRefund }: { sales: SaleRow[]; canRefund: 
               >
                 <span className="font-semibold tabular-nums">{s.folio}</span>
                 <span className="min-w-0 text-sm text-muted sm:order-none">
-                  {fmtDate(s.soldAt, "time")} · {s.customerName ?? "Público general"} · {s.itemsCount} art.
+                  {fmtDate(s.soldAt, "time")} · {s.customerName ?? "Público general"} ·{" "}
+                  {s.itemsCount} art.
                 </span>
-                <span className="flex items-center gap-2 justify-self-end sm:justify-self-auto">{statusBadge(s)}</span>
+                <span className="flex items-center gap-2 justify-self-end sm:justify-self-auto">
+                  {statusBadge(s)}
+                </span>
                 <span className="flex items-center gap-2 justify-self-end">
-                  <span className={`font-semibold tabular-nums ${s.voidedAt ? "line-through text-muted" : ""}`}>{formatMXN(s.totalCents)}</span>
+                  <span
+                    className={`font-semibold tabular-nums ${s.voidedAt ? "line-through text-muted" : ""}`}
+                  >
+                    {formatMXN(s.totalCents)}
+                  </span>
                   {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </span>
               </button>
@@ -68,12 +94,18 @@ export function SalesTable({ sales, canRefund }: { sales: SaleRow[]; canRefund: 
 
 function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
   const [mode, setMode] = useState<"none" | "void" | "refund">("none");
-  const refundable = s.payments.filter((p) => (p.status === "paid" || p.status === "partially_refunded") && p.amountCents - p.refundedCents > 0);
+  const refundable = s.payments.filter(
+    (p) =>
+      (p.status === "paid" || p.status === "partially_refunded") &&
+      p.amountCents - p.refundedCents > 0,
+  );
   return (
     <div className="border-t border-line bg-bg/60 px-4 py-3">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Artículos</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+            Artículos
+          </h3>
           <ul className="text-sm">
             {s.items.map((i, idx) => (
               <li key={idx} className="flex justify-between gap-2 py-0.5">
@@ -87,7 +119,9 @@ function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
             ))}
           </ul>
           {s.staffName && <p className="mt-2 text-xs text-muted">Atendió: {s.staffName}</p>}
-          {s.voidReason && <p className="mt-1 text-xs text-red-d">Motivo de anulación: {s.voidReason}</p>}
+          {s.voidReason && (
+            <p className="mt-1 text-xs text-red-d">Motivo de anulación: {s.voidReason}</p>
+          )}
         </div>
         <div>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Pagos</h3>
@@ -96,7 +130,9 @@ function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
               <li key={p.id} className="flex justify-between gap-2 py-0.5">
                 <span>
                   {PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}
-                  {p.reference ? <span className="text-xs text-muted"> · ref {p.reference}</span> : null}
+                  {p.reference ? (
+                    <span className="text-xs text-muted"> · ref {p.reference}</span>
+                  ) : null}
                   {p.status !== "paid" && <span className="text-xs text-muted"> · {p.status}</span>}
                 </span>
                 <span className="tabular-nums">{formatMXN(p.amountCents)}</span>
@@ -105,7 +141,9 @@ function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
           </ul>
           {s.refunds.length > 0 && (
             <>
-              <h3 className="mb-1 mt-2 text-xs font-semibold uppercase tracking-wide text-muted">Reembolsos</h3>
+              <h3 className="mb-1 mt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                Reembolsos
+              </h3>
               <ul className="text-sm">
                 {s.refunds.map((r, idx) => (
                   <li key={idx} className="flex justify-between gap-2 py-0.5">
@@ -122,16 +160,29 @@ function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <a href={`/recibo/${s.orderId}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm min-h-11">
+        <a
+          href={`/recibo/${s.orderId}`}
+          target="_blank"
+          rel="noopener"
+          className="btn btn-secondary btn-sm min-h-11"
+        >
           <Printer size={15} /> Recibo
         </a>
         {canRefund && !s.voidedAt && (
           <>
-            <button type="button" className={`btn btn-sm min-h-11 ${mode === "void" ? "btn-danger" : "btn-secondary"}`} onClick={() => setMode(mode === "void" ? "none" : "void")}>
+            <button
+              type="button"
+              className={`btn btn-sm min-h-11 ${mode === "void" ? "btn-danger" : "btn-secondary"}`}
+              onClick={() => setMode(mode === "void" ? "none" : "void")}
+            >
               Anular venta
             </button>
             {refundable.length > 0 && (
-              <button type="button" className={`btn btn-sm min-h-11 ${mode === "refund" ? "btn-undo" : "btn-secondary"}`} onClick={() => setMode(mode === "refund" ? "none" : "refund")}>
+              <button
+                type="button"
+                className={`btn btn-sm min-h-11 ${mode === "refund" ? "btn-undo" : "btn-secondary"}`}
+                onClick={() => setMode(mode === "refund" ? "none" : "refund")}
+              >
                 Reembolso parcial
               </button>
             )}
@@ -157,13 +208,27 @@ function VoidForm({ saleId, onDone }: { saleId: string; onDone: () => void }) {
     );
   }
   return (
-    <form action={action} className="mt-3 flex flex-col gap-2 rounded-[var(--r-card)] border border-red/40 bg-white p-3">
+    <form
+      action={action}
+      className="mt-3 flex flex-col gap-2 rounded-[var(--r-card)] border border-red/40 bg-white p-3"
+    >
       <input type="hidden" name="sale_id" value={saleId} />
       <p className="text-sm font-semibold text-red-d">Anular toda la venta</p>
-      <p className="text-xs text-muted">Regresa el stock, revierte los puntos y cupones y marca los pagos como cancelados. No se puede deshacer.</p>
-      <input name="reason" className="input min-h-11" placeholder="Motivo (obligatorio)" required minLength={3} maxLength={200} />
+      <p className="text-xs text-muted">
+        Regresa el stock, revierte los puntos y cupones y marca los pagos como cancelados. No se
+        puede deshacer.
+      </p>
+      <input
+        name="reason"
+        className="input min-h-11"
+        placeholder="Motivo (obligatorio)"
+        required
+        minLength={3}
+        maxLength={200}
+      />
       <label className="flex min-h-11 items-center gap-2 text-sm">
-        <input type="checkbox" name="confirm" className="h-5 w-5" required /> Confirmo que deseo anular esta venta
+        <input type="checkbox" name="confirm" className="h-5 w-5" required /> Confirmo que deseo
+        anular esta venta
       </label>
       {state.error && (
         <p role="alert" className="st-red rounded-[var(--r-btn)] px-3 py-2 text-sm">
@@ -198,14 +263,25 @@ function RefundForm({ payments, onDone }: { payments: SaleRow["payments"]; onDon
     );
   }
   return (
-    <form action={action} className="mt-3 flex flex-col gap-2 rounded-[var(--r-card)] border border-amber/50 bg-white p-3">
+    <form
+      action={action}
+      className="mt-3 flex flex-col gap-2 rounded-[var(--r-card)] border border-amber/50 bg-white p-3"
+    >
       <p className="text-sm font-semibold text-amber-d">Reembolso parcial</p>
-      <p className="text-xs text-muted">Solo el dinero: el stock no regresa. Los puntos se revierten en proporción.</p>
+      <p className="text-xs text-muted">
+        Solo el dinero: el stock no regresa. Los puntos se revierten en proporción.
+      </p>
       {payments.length > 1 && (
-        <select name="payment_id" className="input min-h-11" value={paymentId} onChange={(e) => setPaymentId(e.target.value)}>
+        <select
+          name="payment_id"
+          className="input min-h-11"
+          value={paymentId}
+          onChange={(e) => setPaymentId(e.target.value)}
+        >
           {payments.map((p) => (
             <option key={p.id} value={p.id}>
-              {PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method} · {formatMXN(p.amountCents - p.refundedCents)} disponibles
+              {PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method} ·{" "}
+              {formatMXN(p.amountCents - p.refundedCents)} disponibles
             </option>
           ))}
         </select>
@@ -215,10 +291,28 @@ function RefundForm({ payments, onDone }: { payments: SaleRow["payments"]; onDon
         <label className="text-sm" htmlFor={`refund-amount-${paymentId}`}>
           Monto $
         </label>
-        <input id={`refund-amount-${paymentId}`} name="amount" type="number" inputMode="decimal" step="0.01" min="0.01" max={(max / 100).toFixed(2)} className="input min-h-11 w-36" required placeholder={(max / 100).toFixed(2)} />
+        <input
+          id={`refund-amount-${paymentId}`}
+          name="amount"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0.01"
+          max={(max / 100).toFixed(2)}
+          className="input min-h-11 w-36"
+          required
+          placeholder={(max / 100).toFixed(2)}
+        />
         <span className="text-xs text-muted">máx. {formatMXN(max)}</span>
       </div>
-      <input name="reason" className="input min-h-11" placeholder="Motivo (obligatorio)" required minLength={3} maxLength={200} />
+      <input
+        name="reason"
+        className="input min-h-11"
+        placeholder="Motivo (obligatorio)"
+        required
+        minLength={3}
+        maxLength={200}
+      />
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <input type="checkbox" name="confirm" className="h-5 w-5" required /> Confirmo el reembolso
       </label>

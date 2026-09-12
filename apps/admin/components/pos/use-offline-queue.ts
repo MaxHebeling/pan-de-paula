@@ -75,7 +75,11 @@ export function useOfflineQueue(enabled: boolean, onSynced?: (report: SyncReport
   }, [onSynced]);
 
   const items = useSyncExternalStore(subscribe, enabled ? readItems : () => EMPTY, () => EMPTY);
-  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => true,
+  );
 
   const queue = useCallback((): OfflineQueue | null => {
     if (!enabled) return null;
@@ -83,7 +87,10 @@ export function useOfflineQueue(enabled: boolean, onSynced?: (report: SyncReport
       try {
         queueRef.current = createOfflineQueue(window.localStorage);
       } catch (e) {
-        console.error("[pos] localStorage no disponible; cola offline desactivada", (e as Error).message);
+        console.error(
+          "[pos] localStorage no disponible; cola offline desactivada",
+          (e as Error).message,
+        );
         return null;
       }
     }
@@ -96,7 +103,9 @@ export function useOfflineQueue(enabled: boolean, onSynced?: (report: SyncReport
     syncingRef.current = true;
     setSyncing(true);
     try {
-      const report = await syncQueue(q, (request) => postJson<CheckoutResult>("/api/pos/checkout", request));
+      const report = await syncQueue(q, (request) =>
+        postJson<CheckoutResult>("/api/pos/checkout", request),
+      );
       if (report.synced.length || report.failed.length) onSyncedRef.current?.(report);
     } finally {
       syncingRef.current = false;

@@ -16,15 +16,18 @@ import type {
 
 // ── Sesión en route handlers ────────────────────────────────────────────────
 export type ApiSessionResult =
-  | { ok: true; session: StaffSession }
-  | { ok: false; response: NextResponse<ApiError> };
+  { ok: true; session: StaffSession } | { ok: false; response: NextResponse<ApiError> };
 
 /** Sesión para route handlers: 401 sin sesión, 403 sin permiso (JSON, no redirect). */
 export async function apiSession(permission: string): Promise<ApiSessionResult> {
   const session = await getSession();
-  if (!session) return { ok: false, response: jsonError(401, "Sesión expirada", "UNAUTHENTICATED") };
+  if (!session)
+    return { ok: false, response: jsonError(401, "Sesión expirada", "UNAUTHENTICATED") };
   if (!hasPermission(session, permission))
-    return { ok: false, response: jsonError(403, "No tienes permiso para esta acción", "FORBIDDEN") };
+    return {
+      ok: false,
+      response: jsonError(403, "No tienes permiso para esta acción", "FORBIDDEN"),
+    };
   return { ok: true, session };
 }
 
@@ -256,7 +259,9 @@ export async function searchCustomers(query: string, limit = 8): Promise<PosCust
   if (!q) return [];
   const d = db();
   const exact = await sql<CustomerRow>`
-    select ${CUSTOMER_COLS} from find_customer(${q}) c left join loyalty_tiers t on t.key = c.tier_key`.execute(d);
+    select ${CUSTOMER_COLS} from find_customer(${q}) c left join loyalty_tiers t on t.key = c.tier_key`.execute(
+    d,
+  );
   if (exact.rows.length) return exact.rows.map(toCustomer);
   const digits = q.replace(/[^0-9]/g, "");
   const like = `%${q.replace(/[%_]/g, "")}%`;

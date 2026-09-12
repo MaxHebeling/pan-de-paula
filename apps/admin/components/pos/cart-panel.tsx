@@ -3,7 +3,14 @@ import { useState } from "react";
 import { Gift, Minus, Plus, StickyNote, Tag, Trash2, X } from "lucide-react";
 import { formatMXN, type CartTotals } from "@pdp/domain";
 import { CustomerPanel } from "./customer-panel";
-import type { CartLineState, CouponResult, PosConfig, PosCustomer, RewardAvailable, RewardIssued } from "./types";
+import type {
+  CartLineState,
+  CouponResult,
+  PosConfig,
+  PosCustomer,
+  RewardAvailable,
+  RewardIssued,
+} from "./types";
 
 export type CartPanelProps = {
   lines: CartLineState[];
@@ -63,7 +70,12 @@ export function CartPanel(p: CartPanelProps) {
           )}
         </h2>
         {!empty && (
-          <button type="button" onClick={p.onClear} className="btn btn-secondary btn-sm min-h-9 text-red-d" aria-label="Vaciar carrito">
+          <button
+            type="button"
+            onClick={p.onClear}
+            className="btn btn-secondary btn-sm min-h-9 text-red-d"
+            aria-label="Vaciar carrito"
+          >
             <Trash2 size={15} /> Vaciar
           </button>
         )}
@@ -71,7 +83,9 @@ export function CartPanel(p: CartPanelProps) {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {empty ? (
-          <p className="px-3 py-8 text-center text-sm text-muted">Toca un producto para agregarlo.</p>
+          <p className="px-3 py-8 text-center text-sm text-muted">
+            Toca un producto para agregarlo.
+          </p>
         ) : (
           <ul className="divide-y divide-line" data-testid="cart-lines">
             {p.lines.map((l) => {
@@ -82,25 +96,48 @@ export function CartPanel(p: CartPanelProps) {
                     <div className="min-w-0 flex-1">
                       <div className="line-clamp-2 text-sm font-semibold leading-tight">
                         {l.name}
-                        {l.variantLabel ? <span className="font-normal text-muted"> · {l.variantLabel}</span> : null}
+                        {l.variantLabel ? (
+                          <span className="font-normal text-muted"> · {l.variantLabel}</span>
+                        ) : null}
                       </div>
                       <div className="text-xs text-muted tabular-nums">
                         {formatMXN(l.unitPriceCents)} c/u
-                        {l.discountCents > 0 && <span className="text-amber-d"> · −{formatMXN(l.discountCents)}</span>}
+                        {l.discountCents > 0 && (
+                          <span className="text-amber-d"> · −{formatMXN(l.discountCents)}</span>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1" role="group" aria-label={`Cantidad de ${l.name}`}>
-                      <button type="button" onClick={() => p.onQty(l.productId, -1)} className="btn btn-secondary min-h-11 min-w-11 px-0" aria-label={`Quitar uno de ${l.name}`}>
+                    <div
+                      className="flex items-center gap-1"
+                      role="group"
+                      aria-label={`Cantidad de ${l.name}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => p.onQty(l.productId, -1)}
+                        className="btn btn-secondary min-h-11 min-w-11 px-0"
+                        aria-label={`Quitar uno de ${l.name}`}
+                      >
                         <Minus size={16} />
                       </button>
-                      <span className="w-8 text-center text-base font-semibold tabular-nums" data-testid="line-qty">
+                      <span
+                        className="w-8 text-center text-base font-semibold tabular-nums"
+                        data-testid="line-qty"
+                      >
                         {l.qty}
                       </span>
-                      <button type="button" onClick={() => p.onQty(l.productId, 1)} className="btn btn-secondary min-h-11 min-w-11 px-0" aria-label={`Agregar uno de ${l.name}`}>
+                      <button
+                        type="button"
+                        onClick={() => p.onQty(l.productId, 1)}
+                        className="btn btn-secondary min-h-11 min-w-11 px-0"
+                        aria-label={`Agregar uno de ${l.name}`}
+                      >
                         <Plus size={16} />
                       </button>
                     </div>
-                    <div className="w-20 text-right text-sm font-semibold tabular-nums">{formatMXN(lineTotal)}</div>
+                    <div className="w-20 text-right text-sm font-semibold tabular-nums">
+                      {formatMXN(lineTotal)}
+                    </div>
                   </div>
                   <div className="mt-1 flex gap-1 pl-0.5">
                     <button
@@ -114,14 +151,21 @@ export function CartPanel(p: CartPanelProps) {
                     {p.config.canDiscount && (
                       <button
                         type="button"
-                        onClick={() => setOpenDiscount(openDiscount === l.productId ? null : l.productId)}
+                        onClick={() =>
+                          setOpenDiscount(openDiscount === l.productId ? null : l.productId)
+                        }
                         className={`btn btn-sm min-h-9 ${l.discountCents ? "st-amber" : "btn-secondary"}`}
                         aria-label={`Descuento para ${l.name}`}
                       >
                         <Tag size={14} /> Desc.
                       </button>
                     )}
-                    <button type="button" onClick={() => p.onRemove(l.productId)} className="btn btn-secondary btn-sm ml-auto min-h-9 text-red-d" aria-label={`Eliminar ${l.name}`}>
+                    <button
+                      type="button"
+                      onClick={() => p.onRemove(l.productId)}
+                      className="btn btn-secondary btn-sm ml-auto min-h-9 text-red-d"
+                      aria-label={`Eliminar ${l.name}`}
+                    >
                       <X size={14} />
                     </button>
                   </div>
@@ -152,11 +196,18 @@ export function CartPanel(p: CartPanelProps) {
                         value={l.discountCents ? (l.discountCents / 100).toString() : ""}
                         onChange={(e) => {
                           const v = Math.round(Number(e.target.value || 0) * 100);
-                          p.onDiscount(l.productId, Math.min(Math.max(v, 0), Math.round(l.unitPriceCents * l.qty)));
+                          p.onDiscount(
+                            l.productId,
+                            Math.min(Math.max(v, 0), Math.round(l.unitPriceCents * l.qty)),
+                          );
                         }}
                         autoFocus
                       />
-                      <button type="button" className="btn btn-secondary btn-sm min-h-9" onClick={() => setOpenDiscount(null)}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm min-h-9"
+                        onClick={() => setOpenDiscount(null)}
+                      >
                         Listo
                       </button>
                     </div>
@@ -169,7 +220,12 @@ export function CartPanel(p: CartPanelProps) {
       </div>
 
       <div className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
-        <CustomerPanel customer={p.customer} onSelect={p.onSelectCustomer} onClear={p.onClearCustomer} loyaltyEnabled={p.config.flags.loyalty} />
+        <CustomerPanel
+          customer={p.customer}
+          onSelect={p.onSelectCustomer}
+          onClear={p.onClearCustomer}
+          loyaltyEnabled={p.config.flags.loyalty}
+        />
 
         {/* Cupón */}
         {p.coupon ? (
@@ -178,7 +234,12 @@ export function CartPanel(p: CartPanelProps) {
               <Tag size={14} className="mr-1 inline" />
               Cupón <strong>{p.coupon.code}</strong> · −{formatMXN(p.coupon.discountCents)}
             </span>
-            <button type="button" onClick={p.onRemoveCoupon} className="btn btn-secondary btn-sm min-h-9 bg-white/70" aria-label="Quitar cupón">
+            <button
+              type="button"
+              onClick={p.onRemoveCoupon}
+              className="btn btn-secondary btn-sm min-h-9 bg-white/70"
+              aria-label="Quitar cupón"
+            >
               <X size={14} />
             </button>
           </div>
@@ -199,7 +260,10 @@ export function CartPanel(p: CartPanelProps) {
               autoComplete="off"
               disabled={empty}
             />
-            <button className="btn btn-secondary min-h-11" disabled={empty || !couponInput.trim() || p.couponBusy}>
+            <button
+              className="btn btn-secondary min-h-11"
+              disabled={empty || !couponInput.trim() || p.couponBusy}
+            >
               {p.couponBusy ? "…" : "Aplicar"}
             </button>
           </form>
@@ -219,7 +283,12 @@ export function CartPanel(p: CartPanelProps) {
                   <Gift size={14} className="mr-1 inline" />
                   {p.reward.rewardName} · {rewardLabel(p.reward)}
                 </span>
-                <button type="button" onClick={() => p.onSelectReward(null)} className="btn btn-secondary btn-sm min-h-9 bg-white/70" aria-label="Quitar recompensa">
+                <button
+                  type="button"
+                  onClick={() => p.onSelectReward(null)}
+                  className="btn btn-secondary btn-sm min-h-9 bg-white/70"
+                  aria-label="Quitar recompensa"
+                >
                   <X size={14} />
                 </button>
               </div>
@@ -233,7 +302,11 @@ export function CartPanel(p: CartPanelProps) {
                 <span>
                   <Gift size={15} className="mr-1.5 inline" />
                   Recompensas
-                  {p.rewardsIssued.length > 0 && <span className="st-green pill ml-2 px-2 py-0.5 text-xs">{p.rewardsIssued.length} lista{p.rewardsIssued.length > 1 ? "s" : ""}</span>}
+                  {p.rewardsIssued.length > 0 && (
+                    <span className="st-green pill ml-2 px-2 py-0.5 text-xs">
+                      {p.rewardsIssued.length} lista{p.rewardsIssued.length > 1 ? "s" : ""}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs text-muted">{p.customer.pointsBalance} pts</span>
               </button>
@@ -263,7 +336,9 @@ export function CartPanel(p: CartPanelProps) {
                   </button>
                 ))}
                 {p.rewardsAvailable.length > 0 && (
-                  <p className="mt-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Canjear con puntos</p>
+                  <p className="mt-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    Canjear con puntos
+                  </p>
                 )}
                 {p.rewardsAvailable.map((r) => (
                   <button
@@ -275,9 +350,15 @@ export function CartPanel(p: CartPanelProps) {
                   >
                     <span className="text-sm">
                       {r.name}
-                      {r.description && <span className="block text-xs font-normal text-muted">{r.description}</span>}
+                      {r.description && (
+                        <span className="block text-xs font-normal text-muted">
+                          {r.description}
+                        </span>
+                      )}
                     </span>
-                    <span className="shrink-0 text-xs font-semibold tabular-nums">{r.pointsCost} pts</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums">
+                      {r.pointsCost} pts
+                    </span>
                   </button>
                 ))}
               </div>
@@ -317,7 +398,8 @@ export function CartPanel(p: CartPanelProps) {
           className="btn btn-confirm btn-lg min-h-14 w-full text-lg"
           data-testid="checkout-button"
         >
-          COBRAR {empty ? "" : formatMXN(p.totals.totalCents)} <span className="ml-1 text-xs font-normal opacity-80">F9</span>
+          COBRAR {empty ? "" : formatMXN(p.totals.totalCents)}{" "}
+          <span className="ml-1 text-xs font-normal opacity-80">F9</span>
         </button>
       </div>
     </div>

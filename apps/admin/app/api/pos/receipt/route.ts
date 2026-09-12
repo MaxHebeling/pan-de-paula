@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { emailSchema, PAYMENT_METHOD_LABELS, type PaymentMethod } from "@pdp/domain";
-import { NotConfiguredError, isEmailConfigured, sendReceiptEmail, type ReceiptData } from "@pdp/integrations";
+import {
+  NotConfiguredError,
+  isEmailConfigured,
+  sendReceiptEmail,
+  type ReceiptData,
+} from "@pdp/integrations";
 import { db, sql } from "@/lib/db";
-import { apiSession, dbErrorResponse, getFlags, jsonError, loadReceipt, readJson, receiptText } from "@/lib/pos";
+import {
+  apiSession,
+  dbErrorResponse,
+  getFlags,
+  jsonError,
+  loadReceipt,
+  readJson,
+  receiptText,
+} from "@/lib/pos";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +26,17 @@ const schema = z.object({
   destination: z.string().trim().max(254).optional(),
 });
 
-async function logReceipt(orderId: string, channel: string, destination: string | null, status: "sent" | "failed", error?: string) {
+async function logReceipt(
+  orderId: string,
+  channel: string,
+  destination: string | null,
+  status: "sent" | "failed",
+  error?: string,
+) {
   await sql`insert into receipts(order_id, channel, destination, status, error)
-            values (${orderId}::uuid, ${channel}, ${destination}, ${status}, ${error ?? null})`.execute(db());
+            values (${orderId}::uuid, ${channel}, ${destination}, ${status}, ${error ?? null})`.execute(
+    db(),
+  );
 }
 
 /**
@@ -43,7 +64,8 @@ export async function POST(req: Request) {
     }
     if (channel === "whatsapp") {
       const phone = (destination ?? receipt.customerPhone ?? "").replace(/[^0-9]/g, "");
-      if (phone.length < 10) return jsonError(400, "Escribe un teléfono válido (10 dígitos)", "VALIDATION");
+      if (phone.length < 10)
+        return jsonError(400, "Escribe un teléfono válido (10 dígitos)", "VALIDATION");
       const intl = phone.length === 10 ? `52${phone}` : phone;
       const url = `https://wa.me/${intl}?text=${encodeURIComponent(receiptText(receipt))}`;
       await logReceipt(orderId, "whatsapp", intl, "sent");
@@ -51,11 +73,16 @@ export async function POST(req: Request) {
     }
     // email
     const flags = await getFlags(["email_receipts"] as const);
-    if (!flags.email_receipts) return jsonError(409, "El envío de comprobantes por email está desactivado", "FLAG_OFF");
+    if (!flags.email_receipts)
+      return jsonError(409, "El envío de comprobantes por email está desactivado", "FLAG_OFF");
     const to = emailSchema.safeParse(destination ?? receipt.customerEmail ?? "");
     if (!to.success) return jsonError(400, "Escribe un email válido", "VALIDATION");
     if (!isEmailConfigured()) {
-      return jsonError(503, "El correo no está configurado (RESEND_API_KEY, EMAIL_FROM).", "EMAIL_NOT_CONFIGURED");
+      return jsonError(
+        503,
+        "El correo no está configurado (RESEND_API_KEY, EMAIL_FROM).",
+        "EMAIL_NOT_CONFIGURED",
+      );
     }
     const data: ReceiptData = {
       folio: receipt.folio,
@@ -81,7 +108,10 @@ export async function POST(req: Request) {
     try {
       const r = await sendReceiptEmail(to.data, data);
       if (!r.sent) {
-        const reason = r.skipped === "not_configured" ? "El correo no está configurado" : (r.error ?? "No se pudo enviar");
+        const reason =
+          r.skipped === "not_configured"
+            ? "El correo no está configurado"
+            : (r.error ?? "No se pudo enviar");
         await logReceipt(orderId, "email", to.data, "failed", reason);
         return jsonError(503, reason, "EMAIL_FAILED");
       }

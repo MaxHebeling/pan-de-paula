@@ -47,7 +47,10 @@ const MOVEMENT_LABELS: Record<string, string> = {
   TRANSFER: "Traslado",
   VOID: "Anulación",
 };
-const WASTE_LABEL = Object.fromEntries(WASTE_REASONS.map((r) => [r.key, r.label])) as Record<string, string>;
+const WASTE_LABEL = Object.fromEntries(WASTE_REASONS.map((r) => [r.key, r.label])) as Record<
+  string,
+  string
+>;
 
 export default async function InventarioPage({ searchParams }: { searchParams: Promise<Search> }) {
   const session = await requireSession("inventory.read");
@@ -63,7 +66,9 @@ export default async function InventarioPage({ searchParams }: { searchParams: P
              (select count(*)::int from ingredients where deleted_at is null and min_stock_qty > 0 and stock_qty <= min_stock_qty) as ing`.execute(
       d,
     ),
-    sql<{ n: number }>`select count(*)::int as n from stock_counts where status = 'open'`.execute(d),
+    sql<{ n: number }>`select count(*)::int as n from stock_counts where status = 'open'`.execute(
+      d,
+    ),
   ]);
   const c = counts.rows[0]!;
   return (
@@ -75,7 +80,11 @@ export default async function InventarioPage({ searchParams }: { searchParams: P
           <>
             <UnreadBadge />
             {manager && (
-              <ActionForm action={rebuildLevelsAction} className="flex flex-col items-end gap-1" resetOnSuccess={false}>
+              <ActionForm
+                action={rebuildLevelsAction}
+                className="flex flex-col items-end gap-1"
+                resetOnSuccess={false}
+              >
                 <PendingButton
                   className="btn btn-secondary"
                   pendingLabel="Reconstruyendo…"
@@ -94,12 +103,20 @@ export default async function InventarioPage({ searchParams }: { searchParams: P
         items={TABS.map((t) => ({
           ...t,
           count:
-            t.key === "stock" ? c.out + c.low : t.key === "insumos" ? c.ing : t.key === "conteo" ? openCount.rows[0]!.n : undefined,
+            t.key === "stock"
+              ? c.out + c.low
+              : t.key === "insumos"
+                ? c.ing
+                : t.key === "conteo"
+                  ? openCount.rows[0]!.n
+                  : undefined,
         }))}
       />
       {tab === "stock" && <StockTab q={sp.q ?? ""} canWrite={canWrite} />}
       {tab === "movimientos" && <MovementsTab sp={sp} />}
-      {tab === "mermas" && <WasteTab rango={sp.rango === "semana" ? "semana" : "dia"} canWrite={canWrite} />}
+      {tab === "mermas" && (
+        <WasteTab rango={sp.rango === "semana" ? "semana" : "dia"} canWrite={canWrite} />
+      )}
       {tab === "conteo" && <CountTab sp={sp} canWrite={canWrite} />}
       {tab === "conciliacion" && <ReconciliationTab sp={sp} />}
       {tab === "insumos" && <IngredientsTab />}
@@ -109,13 +126,31 @@ export default async function InventarioPage({ searchParams }: { searchParams: P
 
 async function productOptions() {
   const r = await sql<{ id: string; name: string }>`
-    select id, name from products where deleted_at is null and is_active order by name`.execute(db());
+    select id, name from products where deleted_at is null and is_active order by name`.execute(
+    db(),
+  );
   return r.rows;
 }
 
-function ProductSelect({ products, name = "product_id", id, defaultValue }: { products: Array<{ id: string; name: string }>; name?: string; id: string; defaultValue?: string }) {
+function ProductSelect({
+  products,
+  name = "product_id",
+  id,
+  defaultValue,
+}: {
+  products: Array<{ id: string; name: string }>;
+  name?: string;
+  id: string;
+  defaultValue?: string;
+}) {
   return (
-    <select id={id} name={name} className="input min-h-11" defaultValue={defaultValue ?? ""} required>
+    <select
+      id={id}
+      name={name}
+      className="input min-h-11"
+      defaultValue={defaultValue ?? ""}
+      required
+    >
       <option value="">Elige un producto</option>
       {products.map((p) => (
         <option key={p.id} value={p.id}>
@@ -140,7 +175,9 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
   }>`select s.product_id, s.name, c.name as category_name, s.track_stock, s.on_hand::text, s.level, s.low_stock_threshold::text, s.updated_at
      from stock_status s left join categories c on c.id = s.category_id
      where (${q} = '' or s.name ilike '%' || ${q} || '%')
-     order by s.track_stock desc, case s.level when 'out' then 0 when 'low' then 1 else 2 end, c.sort_order nulls last, s.name`.execute(db());
+     order by s.track_stock desc, case s.level when 'out' then 0 when 'low' then 1 else 2 end, c.sort_order nulls last, s.name`.execute(
+    db(),
+  );
   return (
     <>
       <form className="mb-4 flex flex-wrap items-end gap-3" method="get">
@@ -149,7 +186,14 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
           <label className="label" htmlFor="q">
             Buscar producto
           </label>
-          <input id="q" name="q" type="search" className="input min-h-11" defaultValue={q} placeholder="Nombre…" />
+          <input
+            id="q"
+            name="q"
+            type="search"
+            className="input min-h-11"
+            defaultValue={q}
+            placeholder="Nombre…"
+          />
         </div>
         <button className="btn btn-secondary min-h-11">Buscar</button>
       </form>
@@ -169,10 +213,17 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
           </thead>
           <tbody>
             {rows.rows.map((r) => (
-              <tr key={r.product_id} data-testid={`stock-row-${r.product_id}`} data-product-name={r.name}>
+              <tr
+                key={r.product_id}
+                data-testid={`stock-row-${r.product_id}`}
+                data-product-name={r.name}
+              >
                 <td className="font-medium">{r.name}</td>
                 <td className="text-muted">{r.category_name ?? "—"}</td>
-                <td className="text-right text-base font-semibold tabular-nums" data-testid="stock-on-hand">
+                <td
+                  className="text-right text-base font-semibold tabular-nums"
+                  data-testid="stock-on-hand"
+                >
                   {qty(r.on_hand)}
                 </td>
                 <td>
@@ -186,34 +237,61 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
                     <Badge tone="green">OK</Badge>
                   )}
                 </td>
-                <td className="text-muted">{r.updated_at ? fmtDate(r.updated_at, "datetime") : "—"}</td>
+                <td className="text-muted">
+                  {r.updated_at ? fmtDate(r.updated_at, "datetime") : "—"}
+                </td>
                 {canWrite && (
                   <td>
                     <details className="group">
-                      <summary className="btn btn-secondary btn-sm min-h-9 cursor-pointer list-none">Ajustar</summary>
+                      <summary className="btn btn-secondary btn-sm min-h-9 cursor-pointer list-none">
+                        Ajustar
+                      </summary>
                       <div className="mt-2 w-80 max-w-[80vw] rounded-[var(--r-card)] border border-line bg-bg p-3">
                         <ActionForm action={adjustAction} className="flex flex-col gap-2">
                           <input type="hidden" name="product_id" value={r.product_id} />
                           <div className="grid grid-cols-2 gap-2">
                             <Field label="Tipo" htmlFor={`mode-${r.product_id}`}>
-                              <select id={`mode-${r.product_id}`} name="mode" className="input min-h-11" defaultValue="waste">
+                              <select
+                                id={`mode-${r.product_id}`}
+                                name="mode"
+                                className="input min-h-11"
+                                defaultValue="waste"
+                              >
                                 <option value="waste">Merma</option>
                                 <option value="correction">Corrección</option>
                               </select>
                             </Field>
                             <Field label="Cantidad" htmlFor={`qty-${r.product_id}`}>
-                              <input id={`qty-${r.product_id}`} name="qty" type="number" step="0.001" min="0.001" className="input min-h-11" required />
+                              <input
+                                id={`qty-${r.product_id}`}
+                                name="qty"
+                                type="number"
+                                step="0.001"
+                                min="0.001"
+                                className="input min-h-11"
+                                required
+                              />
                             </Field>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <Field label="Sentido (corrección)" htmlFor={`dir-${r.product_id}`}>
-                              <select id={`dir-${r.product_id}`} name="direction" className="input min-h-11" defaultValue="remove">
+                              <select
+                                id={`dir-${r.product_id}`}
+                                name="direction"
+                                className="input min-h-11"
+                                defaultValue="remove"
+                              >
                                 <option value="remove">Restar</option>
                                 <option value="add">Sumar</option>
                               </select>
                             </Field>
                             <Field label="Motivo" htmlFor={`reason-${r.product_id}`}>
-                              <select id={`reason-${r.product_id}`} name="reason" className="input min-h-11" defaultValue="difference">
+                              <select
+                                id={`reason-${r.product_id}`}
+                                name="reason"
+                                className="input min-h-11"
+                                defaultValue="difference"
+                              >
                                 <optgroup label="Merma">
                                   {WASTE_REASONS.map((w) => (
                                     <option key={w.key} value={w.key}>
@@ -230,8 +308,15 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
                               </select>
                             </Field>
                           </div>
-                          <input name="note" className="input min-h-11" placeholder="Nota (opcional)" maxLength={300} />
-                          <PendingButton className="btn btn-primary min-h-11">Aplicar ajuste</PendingButton>
+                          <input
+                            name="note"
+                            className="input min-h-11"
+                            placeholder="Nota (opcional)"
+                            maxLength={300}
+                          />
+                          <PendingButton className="btn btn-primary min-h-11">
+                            Aplicar ajuste
+                          </PendingButton>
                         </ActionForm>
                       </div>
                     </details>
@@ -290,14 +375,26 @@ async function MovementsTab({ sp }: { sp: Search }) {
   ]);
   const hasMore = rows.rows.length > limit;
   const list = rows.rows.slice(0, limit);
-  const keep = { tab: "movimientos", producto: producto ?? "", tipo: tipo ?? "", desde: desde ?? "", hasta: hasta ?? "" };
-  const pageHref = (p: number) => `/inventario?${new URLSearchParams({ ...keep, pagina: String(p) }).toString()}`;
+  const keep = {
+    tab: "movimientos",
+    producto: producto ?? "",
+    tipo: tipo ?? "",
+    desde: desde ?? "",
+    hasta: hasta ?? "",
+  };
+  const pageHref = (p: number) =>
+    `/inventario?${new URLSearchParams({ ...keep, pagina: String(p) }).toString()}`;
   const refLink = (r: (typeof list)[number]) => {
     if (r.order_id) return { href: `/pedidos/${r.order_id}`, label: r.folio ?? "Pedido" };
     if (r.ref_type === "production_batch")
-      return { href: `/produccion?tab=lotes&fecha=${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Tijuana" }).format(r.occurred_at)}&producto=${r.product_id}`, label: r.lot_code ?? "Lote" };
-    if (r.ref_type === "stock_count") return { href: `/inventario?tab=conteo&conteo=${r.ref_id}`, label: "Conteo" };
-    if (r.ref_type === "waste_record") return { href: `/inventario?tab=mermas&rango=semana`, label: "Merma" };
+      return {
+        href: `/produccion?tab=lotes&fecha=${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Tijuana" }).format(r.occurred_at)}&producto=${r.product_id}`,
+        label: r.lot_code ?? "Lote",
+      };
+    if (r.ref_type === "stock_count")
+      return { href: `/inventario?tab=conteo&conteo=${r.ref_id}`, label: "Conteo" };
+    if (r.ref_type === "waste_record")
+      return { href: `/inventario?tab=mermas&rango=semana`, label: "Merma" };
     return null;
   };
   return (
@@ -305,7 +402,12 @@ async function MovementsTab({ sp }: { sp: Search }) {
       <form className="card mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-5" method="get">
         <input type="hidden" name="tab" value="movimientos" />
         <Field label="Producto" htmlFor="producto">
-          <select id="producto" name="producto" className="input min-h-11" defaultValue={producto ?? ""}>
+          <select
+            id="producto"
+            name="producto"
+            className="input min-h-11"
+            defaultValue={producto ?? ""}
+          >
             <option value="">Todos</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>
@@ -325,17 +427,32 @@ async function MovementsTab({ sp }: { sp: Search }) {
           </select>
         </Field>
         <Field label="Desde" htmlFor="desde">
-          <input id="desde" name="desde" type="date" className="input min-h-11" defaultValue={desde ?? ""} />
+          <input
+            id="desde"
+            name="desde"
+            type="date"
+            className="input min-h-11"
+            defaultValue={desde ?? ""}
+          />
         </Field>
         <Field label="Hasta" htmlFor="hasta">
-          <input id="hasta" name="hasta" type="date" className="input min-h-11" defaultValue={hasta ?? ""} />
+          <input
+            id="hasta"
+            name="hasta"
+            type="date"
+            className="input min-h-11"
+            defaultValue={hasta ?? ""}
+          />
         </Field>
         <div className="flex items-end">
           <button className="btn btn-secondary min-h-11 w-full">Filtrar</button>
         </div>
       </form>
       {list.length === 0 ? (
-        <EmptyState title="Sin movimientos" body="Ajusta los filtros o registra producción, ventas o mermas." />
+        <EmptyState
+          title="Sin movimientos"
+          body="Ajusta los filtros o registra producción, ventas o mermas."
+        />
       ) : (
         <Table>
           <thead>
@@ -355,12 +472,18 @@ async function MovementsTab({ sp }: { sp: Search }) {
               const n = Number(r.qty);
               return (
                 <tr key={r.id}>
-                  <td className="whitespace-nowrap tabular-nums">{fmtDate(r.occurred_at, "datetime")}</td>
+                  <td className="whitespace-nowrap tabular-nums">
+                    {fmtDate(r.occurred_at, "datetime")}
+                  </td>
                   <td className="font-medium">{r.product_name}</td>
                   <td>
-                    <Badge tone={n > 0 ? "green" : r.type === "SALE" ? "blue" : "amber"}>{MOVEMENT_LABELS[r.type] ?? r.type}</Badge>
+                    <Badge tone={n > 0 ? "green" : r.type === "SALE" ? "blue" : "amber"}>
+                      {MOVEMENT_LABELS[r.type] ?? r.type}
+                    </Badge>
                   </td>
-                  <td className={`text-right font-semibold tabular-nums ${n < 0 ? "text-red-d" : "text-green-d"}`}>
+                  <td
+                    className={`text-right font-semibold tabular-nums ${n < 0 ? "text-red-d" : "text-green-d"}`}
+                  >
                     {n > 0 ? "+" : ""}
                     {qty(r.qty)}
                   </td>
@@ -368,7 +491,15 @@ async function MovementsTab({ sp }: { sp: Search }) {
                     {r.reason ? (WASTE_LABEL[r.reason] ?? r.reason) : ""}
                     {r.note ? ` · ${r.note}` : ""}
                   </td>
-                  <td>{link ? <Link href={link.href} className="underline">{link.label}</Link> : <span className="text-muted">—</span>}</td>
+                  <td>
+                    {link ? (
+                      <Link href={link.href} className="underline">
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
                   <td className="text-muted">{r.staff_name ?? "—"}</td>
                 </tr>
               );
@@ -378,8 +509,18 @@ async function MovementsTab({ sp }: { sp: Search }) {
       )}
       {(page > 1 || hasMore) && (
         <div className="mt-3 flex justify-between">
-          {page > 1 ? <Link href={pageHref(page - 1)} className="btn btn-secondary">← Anteriores</Link> : <span />}
-          {hasMore && <Link href={pageHref(page + 1)} className="btn btn-secondary">Siguientes →</Link>}
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="btn btn-secondary">
+              ← Anteriores
+            </Link>
+          ) : (
+            <span />
+          )}
+          {hasMore && (
+            <Link href={pageHref(page + 1)} className="btn btn-secondary">
+              Siguientes →
+            </Link>
+          )}
         </div>
       )}
     </>
@@ -418,10 +559,25 @@ async function WasteTab({ rango, canWrite }: { rango: "dia" | "semana"; canWrite
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Cantidad" htmlFor="w-qty">
-                <input id="w-qty" name="qty" type="number" step="0.001" min="0.001" inputMode="decimal" className="input min-h-12 text-lg" required />
+                <input
+                  id="w-qty"
+                  name="qty"
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  inputMode="decimal"
+                  className="input min-h-12 text-lg"
+                  required
+                />
               </Field>
               <Field label="Motivo" htmlFor="w-reason">
-                <select id="w-reason" name="reason" className="input min-h-12" defaultValue="burnt" required>
+                <select
+                  id="w-reason"
+                  name="reason"
+                  className="input min-h-12"
+                  defaultValue="burnt"
+                  required
+                >
                   {WASTE_REASONS.map((w) => (
                     <option key={w.key} value={w.key}>
                       {w.label}
@@ -431,7 +587,13 @@ async function WasteTab({ rango, canWrite }: { rango: "dia" | "semana"; canWrite
               </Field>
             </div>
             <Field label="Nota" htmlFor="w-note">
-              <input id="w-note" name="note" className="input min-h-11" maxLength={300} placeholder="Opcional" />
+              <input
+                id="w-note"
+                name="note"
+                className="input min-h-11"
+                maxLength={300}
+                placeholder="Opcional"
+              />
             </Field>
             <PendingButton className="btn btn-primary min-h-12" pendingLabel="Registrando…">
               Registrar merma
@@ -453,7 +615,8 @@ async function WasteTab({ rango, canWrite }: { rango: "dia" | "semana"; canWrite
             ))}
           </div>
           <p className="text-sm text-muted">
-            {list.rows.length} registros · {qty(totalQty)} piezas · costo estimado <Money cents={totalCost} />
+            {list.rows.length} registros · {qty(totalQty)} piezas · costo estimado{" "}
+            <Money cents={totalCost} />
             {missingCost && " (algunos sin receta)"}
           </p>
         </div>
@@ -474,14 +637,22 @@ async function WasteTab({ rango, canWrite }: { rango: "dia" | "semana"; canWrite
             <tbody>
               {list.rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="whitespace-nowrap tabular-nums">{fmtDate(r.occurred_at, "datetime")}</td>
+                  <td className="whitespace-nowrap tabular-nums">
+                    {fmtDate(r.occurred_at, "datetime")}
+                  </td>
                   <td className="font-medium">{r.product_name}</td>
                   <td className="text-right tabular-nums">{qty(r.qty)}</td>
                   <td>
                     <Badge tone="amber">{WASTE_LABEL[r.reason] ?? r.reason}</Badge>
                     {r.note && <span className="ml-2 text-muted">{r.note}</span>}
                   </td>
-                  <td className="text-right">{r.cost_cents === null ? <span className="text-muted">—</span> : <Money cents={r.cost_cents} />}</td>
+                  <td className="text-right">
+                    {r.cost_cents === null ? (
+                      <span className="text-muted">—</span>
+                    ) : (
+                      <Money cents={r.cost_cents} />
+                    )}
+                  </td>
                   <td className="text-muted">{r.staff_name ?? "—"}</td>
                 </tr>
               ))}
@@ -496,11 +667,16 @@ async function WasteTab({ rango, canWrite }: { rango: "dia" | "semana"; canWrite
 /* ── Conteo físico (wizard) ────────────────────────────────────────────── */
 async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
   const d = db();
-  const open = await sql<{ id: string; started_at: Date; notes: string | null; staff_name: string | null }>`
+  const open = await sql<{
+    id: string;
+    started_at: Date;
+    notes: string | null;
+    staff_name: string | null;
+  }>`
     select sc.id, sc.started_at, sc.notes, s.full_name as staff_name from stock_counts sc left join staff_users s on s.id = sc.staff_id
     where sc.status = 'open' order by sc.started_at desc limit 1`.execute(d);
   const current = open.rows[0] ?? null;
-  const viewing = isUuid(sp.conteo) ? sp.conteo : current?.id ?? null;
+  const viewing = isUuid(sp.conteo) ? sp.conteo : (current?.id ?? null);
   const paso = sp.paso === "revisar" ? "revisar" : "capturar";
   const history = await sql<{
     id: string;
@@ -533,17 +709,28 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {sp.aplicado !== undefined && <Alert tone="green">Conteo aplicado: {sp.aplicado} corrección(es) registradas en inventario.</Alert>}
+      {sp.aplicado !== undefined && (
+        <Alert tone="green">
+          Conteo aplicado: {sp.aplicado} corrección(es) registradas en inventario.
+        </Alert>
+      )}
       {sp.descartado && <Alert tone="gray">Conteo descartado. El inventario no cambió.</Alert>}
 
       {!current && canWrite && (
         <Card title="Iniciar conteo físico">
           <p className="mb-3 text-sm text-muted">
-            Paso 1 de 3 · Se precarga la existencia esperada de todos los productos con control de stock. Después capturas lo contado, revisas diferencias y aplicas.
+            Paso 1 de 3 · Se precarga la existencia esperada de todos los productos con control de
+            stock. Después capturas lo contado, revisas diferencias y aplicas.
           </p>
           <ActionForm action={createCountAction} className="flex flex-wrap items-end gap-3">
             <Field label="Notas" htmlFor="c-notes" className="min-w-64 flex-1">
-              <input id="c-notes" name="notes" className="input min-h-11" placeholder="Ej. conteo de cierre de semana" maxLength={300} />
+              <input
+                id="c-notes"
+                name="notes"
+                className="input min-h-11"
+                placeholder="Ej. conteo de cierre de semana"
+                maxLength={300}
+              />
             </Field>
             <PendingButton className="btn btn-primary min-h-11" pendingLabel="Creando…">
               Crear conteo
@@ -555,7 +742,11 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
       {items && viewing && viewingOpen && paso === "capturar" && (
         <Card
           title="Paso 2 de 3 · Capturar cantidades"
-          action={<span className="text-sm text-muted">Iniciado {fmtDate(current!.started_at, "datetime")} · {current!.staff_name ?? ""}</span>}
+          action={
+            <span className="text-sm text-muted">
+              Iniciado {fmtDate(current!.started_at, "datetime")} · {current!.staff_name ?? ""}
+            </span>
+          }
         >
           <ActionForm action={saveCountItemsAction} resetOnSuccess={false}>
             <input type="hidden" name="stock_count_id" value={viewing} />
@@ -587,7 +778,14 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
                       />
                     </td>
                     <td>
-                      <input name={`note_${it.product_id}`} className="input min-h-11" defaultValue={it.note ?? ""} maxLength={200} placeholder="Opcional" disabled={!canWrite} />
+                      <input
+                        name={`note_${it.product_id}`}
+                        className="input min-h-11"
+                        defaultValue={it.note ?? ""}
+                        maxLength={200}
+                        placeholder="Opcional"
+                        disabled={!canWrite}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -602,9 +800,16 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
             )}
           </ActionForm>
           {canWrite && (
-            <ActionForm action={discardCountAction} className="mt-3 flex justify-start" resetOnSuccess={false}>
+            <ActionForm
+              action={discardCountAction}
+              className="mt-3 flex justify-start"
+              resetOnSuccess={false}
+            >
               <input type="hidden" name="stock_count_id" value={viewing} />
-              <PendingButton className="btn btn-danger min-h-11" confirm="¿Descartar este conteo? No se aplicará ninguna corrección.">
+              <PendingButton
+                className="btn btn-danger min-h-11"
+                confirm="¿Descartar este conteo? No se aplicará ninguna corrección."
+              >
                 Descartar conteo
               </PendingButton>
             </ActionForm>
@@ -617,7 +822,10 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
           {(() => {
             const diffs = items.rows.filter((i) => Number(i.difference_qty) !== 0);
             return diffs.length === 0 ? (
-              <p className="text-sm text-muted">No hay diferencias: lo contado coincide con lo esperado. Puedes cerrar el conteo aplicándolo (sin correcciones) o descartarlo.</p>
+              <p className="text-sm text-muted">
+                No hay diferencias: lo contado coincide con lo esperado. Puedes cerrar el conteo
+                aplicándolo (sin correcciones) o descartarlo.
+              </p>
             ) : (
               <Table className="!border-0 !shadow-none">
                 <thead>
@@ -637,7 +845,9 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
                         <td className="font-medium">{it.name}</td>
                         <td className="text-right tabular-nums">{qty(it.expected_qty)}</td>
                         <td className="text-right tabular-nums">{qty(it.counted_qty)}</td>
-                        <td className={`text-right font-semibold tabular-nums ${diff < 0 ? "text-red-d" : "text-green-d"}`}>
+                        <td
+                          className={`text-right font-semibold tabular-nums ${diff < 0 ? "text-red-d" : "text-green-d"}`}
+                        >
                           {diff > 0 ? "+" : ""}
                           {qty(it.difference_qty)}
                         </td>
@@ -651,13 +861,19 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
           })()}
           {canWrite && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <Link href={`/inventario?tab=conteo&conteo=${viewing}&paso=capturar`} className="btn btn-secondary min-h-11">
+              <Link
+                href={`/inventario?tab=conteo&conteo=${viewing}&paso=capturar`}
+                className="btn btn-secondary min-h-11"
+              >
                 ← Volver a capturar
               </Link>
               <div className="flex gap-2">
                 <ActionForm action={discardCountAction} resetOnSuccess={false}>
                   <input type="hidden" name="stock_count_id" value={viewing} />
-                  <PendingButton className="btn btn-danger min-h-11" confirm="¿Descartar este conteo? No se aplicará ninguna corrección.">
+                  <PendingButton
+                    className="btn btn-danger min-h-11"
+                    confirm="¿Descartar este conteo? No se aplicará ninguna corrección."
+                  >
                     Descartar
                   </PendingButton>
                 </ActionForm>
@@ -678,7 +894,9 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
       )}
 
       {items && viewing && !viewingOpen && (
-        <Card title={`Detalle del conteo · ${items.rows[0]?.status === "applied" ? "aplicado" : items.rows[0]?.status === "discarded" ? "descartado" : ""}`}>
+        <Card
+          title={`Detalle del conteo · ${items.rows[0]?.status === "applied" ? "aplicado" : items.rows[0]?.status === "discarded" ? "descartado" : ""}`}
+        >
           <Table className="!border-0 !shadow-none">
             <thead>
               <tr>
@@ -726,10 +944,20 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
                       {fmtDate(h.started_at, "datetime")}
                     </Link>
                   </td>
-                  <td className="text-muted">{h.closed_at ? fmtDate(h.closed_at, "datetime") : "—"}</td>
+                  <td className="text-muted">
+                    {h.closed_at ? fmtDate(h.closed_at, "datetime") : "—"}
+                  </td>
                   <td>
-                    <Badge tone={h.status === "applied" ? "green" : h.status === "open" ? "amber" : "gray"}>
-                      {h.status === "applied" ? "Aplicado" : h.status === "open" ? "Abierto" : "Descartado"}
+                    <Badge
+                      tone={
+                        h.status === "applied" ? "green" : h.status === "open" ? "amber" : "gray"
+                      }
+                    >
+                      {h.status === "applied"
+                        ? "Aplicado"
+                        : h.status === "open"
+                          ? "Abierto"
+                          : "Descartado"}
                     </Badge>
                   </td>
                   <td className="text-right tabular-nums">{h.items}</td>
@@ -771,8 +999,14 @@ async function ReconciliationTab({ sp }: { sp: Search }) {
   }>`select product_id, product_name, opening::text, production::text, sales::text, waste::text, corrections::text, other::text, closing::text
      from inventory_reconciliation(
        (${desde}::date)::timestamp at time zone (select timezone from business_settings where id = 1),
-       ((${hasta}::date + 1)::timestamp) at time zone (select timezone from business_settings where id = 1))`.execute(db());
-  const active = rows.rows.filter((r) => [r.opening, r.production, r.sales, r.waste, r.corrections, r.other, r.closing].some((v) => Number(v) !== 0));
+       ((${hasta}::date + 1)::timestamp) at time zone (select timezone from business_settings where id = 1))`.execute(
+    db(),
+  );
+  const active = rows.rows.filter((r) =>
+    [r.opening, r.production, r.sales, r.waste, r.corrections, r.other, r.closing].some(
+      (v) => Number(v) !== 0,
+    ),
+  );
   const sum = (k: keyof (typeof rows.rows)[number]) => active.reduce((a, r) => a + Number(r[k]), 0);
   const exportHref = `/inventario/conciliacion/export?desde=${desde}&hasta=${hasta}`;
   return (
@@ -780,10 +1014,22 @@ async function ReconciliationTab({ sp }: { sp: Search }) {
       <form className="card mb-4 flex flex-wrap items-end gap-3 p-4" method="get">
         <input type="hidden" name="tab" value="conciliacion" />
         <Field label="Desde" htmlFor="desde">
-          <input id="desde" name="desde" type="date" className="input min-h-11" defaultValue={desde} />
+          <input
+            id="desde"
+            name="desde"
+            type="date"
+            className="input min-h-11"
+            defaultValue={desde}
+          />
         </Field>
         <Field label="Hasta" htmlFor="hasta">
-          <input id="hasta" name="hasta" type="date" className="input min-h-11" defaultValue={hasta} />
+          <input
+            id="hasta"
+            name="hasta"
+            type="date"
+            className="input min-h-11"
+            defaultValue={hasta}
+          />
         </Field>
         <button className="btn btn-secondary min-h-11">Conciliar</button>
         <a href={exportHref} className="btn btn-secondary ml-auto min-h-11" download>
@@ -791,7 +1037,8 @@ async function ReconciliationTab({ sp }: { sp: Search }) {
         </a>
       </form>
       <p className="mb-3 text-sm text-muted">
-        Cierre = apertura + producción − ventas − mermas ± correcciones ± otros (devoluciones, anulaciones, inicial). Se resalta cualquier fila cuyo cierre no cuadre.
+        Cierre = apertura + producción − ventas − mermas ± correcciones ± otros (devoluciones,
+        anulaciones, inicial). Se resalta cualquier fila cuyo cierre no cuadre.
       </p>
       {active.length === 0 ? (
         <EmptyState title="Sin movimientos en el rango" />
@@ -821,12 +1068,24 @@ async function ReconciliationTab({ sp }: { sp: Search }) {
               });
               const mismatch = Math.abs(expected - Number(r.closing)) > 0.0005;
               return (
-                <tr key={r.product_id} className={mismatch ? "st-red" : ""} data-testid={`recon-row-${r.product_id}`} data-product-name={r.product_name}>
+                <tr
+                  key={r.product_id}
+                  className={mismatch ? "st-red" : ""}
+                  data-testid={`recon-row-${r.product_id}`}
+                  data-product-name={r.product_name}
+                >
                   <td className="font-medium">{r.product_name}</td>
                   <td className="text-right tabular-nums">{qty(r.opening)}</td>
-                  <td className="text-right tabular-nums text-green-d" data-testid="recon-production">{qty(r.production)}</td>
+                  <td
+                    className="text-right tabular-nums text-green-d"
+                    data-testid="recon-production"
+                  >
+                    {qty(r.production)}
+                  </td>
                   <td className="text-right tabular-nums">{qty(r.sales)}</td>
-                  <td className="text-right tabular-nums text-amber-d" data-testid="recon-waste">{qty(r.waste)}</td>
+                  <td className="text-right tabular-nums text-amber-d" data-testid="recon-waste">
+                    {qty(r.waste)}
+                  </td>
                   <td className="text-right tabular-nums">{qty(r.corrections)}</td>
                   <td className="text-right tabular-nums">{qty(r.other)}</td>
                   <td className="text-right font-semibold tabular-nums">{qty(r.closing)}</td>
@@ -865,9 +1124,14 @@ async function IngredientsTab() {
             ingredient_unit_cost(i.id)::text as unit_cost,
             (select max(occurred_at) from ingredient_movements m where m.ingredient_id = i.id) as last_movement
      from ingredients i where i.deleted_at is null
-     order by case when i.min_stock_qty > 0 and i.stock_qty <= 0 then 0 when i.min_stock_qty > 0 and i.stock_qty <= i.min_stock_qty then 1 else 2 end, i.name`.execute(db());
+     order by case when i.min_stock_qty > 0 and i.stock_qty <= 0 then 0 when i.min_stock_qty > 0 and i.stock_qty <= i.min_stock_qty then 1 else 2 end, i.name`.execute(
+    db(),
+  );
   return rows.rows.length === 0 ? (
-    <EmptyState title="Sin insumos" body="Registra ingredientes en el catálogo para ver su stock aquí." />
+    <EmptyState
+      title="Sin insumos"
+      body="Registra ingredientes en el catálogo para ver su stock aquí."
+    />
   ) : (
     <Table>
       <thead>
@@ -898,12 +1162,22 @@ async function IngredientsTab() {
                 {min > 0 ? `${qty(r.min_stock_qty)} ${r.base_unit}` : "—"}
               </td>
               <td>
-                {level === "out" ? <Badge tone="red">Agotado</Badge> : level === "low" ? <Badge tone="amber">Crítico</Badge> : <Badge tone="green">OK</Badge>}
+                {level === "out" ? (
+                  <Badge tone="red">Agotado</Badge>
+                ) : level === "low" ? (
+                  <Badge tone="amber">Crítico</Badge>
+                ) : (
+                  <Badge tone="green">OK</Badge>
+                )}
               </td>
               <td className="text-right tabular-nums text-muted">
-                {r.unit_cost === null ? "sin precio" : `$${Number(r.unit_cost).toLocaleString("es-MX", { maximumFractionDigits: 4 })}/${r.base_unit}`}
+                {r.unit_cost === null
+                  ? "sin precio"
+                  : `$${Number(r.unit_cost).toLocaleString("es-MX", { maximumFractionDigits: 4 })}/${r.base_unit}`}
               </td>
-              <td className="text-muted">{r.last_movement ? fmtDate(r.last_movement, "datetime") : "—"}</td>
+              <td className="text-muted">
+                {r.last_movement ? fmtDate(r.last_movement, "datetime") : "—"}
+              </td>
             </tr>
           );
         })}

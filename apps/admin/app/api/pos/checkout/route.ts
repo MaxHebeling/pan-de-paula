@@ -33,8 +33,15 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
 
-  if (input.items.some((i) => (i.discount_cents ?? 0) > 0) && !hasPermission(auth.session, "pos.refund")) {
-    return jsonError(403, "Los descuentos por línea requieren permiso de gerente", "DISCOUNT_FORBIDDEN");
+  if (
+    input.items.some((i) => (i.discount_cents ?? 0) > 0) &&
+    !hasPermission(auth.session, "pos.refund")
+  ) {
+    return jsonError(
+      403,
+      "Los descuentos por línea requieren permiso de gerente",
+      "DISCOUNT_FORBIDDEN",
+    );
   }
   if (input.payments.some((p) => p.provider === "mercadopago" || p.method === "mercadopago")) {
     return jsonError(
@@ -45,7 +52,11 @@ export async function POST(req: Request) {
   }
   const register = await getOpenRegister();
   if (input.payments.some((p) => p.method === "cash") && !register) {
-    return jsonError(409, "La caja está cerrada. Ábrela para cobrar en efectivo.", "REGISTER_CLOSED");
+    return jsonError(
+      409,
+      "La caja está cerrada. Ábrela para cobrar en efectivo.",
+      "REGISTER_CLOSED",
+    );
   }
 
   const payload = {

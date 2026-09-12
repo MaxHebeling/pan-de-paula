@@ -10,7 +10,8 @@ import { PrintButton } from "@/components/ops/print-button";
 export const metadata = { title: "Recibo" };
 export const dynamic = "force-dynamic";
 
-const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const isUuid = (s: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 /** Recibo imprimible (ticket). Usa la plantilla compartida de @pdp/integrations si está disponible; si no, la propia. */
 export default async function ReciboPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,14 +25,19 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
     sharedHtml = renderReceiptHtml(data);
   } catch (e) {
     // La plantilla compartida aún no está implementada: se usa la propia.
-    console.info("[recibo] renderReceiptHtml no disponible, usando plantilla local:", (e as Error).message);
+    console.info(
+      "[recibo] renderReceiptHtml no disponible, usando plantilla local:",
+      (e as Error).message,
+    );
   }
   const paid = data.payments.reduce((a, p) => a + p.amountCents, 0);
   return (
     <>
       <style>{`@media print { .no-print { display: none !important; } @page { size: 80mm auto; margin: 4mm; } }`}</style>
       <div className="no-print mb-4 flex justify-between">
-        <a href={`/pedidos/${id}`} className="btn btn-secondary">← Pedido</a>
+        <a href={`/pedidos/${id}`} className="btn btn-secondary">
+          ← Pedido
+        </a>
         <PrintButton label="Imprimir recibo" />
       </div>
       {sharedHtml ? (
@@ -53,21 +59,45 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
                     {it.qty} × {it.name}
                     <div className="text-[11px] text-muted">{formatMXN(it.unitPriceCents)} c/u</div>
                   </td>
-                  <td className="py-0.5 text-right align-top tabular-nums">{formatMXN(it.totalCents)}</td>
+                  <td className="py-0.5 text-right align-top tabular-nums">
+                    {formatMXN(it.totalCents)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="my-2 border-t border-dashed border-ink" />
           <dl className="grid grid-cols-2 gap-y-0.5">
-            <dt>Subtotal</dt><dd className="text-right tabular-nums">{formatMXN(data.subtotalCents)}</dd>
-            {data.discountCents > 0 && (<><dt>Descuento</dt><dd className="text-right tabular-nums">−{formatMXN(data.discountCents)}</dd></>)}
-            <dt className="text-base font-bold">TOTAL</dt><dd className="text-right text-base font-bold tabular-nums">{formatMXN(data.totalCents)}</dd>
-            {data.payments.map((p, i) => (<Fragment key={i}><dt>{p.method}</dt><dd className="text-right tabular-nums">{formatMXN(p.amountCents)}</dd></Fragment>))}
-            {paid < data.totalCents && (<><dt>Por pagar</dt><dd className="text-right tabular-nums">{formatMXN(data.totalCents - paid)}</dd></>)}
+            <dt>Subtotal</dt>
+            <dd className="text-right tabular-nums">{formatMXN(data.subtotalCents)}</dd>
+            {data.discountCents > 0 && (
+              <>
+                <dt>Descuento</dt>
+                <dd className="text-right tabular-nums">−{formatMXN(data.discountCents)}</dd>
+              </>
+            )}
+            <dt className="text-base font-bold">TOTAL</dt>
+            <dd className="text-right text-base font-bold tabular-nums">
+              {formatMXN(data.totalCents)}
+            </dd>
+            {data.payments.map((p, i) => (
+              <Fragment key={i}>
+                <dt>{p.method}</dt>
+                <dd className="text-right tabular-nums">{formatMXN(p.amountCents)}</dd>
+              </Fragment>
+            ))}
+            {paid < data.totalCents && (
+              <>
+                <dt>Por pagar</dt>
+                <dd className="text-right tabular-nums">{formatMXN(data.totalCents - paid)}</dd>
+              </>
+            )}
           </dl>
           {(data.pointsEarned ?? 0) > 0 && (
-            <p className="mt-2 text-center">Ganaste {data.pointsEarned} puntos{data.pointsBalance !== undefined ? ` · saldo ${data.pointsBalance}` : ""}</p>
+            <p className="mt-2 text-center">
+              Ganaste {data.pointsEarned} puntos
+              {data.pointsBalance !== undefined ? ` · saldo ${data.pointsBalance}` : ""}
+            </p>
           )}
           <footer className="mt-4 text-center">¡Gracias por tu preferencia!</footer>
         </article>

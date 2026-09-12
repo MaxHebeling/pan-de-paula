@@ -2,7 +2,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ShoppingBag, Wallet } from "lucide-react";
-import { cartTotals, formatMXN, newIdempotencyKey, type CartDiscount, type CartLine } from "@pdp/domain";
+import {
+  cartTotals,
+  formatMXN,
+  newIdempotencyKey,
+  type CartDiscount,
+  type CartLine,
+} from "@pdp/domain";
 import { apiFetch, NetworkError, postJson } from "./api";
 import { CartPanel } from "./cart-panel";
 import { CheckoutModal } from "./checkout-modal";
@@ -34,7 +40,8 @@ function rewardDiscount(r: RewardIssued | null): CartDiscount | null {
   if (!r) return null;
   if (r.kind === "discount_pct") return { kind: "pct", valueBps: r.valueBps ?? 0 };
   if (r.kind === "discount_amount") return { kind: "amount", valueCents: r.valueCents ?? 0 };
-  if (r.kind === "free_product" && r.productId) return { kind: "free_product", productId: r.productId };
+  if (r.kind === "free_product" && r.productId)
+    return { kind: "free_product", productId: r.productId };
   return null;
 }
 
@@ -51,7 +58,9 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [sale, setSale] = useState<SaleOutcome | null>(null);
-  const [toast, setToast] = useState<{ tone: "green" | "amber" | "red"; text: string } | null>(null);
+  const [toast, setToast] = useState<{ tone: "green" | "amber" | "red"; text: string } | null>(
+    null,
+  );
   const [registerOpen, setRegisterOpen] = useState(Boolean(config.register));
   const idemRef = useRef<string>(newIdempotencyKey("pos"));
   const searchRef = useRef<HTMLInputElement>(null);
@@ -64,18 +73,35 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   }, []);
 
   const offline = useOfflineQueue(config.flags.pos_offline_queue, (report) => {
-    if (report.synced.length) say("green", `${report.synced.length} venta(s) offline sincronizada(s): ${report.synced.map((s) => s.result.folio).join(", ")}`);
-    if (report.failed.some((f) => f.status >= 400 && f.status < 500)) say("red", "Una venta offline fue rechazada por el servidor. Revisa la cola.");
+    if (report.synced.length)
+      say(
+        "green",
+        `${report.synced.length} venta(s) offline sincronizada(s): ${report.synced.map((s) => s.result.folio).join(", ")}`,
+      );
+    if (report.failed.some((f) => f.status >= 400 && f.status < 500))
+      say("red", "Una venta offline fue rechazada por el servidor. Revisa la cola.");
   });
 
   const effectiveConfig = useMemo<PosConfig>(
-    () => ({ ...config, register: registerOpen ? (config.register ?? { id: "", openedAt: "", openingCashCents: 0 }) : null }),
+    () => ({
+      ...config,
+      register: registerOpen
+        ? (config.register ?? { id: "", openedAt: "", openingCashCents: 0 })
+        : null,
+    }),
     [config, registerOpen],
   );
 
   // ── Totales (previsualización; el servidor recalcula) ─────────────────────
   const cartLines: CartLine[] = useMemo(
-    () => lines.map((l) => ({ productId: l.productId, name: l.name, qty: l.qty, unitPriceCents: l.unitPriceCents, discountCents: l.discountCents })),
+    () =>
+      lines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        qty: l.qty,
+        unitPriceCents: l.unitPriceCents,
+        discountCents: l.discountCents,
+      })),
     [lines],
   );
   const totals = useMemo(() => {
@@ -83,7 +109,11 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
     if (coupon) discounts.push({ kind: "amount", valueCents: coupon.discountCents });
     const rd = rewardDiscount(reward);
     if (rd) discounts.push(rd);
-    return cartTotals(cartLines, { discounts, taxRateBps: config.business.taxRateBps, pricesIncludeTax: config.business.pricesIncludeTax });
+    return cartTotals(cartLines, {
+      discounts,
+      taxRateBps: config.business.taxRateBps,
+      pricesIncludeTax: config.business.pricesIncludeTax,
+    });
   }, [cartLines, coupon, reward, config.business.taxRateBps, config.business.pricesIncludeTax]);
 
   // ── Carrito ───────────────────────────────────────────────────────────────
@@ -100,7 +130,18 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
       setLines((prev) => {
         const i = prev.findIndex((l) => l.productId === p.id);
         if (i >= 0) return prev.map((l, j) => (j === i ? { ...l, qty: l.qty + 1 } : l));
-        return [...prev, { productId: p.id, name: p.name, variantLabel: p.variantLabel, unitPriceCents: p.priceCents!, qty: 1, discountCents: 0, notes: "" }];
+        return [
+          ...prev,
+          {
+            productId: p.id,
+            name: p.name,
+            variantLabel: p.variantLabel,
+            unitPriceCents: p.priceCents!,
+            qty: 1,
+            discountCents: 0,
+            notes: "",
+          },
+        ];
       });
     },
     [config.business.allowNegativeStock, say],
@@ -114,9 +155,15 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
     }
   };
   const changeQty = (productId: string, delta: number) =>
-    applyLines(lines.map((l) => (l.productId === productId ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0));
-  const removeLine = (productId: string) => applyLines(lines.filter((l) => l.productId !== productId));
-  const setNote = (productId: string, notes: string) => setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, notes } : l)));
+    applyLines(
+      lines
+        .map((l) => (l.productId === productId ? { ...l, qty: l.qty + delta } : l))
+        .filter((l) => l.qty > 0),
+    );
+  const removeLine = (productId: string) =>
+    applyLines(lines.filter((l) => l.productId !== productId));
+  const setNote = (productId: string, notes: string) =>
+    setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, notes } : l)));
   const setDiscount = (productId: string, discountCents: number) =>
     setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, discountCents } : l)));
 
@@ -138,11 +185,17 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   // ── Cliente y recompensas ────────────────────────────────────────────────
   const loadRewards = useCallback(async (customerId: string) => {
     try {
-      const r = await apiFetch<{ issued: RewardIssued[]; available: RewardAvailable[]; pointsBalance: number }>(`/api/pos/rewards?customer_id=${customerId}`);
+      const r = await apiFetch<{
+        issued: RewardIssued[];
+        available: RewardAvailable[];
+        pointsBalance: number;
+      }>(`/api/pos/rewards?customer_id=${customerId}`);
       if (r.ok) {
         setRewardsIssued(r.data.issued);
         setRewardsAvailable(r.data.available);
-        setCustomer((c) => (c && c.id === customerId ? { ...c, pointsBalance: r.data.pointsBalance } : c));
+        setCustomer((c) =>
+          c && c.id === customerId ? { ...c, pointsBalance: r.data.pointsBalance } : c,
+        );
       }
     } catch (e) {
       console.error("[pos] recompensas", (e as Error).message);
@@ -161,10 +214,20 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   };
   async function redeemReward(r: RewardAvailable) {
     if (!customer) return;
-    if (!window.confirm(`¿Canjear ${r.pointsCost} puntos por "${r.name}"? Los puntos se descuentan ahora.`)) return;
+    if (
+      !window.confirm(
+        `¿Canjear ${r.pointsCost} puntos por "${r.name}"? Los puntos se descuentan ahora.`,
+      )
+    )
+      return;
     setRewardBusy(true);
     try {
-      const res = await postJson<{ redemptionId: string; issued: RewardIssued[]; available: RewardAvailable[]; pointsBalance: number }>("/api/pos/rewards", {
+      const res = await postJson<{
+        redemptionId: string;
+        issued: RewardIssued[];
+        available: RewardAvailable[];
+        pointsBalance: number;
+      }>("/api/pos/rewards", {
         customer_id: customer.id,
         reward_id: r.rewardId,
       });
@@ -179,7 +242,12 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
       if (issued) setReward(issued);
       say("green", `Recompensa emitida: ${r.name}`);
     } catch (e) {
-      say("red", e instanceof NetworkError ? "Sin conexión: no se pueden canjear recompensas" : (e as Error).message);
+      say(
+        "red",
+        e instanceof NetworkError
+          ? "Sin conexión: no se pueden canjear recompensas"
+          : (e as Error).message,
+      );
     } finally {
       setRewardBusy(false);
     }
@@ -194,7 +262,11 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
         const r = await postJson<CouponResult>("/api/pos/coupon", {
           code,
           customer_id: customer?.id ?? null,
-          items: lines.map((l) => ({ product_id: l.productId, qty: l.qty, discount_cents: l.discountCents || undefined })),
+          items: lines.map((l) => ({
+            product_id: l.productId,
+            qty: l.qty,
+            discount_cents: l.discountCents || undefined,
+          })),
         });
         if (!r.ok) {
           setCouponMessage(r.error);
@@ -206,11 +278,17 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
           setCouponMessage(null);
         } else {
           setCoupon(null);
-          setCouponMessage(quiet ? `Cupón ${code} ya no aplica: ${r.data.message}` : r.data.message);
+          setCouponMessage(
+            quiet ? `Cupón ${code} ya no aplica: ${r.data.message}` : r.data.message,
+          );
         }
       } catch (e) {
         setCoupon(null);
-        setCouponMessage(e instanceof NetworkError ? "Sin conexión: no se puede validar el cupón" : (e as Error).message);
+        setCouponMessage(
+          e instanceof NetworkError
+            ? "Sin conexión: no se puede validar el cupón"
+            : (e as Error).message,
+        );
       } finally {
         setCouponBusy(false);
       }
@@ -247,25 +325,46 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   const onSubmit = useCallback(
     async (payments: CheckoutPayment[]): Promise<{ ok: true } | { ok: false; error: string }> => {
       const request = buildRequest(payments);
-      const cashChange = payments.filter((p) => p.method === "cash").reduce((s, p) => s + Math.max((p.tendered_cents ?? p.amount_cents) - p.amount_cents, 0), 0);
+      const cashChange = payments
+        .filter((p) => p.method === "cash")
+        .reduce(
+          (s, p) => s + Math.max((p.tendered_cents ?? p.amount_cents) - p.amount_cents, 0),
+          0,
+        );
       try {
         const r = await postJson<CheckoutResult>("/api/pos/checkout", request);
         if (!r.ok) {
           if (r.code === "REGISTER_CLOSED") setRegisterOpen(false);
           return { ok: false, error: r.error };
         }
-        setSale({ kind: "online", result: r.data, payments, changeCents: r.data.duplicate ? cashChange : r.data.changeCents });
+        setSale({
+          kind: "online",
+          result: r.data,
+          payments,
+          changeCents: r.data.duplicate ? cashChange : r.data.changeCents,
+        });
         setCheckoutOpen(false);
         return { ok: true };
       } catch (e) {
         if (e instanceof NetworkError) {
           if (offline.enabled && canQueue(request, true) && registerOpen) {
             try {
-              offline.enqueue(request, { totalCents: totals.totalCents, changeCents: cashChange, itemsCount: totals.itemsCount, customerName: customer?.fullName ?? null });
+              offline.enqueue(request, {
+                totalCents: totals.totalCents,
+                changeCents: cashChange,
+                itemsCount: totals.itemsCount,
+                customerName: customer?.fullName ?? null,
+              });
             } catch (qe) {
               return { ok: false, error: (qe as Error).message };
             }
-            setSale({ kind: "queued", key: request.idempotency_key, totalCents: totals.totalCents, changeCents: cashChange, itemsCount: totals.itemsCount });
+            setSale({
+              kind: "queued",
+              key: request.idempotency_key,
+              totalCents: totals.totalCents,
+              changeCents: cashChange,
+              itemsCount: totals.itemsCount,
+            });
             setCheckoutOpen(false);
             return { ok: true };
           }
@@ -284,9 +383,19 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
 
   const mp = useMemo<MpHandlers>(
     () => ({
-      start: (kind) => postJson<MpStartResult>("/api/pos/payments/mercadopago", { ...buildRequest([]), kind, payments: undefined }),
-      status: (orderId) => apiFetch<PaymentStatusResult>(`/api/pos/payments/status?orderId=${orderId}`),
-      cancel: (orderId) => postJson<{ cancelled: boolean; saleId: string | null }>("/api/pos/payments/mercadopago/cancel", { orderId }),
+      start: (kind) =>
+        postJson<MpStartResult>("/api/pos/payments/mercadopago", {
+          ...buildRequest([]),
+          kind,
+          payments: undefined,
+        }),
+      status: (orderId) =>
+        apiFetch<PaymentStatusResult>(`/api/pos/payments/status?orderId=${orderId}`),
+      cancel: (orderId) =>
+        postJson<{ cancelled: boolean; saleId: string | null }>(
+          "/api/pos/payments/mercadopago/cancel",
+          { orderId },
+        ),
       onConfirmed: (s) => {
         setSale({
           kind: "online",
@@ -302,7 +411,9 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
             duplicate: false,
             status: s.status,
           },
-          payments: [{ provider: "mercadopago", method: "mercadopago", amount_cents: s.totalCents }],
+          payments: [
+            { provider: "mercadopago", method: "mercadopago", amount_cents: s.totalCents },
+          ],
           changeCents: 0,
         });
         setCheckoutOpen(false);
@@ -382,14 +493,27 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
           {registerOpen ? (
             <span className="st-green pill px-2.5 py-0.5 text-xs font-semibold">Caja abierta</span>
           ) : (
-            <Link href="/caja" className="st-amber pill flex min-h-9 items-center gap-1 px-3 text-xs font-semibold" data-testid="register-closed">
-              <Wallet size={14} /> Caja cerrada · {config.canRegister ? "abrir" : "solo tarjeta/transferencia"}
+            <Link
+              href="/caja"
+              className="st-amber pill flex min-h-9 items-center gap-1 px-3 text-xs font-semibold"
+              data-testid="register-closed"
+            >
+              <Wallet size={14} /> Caja cerrada ·{" "}
+              {config.canRegister ? "abrir" : "solo tarjeta/transferencia"}
             </Link>
           )}
         </div>
         <div className="flex items-center gap-2">
           {offline.enabled && (
-            <SyncIndicator status={offline.status.status} count={offline.status.count} items={offline.items} online={offline.online} onRetry={offline.retry} onDiscard={offline.discard} onSyncNow={() => void offline.syncNow()} />
+            <SyncIndicator
+              status={offline.status.status}
+              count={offline.status.count}
+              items={offline.items}
+              online={offline.online}
+              onRetry={offline.retry}
+              onDiscard={offline.discard}
+              onSyncNow={() => void offline.syncNow()}
+            />
           )}
           <Link href="/pos/ventas" className="btn btn-secondary btn-sm min-h-9">
             Ventas del día
@@ -405,10 +529,21 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-h-0 min-w-0" aria-label="Catálogo">
-          <ProductGrid catalog={catalog} onAdd={addProduct} searchRef={searchRef} allowNegativeStock={config.business.allowNegativeStock} />
+          <ProductGrid
+            catalog={catalog}
+            onAdd={addProduct}
+            searchRef={searchRef}
+            allowNegativeStock={config.business.allowNegativeStock}
+          />
         </section>
         {/* Una sola instancia del carrito: aside fijo en tablet/desktop, cajón inferior en móvil. */}
-        {cartOpen && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setCartOpen(false)} aria-hidden />}
+        {cartOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+            onClick={() => setCartOpen(false)}
+            aria-hidden
+          />
+        )}
         <aside
           className={`card min-h-0 p-3 ${
             cartOpen
@@ -421,7 +556,11 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
         >
           <div className="flex h-full min-h-0 flex-col">
             {cartOpen && (
-              <button type="button" className="btn btn-secondary btn-sm mb-2 min-h-11 self-end lg:hidden" onClick={() => setCartOpen(false)}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm mb-2 min-h-11 self-end lg:hidden"
+                onClick={() => setCartOpen(false)}
+              >
                 Seguir agregando
               </button>
             )}
@@ -433,16 +572,30 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
       {/* Móvil: barra inferior */}
       {!cartOpen && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 p-2 backdrop-blur lg:hidden">
-          <button type="button" onClick={() => setCartOpen(true)} className="btn btn-primary min-h-14 w-full justify-between text-base" data-testid="open-cart" aria-label="Ver carrito">
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="btn btn-primary min-h-14 w-full justify-between text-base"
+            data-testid="open-cart"
+            aria-label="Ver carrito"
+          >
             <span className="flex items-center gap-2">
-              <ShoppingBag size={20} /> {totals.itemsCount} {totals.itemsCount === 1 ? "artículo" : "artículos"}
+              <ShoppingBag size={20} /> {totals.itemsCount}{" "}
+              {totals.itemsCount === 1 ? "artículo" : "artículos"}
             </span>
             <span className="tabular-nums">{formatMXN(totals.totalCents)}</span>
           </button>
         </div>
       )}
 
-      <CheckoutModal open={checkoutOpen} totalCents={totals.totalCents} config={effectiveConfig} onClose={() => setCheckoutOpen(false)} onSubmit={onSubmit} mp={mp} />
+      <CheckoutModal
+        open={checkoutOpen}
+        totalCents={totals.totalCents}
+        config={effectiveConfig}
+        onClose={() => setCheckoutOpen(false)}
+        onSubmit={onSubmit}
+        mp={mp}
+      />
       {sale && <SaleSuccess sale={sale} config={config} customer={customer} onNew={resetAll} />}
     </div>
   );

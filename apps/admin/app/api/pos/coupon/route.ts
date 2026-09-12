@@ -72,7 +72,11 @@ export async function POST(req: Request) {
           kind: v.kind as "pct" | "amount" | "free_product",
           discountCents: v.discount_cents ?? 0,
         }
-      : { valid: false, reason: v.reason ?? "invalid", message: REASONS[v.reason ?? ""] ?? "Cupón inválido" };
+      : {
+          valid: false,
+          reason: v.reason ?? "invalid",
+          message: REASONS[v.reason ?? ""] ?? "Cupón inválido",
+        };
     return NextResponse.json(out);
   } catch (e) {
     return dbErrorResponse(e, "validate_coupon");

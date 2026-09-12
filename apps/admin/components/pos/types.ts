@@ -113,7 +113,12 @@ export type PaymentStatusResult = {
   paidCents: number;
   saleId: string | null;
   pointsEarned: number;
-  payments: Array<{ method: string; status: string; amountCents: number; externalStatus: string | null }>;
+  payments: Array<{
+    method: string;
+    status: string;
+    amountCents: number;
+    externalStatus: string | null;
+  }>;
   /** Resumen para el POS: confirmed = hay venta; failed = pedido cancelado o pago rechazado; pending = sigue esperando. */
   outcome: "confirmed" | "failed" | "pending";
 };

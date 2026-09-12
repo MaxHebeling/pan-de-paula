@@ -36,7 +36,9 @@ export default async function ProduccionPage({ searchParams }: { searchParams: P
     min_stock_qty: string;
     base_unit: string;
   }>`select id, name, stock_qty::text, min_stock_qty::text, base_unit::text
-     from ingredients where deleted_at is null and min_stock_qty > 0 and stock_qty <= min_stock_qty order by name`.execute(d);
+     from ingredients where deleted_at is null and min_stock_qty > 0 and stock_qty <= min_stock_qty order by name`.execute(
+    d,
+  );
 
   return (
     <>
@@ -54,7 +56,10 @@ export default async function ProduccionPage({ searchParams }: { searchParams: P
           <Alert tone="amber">
             <strong>Insumos bajo mínimo:</strong>{" "}
             {lowIngredients.rows
-              .map((i) => `${i.name} (${qty(i.stock_qty)} ${i.base_unit} / mín. ${qty(i.min_stock_qty)})`)
+              .map(
+                (i) =>
+                  `${i.name} (${qty(i.stock_qty)} ${i.base_unit} / mín. ${qty(i.min_stock_qty)})`,
+              )
               .join(" · ")}
             {" — "}
             <Link href="/inventario?tab=insumos" className="underline">
@@ -64,7 +69,9 @@ export default async function ProduccionPage({ searchParams }: { searchParams: P
         </div>
       )}
       {tab === "hoy" && <TodayTab canWrite={canWrite} />}
-      {tab === "lotes" && <BatchesTab fecha={isDate(sp.fecha) ? sp.fecha : todayLocal()} producto={sp.producto} />}
+      {tab === "lotes" && (
+        <BatchesTab fecha={isDate(sp.fecha) ? sp.fecha : todayLocal()} producto={sp.producto} />
+      )}
       {tab === "plan" && <PlanTab fecha={isDate(sp.fecha) ? sp.fecha : todayLocal()} />}
     </>
   );
@@ -93,8 +100,12 @@ async function TodayTab({ canWrite }: { canWrite: boolean }) {
        left join inventory_levels l on l.product_id = p.id
        where p.deleted_at is null and p.is_active and p.track_stock
        order by c.sort_order nulls last, c.name nulls last, p.sort_order, p.name`.execute(d),
-    sql<{ enabled: boolean }>`select enabled from feature_flags where key = 'ingredient_consumption'`.execute(d),
-    sql<{ low_stock_threshold: string }>`select low_stock_threshold::text from business_settings where id = 1`.execute(d),
+    sql<{
+      enabled: boolean;
+    }>`select enabled from feature_flags where key = 'ingredient_consumption'`.execute(d),
+    sql<{
+      low_stock_threshold: string;
+    }>`select low_stock_threshold::text from business_settings where id = 1`.execute(d),
   ]);
   const list: BoardProduct[] = products.rows.map((p) => ({
     id: p.id,
@@ -107,7 +118,12 @@ async function TodayTab({ canWrite }: { canWrite: boolean }) {
     has_recipe: p.has_recipe,
   }));
   if (list.length === 0)
-    return <EmptyState title="No hay productos con control de stock" body="Activa productos en el catálogo para producirlos aquí." />;
+    return (
+      <EmptyState
+        title="No hay productos con control de stock"
+        body="Activa productos en el catálogo para producirlos aquí."
+      />
+    );
   return (
     <ProductionBoard
       products={list}
@@ -138,7 +154,12 @@ async function BatchesTab({ fecha, producto }: { fecha: string; producto?: strin
        where (b.produced_at at time zone (select timezone from business_settings where id = 1))::date = ${fecha}::date
          and (${producto ?? null}::uuid is null or b.product_id = ${producto ?? null}::uuid)
        order by b.produced_at desc`.execute(d),
-    sql<{ id: string; name: string }>`select id, name from products where deleted_at is null and is_active order by name`.execute(d),
+    sql<{
+      id: string;
+      name: string;
+    }>`select id, name from products where deleted_at is null and is_active order by name`.execute(
+      d,
+    ),
   ]);
   const total = batches.rows.filter((b) => !b.undone_at).reduce((a, b) => a + Number(b.qty), 0);
   return (
@@ -149,13 +170,24 @@ async function BatchesTab({ fecha, producto }: { fecha: string; producto?: strin
           <label className="label" htmlFor="fecha">
             Fecha
           </label>
-          <input id="fecha" name="fecha" type="date" className="input min-h-11" defaultValue={fecha} />
+          <input
+            id="fecha"
+            name="fecha"
+            type="date"
+            className="input min-h-11"
+            defaultValue={fecha}
+          />
         </div>
         <div className="min-w-56">
           <label className="label" htmlFor="producto">
             Producto
           </label>
-          <select id="producto" name="producto" className="input min-h-11" defaultValue={producto ?? ""}>
+          <select
+            id="producto"
+            name="producto"
+            className="input min-h-11"
+            defaultValue={producto ?? ""}
+          >
             <option value="">Todos</option>
             {products.rows.map((p) => (
               <option key={p.id} value={p.id}>
@@ -170,7 +202,10 @@ async function BatchesTab({ fecha, producto }: { fecha: string; producto?: strin
         </span>
       </form>
       {batches.rows.length === 0 ? (
-        <EmptyState title="Sin lotes en esta fecha" body="Los lotes registrados en Producción del día aparecen aquí." />
+        <EmptyState
+          title="Sin lotes en esta fecha"
+          body="Los lotes registrados en Producción del día aparecen aquí."
+        />
       ) : (
         <Table>
           <thead>
@@ -192,8 +227,16 @@ async function BatchesTab({ fecha, producto }: { fecha: string; producto?: strin
                 <td className="text-right tabular-nums">{qty(b.qty)}</td>
                 <td>{b.staff_name ?? "—"}</td>
                 <td className="text-muted">
-                  {b.undone_at && <Badge tone="gray" className="mr-1">Deshecho</Badge>}
-                  {b.ingredients_consumed && <Badge tone="blue" className="mr-1">Insumos</Badge>}
+                  {b.undone_at && (
+                    <Badge tone="gray" className="mr-1">
+                      Deshecho
+                    </Badge>
+                  )}
+                  {b.ingredients_consumed && (
+                    <Badge tone="blue" className="mr-1">
+                      Insumos
+                    </Badge>
+                  )}
                   {b.notes}
                 </td>
               </tr>
@@ -251,7 +294,13 @@ async function PlanTab({ fecha }: { fecha: string }) {
           <label className="label" htmlFor="fecha">
             Fecha a planear
           </label>
-          <input id="fecha" name="fecha" type="date" className="input min-h-11" defaultValue={fecha} />
+          <input
+            id="fecha"
+            name="fecha"
+            type="date"
+            className="input min-h-11"
+            defaultValue={fecha}
+          />
         </div>
         <button className="btn btn-secondary min-h-11">Ver plan</button>
         <div className="ml-auto">
@@ -260,10 +309,13 @@ async function PlanTab({ fecha }: { fecha: string }) {
       </form>
       <Card title={`Plan de producción · ${dateLabel}`}>
         <p className="mb-3 text-sm text-muted">
-          Sugerido = pedidos comprometidos + promedio de ventas de los últimos 4 mismos días de la semana − stock actual.
+          Sugerido = pedidos comprometidos + promedio de ventas de los últimos 4 mismos días de la
+          semana − stock actual.
         </p>
         {relevant.length === 0 ? (
-          <p className="text-sm text-muted">Sin pedidos comprometidos ni historial de ventas para esta fecha.</p>
+          <p className="text-sm text-muted">
+            Sin pedidos comprometidos ni historial de ventas para esta fecha.
+          </p>
         ) : (
           <Table className="!border-0 !shadow-none">
             <thead>
@@ -305,16 +357,29 @@ async function PlanTab({ fecha }: { fecha: string }) {
                   </div>
                   <ul className="divide-y divide-line text-sm">
                     {rows.map((r) => (
-                      <li key={r.order_id} className="flex items-center justify-between gap-2 py-1.5">
+                      <li
+                        key={r.order_id}
+                        className="flex items-center justify-between gap-2 py-1.5"
+                      >
                         <span>
-                          <Link href={`/pedidos/${r.order_id}`} className="font-mono text-xs underline">
+                          <Link
+                            href={`/pedidos/${r.order_id}`}
+                            className="font-mono text-xs underline"
+                          >
                             {r.folio}
                           </Link>{" "}
                           {r.customer_name ?? "Sin nombre"}
-                          {r.scheduled_for && <span className="text-muted"> · {fmtDate(r.scheduled_for, "time")}</span>}
+                          {r.scheduled_for && (
+                            <span className="text-muted">
+                              {" "}
+                              · {fmtDate(r.scheduled_for, "time")}
+                            </span>
+                          )}
                         </span>
                         <span className="flex items-center gap-2">
-                          <Badge tone={ORDER_STATUS_TONE[r.status]}>{ORDER_STATUS_LABELS[r.status]}</Badge>
+                          <Badge tone={ORDER_STATUS_TONE[r.status]}>
+                            {ORDER_STATUS_LABELS[r.status]}
+                          </Badge>
                           <span className="tabular-nums">{qty(r.qty)}</span>
                         </span>
                       </li>

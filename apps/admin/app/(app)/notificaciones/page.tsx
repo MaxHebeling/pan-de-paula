@@ -22,7 +22,12 @@ const KIND_LABELS: Record<string, string> = {
   ingredient_low: "Insumo crítico",
   birthday: "Cumpleaños",
 };
-const SEVERITY_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = { info: "blue", success: "green", warning: "amber", error: "red" };
+const SEVERITY_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = {
+  info: "blue",
+  success: "green",
+  warning: "amber",
+  error: "red",
+};
 
 /** Enlace a la entidad relacionada. */
 function entityHref(entity: string | null, entityId: string | null): string | null {
@@ -41,7 +46,11 @@ function entityHref(entity: string | null, entityId: string | null): string | nu
   }
 }
 
-export default async function NotificacionesPage({ searchParams }: { searchParams: Promise<Search> }) {
+export default async function NotificacionesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
   const session = await requireSession();
   const sp = await searchParams;
   const estado = sp.estado === "leidas" || sp.estado === "todas" ? sp.estado : "sin_leer";
@@ -85,8 +94,14 @@ export default async function NotificacionesPage({ searchParams }: { searchParam
         actions={
           <>
             <UnreadBadge />
-            <ActionForm action={markAllReadAction} resetOnSuccess={false} className="flex flex-col items-end gap-1">
-              <PendingButton className="btn btn-secondary" pendingLabel="Marcando…">Marcar todas como leídas</PendingButton>
+            <ActionForm
+              action={markAllReadAction}
+              resetOnSuccess={false}
+              className="flex flex-col items-end gap-1"
+            >
+              <PendingButton className="btn btn-secondary" pendingLabel="Marcando…">
+                Marcar todas como leídas
+              </PendingButton>
             </ActionForm>
           </>
         }
@@ -121,16 +136,25 @@ export default async function NotificacionesPage({ searchParams }: { searchParam
         </div>
       </form>
       {list.length === 0 ? (
-        <EmptyState title={estado === "sin_leer" ? "Todo al día" : "Sin notificaciones"} body={estado === "sin_leer" ? "No tienes notificaciones pendientes." : undefined} />
+        <EmptyState
+          title={estado === "sin_leer" ? "Todo al día" : "Sin notificaciones"}
+          body={estado === "sin_leer" ? "No tienes notificaciones pendientes." : undefined}
+        />
       ) : (
         <ul className="card divide-y divide-line">
           {list.map((n) => {
             const link = entityHref(n.entity, n.entity_id);
             return (
-              <li key={n.id} className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3 ${n.read_at ? "opacity-70" : ""}`} data-testid="notification">
+              <li
+                key={n.id}
+                className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3 ${n.read_at ? "opacity-70" : ""}`}
+                data-testid="notification"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={SEVERITY_TONE[n.severity] ?? "gray"}>{KIND_LABELS[n.kind] ?? n.kind}</Badge>
+                    <Badge tone={SEVERITY_TONE[n.severity] ?? "gray"}>
+                      {KIND_LABELS[n.kind] ?? n.kind}
+                    </Badge>
                     <span className="font-medium">{n.title}</span>
                     {n.staff_id && <Badge tone="gray">personal</Badge>}
                   </div>
@@ -141,7 +165,16 @@ export default async function NotificacionesPage({ searchParams }: { searchParam
                       <>
                         {" · "}
                         <Link href={link} className="underline">
-                          Ver {n.entity === "order" ? "pedido" : n.entity === "product" ? "inventario" : n.entity === "ingredient" ? "insumos" : n.entity === "customer" ? "cliente" : "detalle"}
+                          Ver{" "}
+                          {n.entity === "order"
+                            ? "pedido"
+                            : n.entity === "product"
+                              ? "inventario"
+                              : n.entity === "ingredient"
+                                ? "insumos"
+                                : n.entity === "customer"
+                                  ? "cliente"
+                                  : "detalle"}
                         </Link>
                       </>
                     )}
@@ -162,8 +195,18 @@ export default async function NotificacionesPage({ searchParams }: { searchParam
       )}
       {(page > 1 || hasMore) && (
         <div className="mt-3 flex justify-between">
-          {page > 1 ? <Link href={href({ pagina: String(page - 1) })} className="btn btn-secondary">← Anteriores</Link> : <span />}
-          {hasMore && <Link href={href({ pagina: String(page + 1) })} className="btn btn-secondary">Siguientes →</Link>}
+          {page > 1 ? (
+            <Link href={href({ pagina: String(page - 1) })} className="btn btn-secondary">
+              ← Anteriores
+            </Link>
+          ) : (
+            <span />
+          )}
+          {hasMore && (
+            <Link href={href({ pagina: String(page + 1) })} className="btn btn-secondary">
+              Siguientes →
+            </Link>
+          )}
         </div>
       )}
     </>

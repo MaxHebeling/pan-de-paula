@@ -24,7 +24,12 @@ export default async function CortePage({
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) notFound();
   const s = await getRegisterSummary(sessionId);
   if (!s) notFound();
-  const meta = await sql<{ opened_by: string; closed_by: string | null; notes: string | null; name: string }>`
+  const meta = await sql<{
+    opened_by: string;
+    closed_by: string | null;
+    notes: string | null;
+    name: string;
+  }>`
     select o.full_name as opened_by, c.full_name as closed_by, rs.notes, bs.name
     from register_sessions rs join staff_users o on o.id = rs.opened_by left join staff_users c on c.id = rs.closed_by
     cross join business_settings bs where rs.id = ${sessionId}::uuid`.execute(db());
@@ -44,7 +49,9 @@ export default async function CortePage({
         <article className="ticket" data-testid="corte">
           <h1>{m.name}</h1>
           <div className="c">CORTE DE CAJA</div>
-          <div className="c muted">{s.status === "closed" ? "Cerrada" : "Parcial (caja abierta)"}</div>
+          <div className="c muted">
+            {s.status === "closed" ? "Cerrada" : "Parcial (caja abierta)"}
+          </div>
           <hr />
           <table>
             <tbody>
@@ -59,10 +66,20 @@ export default async function CortePage({
             <tbody>
               {line("Fondo inicial", formatMXN(s.opening_cash_cents))}
               {line("Ventas efectivo", `+${formatMXN(s.cash_cents)}`)}
-              {s.refunds_cash_cents ? line("Reemb. efectivo", `−${formatMXN(s.refunds_cash_cents)}`) : null}
+              {s.refunds_cash_cents
+                ? line("Reemb. efectivo", `−${formatMXN(s.refunds_cash_cents)}`)
+                : null}
               {line("Efectivo esperado", formatMXN(s.expected_cash_cents), true)}
-              {s.counted_cash_cents !== null ? line("Efectivo contado", formatMXN(s.counted_cash_cents), true) : null}
-              {s.counted_cash_cents !== null ? line("Diferencia", `${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatMXN(Math.abs(diff))}`, true) : null}
+              {s.counted_cash_cents !== null
+                ? line("Efectivo contado", formatMXN(s.counted_cash_cents), true)
+                : null}
+              {s.counted_cash_cents !== null
+                ? line(
+                    "Diferencia",
+                    `${diff > 0 ? "+" : diff < 0 ? "−" : ""}${formatMXN(Math.abs(diff))}`,
+                    true,
+                  )
+                : null}
             </tbody>
           </table>
           <hr />
@@ -72,7 +89,9 @@ export default async function CortePage({
               {line("Transferencia", formatMXN(s.transfer_cents))}
               {line("Mercado Pago", formatMXN(s.mercadopago_cents))}
               {s.other_cents ? line("Otros", formatMXN(s.other_cents)) : null}
-              {s.refunds_other_cents ? line("Reemb. no efectivo", `−${formatMXN(s.refunds_other_cents)}`) : null}
+              {s.refunds_other_cents
+                ? line("Reemb. no efectivo", `−${formatMXN(s.refunds_other_cents)}`)
+                : null}
             </tbody>
           </table>
           <hr />

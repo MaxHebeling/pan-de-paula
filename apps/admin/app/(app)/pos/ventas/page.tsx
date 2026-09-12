@@ -26,7 +26,11 @@ type Row = {
   refunds: Array<{ amountCents: number; reason: string | null; createdAt: string }> | null;
 };
 
-export default async function VentasPage({ searchParams }: { searchParams: Promise<{ q?: string; fecha?: string }> }) {
+export default async function VentasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; fecha?: string }>;
+}) {
   const session = await requireSession("pos.sell");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -84,8 +88,20 @@ export default async function VentasPage({ searchParams }: { searchParams: Promi
         }
       />
       <form className="mb-4 flex flex-wrap gap-2" method="get">
-        <input name="q" defaultValue={q} placeholder="Buscar folio (PDP-2026-000123)" className="input min-h-11 max-w-xs" aria-label="Buscar por folio" />
-        <input name="fecha" type="date" defaultValue={fecha} className="input min-h-11 w-44" aria-label="Fecha" />
+        <input
+          name="q"
+          defaultValue={q}
+          placeholder="Buscar folio (PDP-2026-000123)"
+          className="input min-h-11 max-w-xs"
+          aria-label="Buscar por folio"
+        />
+        <input
+          name="fecha"
+          type="date"
+          defaultValue={fecha}
+          className="input min-h-11 w-44"
+          aria-label="Fecha"
+        />
         <button className="btn btn-secondary min-h-11">Buscar</button>
         {(q || sp.fecha) && (
           <Link href="/pos/ventas" className="btn btn-secondary min-h-11">
@@ -95,10 +111,23 @@ export default async function VentasPage({ searchParams }: { searchParams: Promi
       </form>
       {!byFolio && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label="Ventas" value={active.length} hint={sales.length - active.length ? `${sales.length - active.length} anuladas` : undefined} />
+          <Stat
+            label="Ventas"
+            value={active.length}
+            hint={
+              sales.length - active.length ? `${sales.length - active.length} anuladas` : undefined
+            }
+          />
           <Stat label="Total cobrado" value={<Money cents={total} />} />
-          <Stat label="Reembolsado" value={<Money cents={refunded} />} tone={refunded ? "amber" : undefined} />
-          <Stat label="Ticket promedio" value={<Money cents={active.length ? Math.round(total / active.length) : 0} />} />
+          <Stat
+            label="Reembolsado"
+            value={<Money cents={refunded} />}
+            tone={refunded ? "amber" : undefined}
+          />
+          <Stat
+            label="Ticket promedio"
+            value={<Money cents={active.length ? Math.round(total / active.length) : 0} />}
+          />
         </div>
       )}
       <SalesTable sales={sales} canRefund={canRefund} />

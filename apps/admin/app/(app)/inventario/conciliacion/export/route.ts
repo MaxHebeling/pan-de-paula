@@ -19,13 +19,33 @@ export async function GET(req: NextRequest) {
     select product_name, opening::text, production::text, sales::text, waste::text, corrections::text, other::text, closing::text
     from inventory_reconciliation(
       (${desde}::date)::timestamp at time zone (select timezone from business_settings where id = 1),
-      ((${hasta}::date + 1)::timestamp) at time zone (select timezone from business_settings where id = 1))`.execute(db());
-  const header = ["producto", "apertura", "produccion", "ventas", "mermas", "correcciones", "otros", "cierre"];
+      ((${hasta}::date + 1)::timestamp) at time zone (select timezone from business_settings where id = 1))`.execute(
+    db(),
+  );
+  const header = [
+    "producto",
+    "apertura",
+    "produccion",
+    "ventas",
+    "mermas",
+    "correcciones",
+    "otros",
+    "cierre",
+  ];
   const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   const lines = [
     header.join(","),
     ...rows.rows.map((r) =>
-      [r.product_name!, r.opening!, r.production!, r.sales!, r.waste!, r.corrections!, r.other!, r.closing!]
+      [
+        r.product_name!,
+        r.opening!,
+        r.production!,
+        r.sales!,
+        r.waste!,
+        r.corrections!,
+        r.other!,
+        r.closing!,
+      ]
         .map(esc)
         .join(","),
     ),

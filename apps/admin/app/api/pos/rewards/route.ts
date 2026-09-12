@@ -60,7 +60,11 @@ async function loadRewards(customerId: string) {
   const bal = await sql<{
     points_balance: number;
   }>`select points_balance from customers where id = ${customerId}::uuid`.execute(d);
-  return { issued: issuedOut, available: availableOut, pointsBalance: bal.rows[0]?.points_balance ?? 0 };
+  return {
+    issued: issuedOut,
+    available: availableOut,
+    pointsBalance: bal.rows[0]?.points_balance ?? 0,
+  };
 }
 
 /** GET ?customer_id= → recompensas emitidas (status issued) y disponibles para canjear. */
@@ -86,7 +90,8 @@ export async function POST(req: Request) {
   const parsed = redeemSchema.safeParse(await readJson(req));
   if (!parsed.success) return jsonError(400, "Datos inválidos", "VALIDATION");
   const flags = await getFlags(["loyalty"] as const);
-  if (!flags.loyalty) return jsonError(409, "El programa de puntos está desactivado", "LOYALTY_OFF");
+  if (!flags.loyalty)
+    return jsonError(409, "El programa de puntos está desactivado", "LOYALTY_OFF");
   try {
     const r = await withStaff(db(), auth.session.staff.id, (trx) =>
       callFn<{ redemption_id: string; code: string }>(trx, "redeem_reward", [
@@ -95,7 +100,10 @@ export async function POST(req: Request) {
       ]),
     );
     const rewards = await loadRewards(parsed.data.customer_id);
-    return NextResponse.json({ redemptionId: r.redemption_id, code: r.code, ...rewards }, { status: 201 });
+    return NextResponse.json(
+      { redemptionId: r.redemption_id, code: r.code, ...rewards },
+      { status: 201 },
+    );
   } catch (e) {
     return dbErrorResponse(e, "redeem_reward");
   }

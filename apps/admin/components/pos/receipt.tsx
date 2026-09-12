@@ -29,8 +29,12 @@ export function Receipt({ r }: { r: ReceiptView }) {
       {r.business.tagline && <div className="c muted">{r.business.tagline}</div>}
       {r.business.legalName && <div className="c muted">{r.business.legalName}</div>}
       {r.business.address && <div className="c muted">{r.business.address}</div>}
-      {(r.business.phone || r.business.whatsapp) && <div className="c muted">Tel. {r.business.phone ?? r.business.whatsapp}</div>}
-      {r.business.instagram && <div className="c muted">@{r.business.instagram.replace(/^@/, "")}</div>}
+      {(r.business.phone || r.business.whatsapp) && (
+        <div className="c muted">Tel. {r.business.phone ?? r.business.whatsapp}</div>
+      )}
+      {r.business.instagram && (
+        <div className="c muted">@{r.business.instagram.replace(/^@/, "")}</div>
+      )}
       <hr />
       <table>
         <tbody>
@@ -70,7 +74,9 @@ export function Receipt({ r }: { r: ReceiptView }) {
               <td>
                 {i.qty} × {i.name}
                 {i.variantLabel ? ` (${i.variantLabel})` : ""}
-                {i.discountCents > 0 && <div className="muted">desc. −{formatMXN(i.discountCents)}</div>}
+                {i.discountCents > 0 && (
+                  <div className="muted">desc. −{formatMXN(i.discountCents)}</div>
+                )}
                 {i.notes && <div className="muted">{i.notes}</div>}
               </td>
               <td className="r">{formatMXN(i.totalCents)}</td>
@@ -125,11 +131,17 @@ export function Receipt({ r }: { r: ReceiptView }) {
             <>
               <tr>
                 <td>Recibido</td>
-                <td className="r">{formatMXN(r.payments.reduce((s, p) => s + (p.tenderedCents ?? p.amountCents), 0))}</td>
+                <td className="r">
+                  {formatMXN(
+                    r.payments.reduce((s, p) => s + (p.tenderedCents ?? p.amountCents), 0),
+                  )}
+                </td>
               </tr>
               <tr>
                 <td>Cambio</td>
-                <td className="r">{formatMXN(r.payments.reduce((s, p) => s + (p.changeCents ?? 0), 0))}</td>
+                <td className="r">
+                  {formatMXN(r.payments.reduce((s, p) => s + (p.changeCents ?? 0), 0))}
+                </td>
               </tr>
             </>
           )}

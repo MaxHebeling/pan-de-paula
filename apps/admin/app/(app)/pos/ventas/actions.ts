@@ -23,7 +23,9 @@ export async function voidSaleAction(_prev: ActionState, form: FormData): Promis
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   try {
-    await withStaff(db(), s.staff.id, (trx) => callFn(trx, "void_sale", [parsed.data.sale_id, parsed.data.reason]));
+    await withStaff(db(), s.staff.id, (trx) =>
+      callFn(trx, "void_sale", [parsed.data.sale_id, parsed.data.reason]),
+    );
   } catch (e) {
     const m = dbErrorMessage(e);
     console.error("[ventas] void_sale", m);
@@ -41,7 +43,10 @@ const refundSchema = z.object({
 });
 
 /** Reembolso parcial o total de un pago (record_refund). No regresa stock: eso es una devolución aparte. */
-export async function refundPaymentAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+export async function refundPaymentAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
   const s = await requireSession("pos.refund");
   const parsed = refundSchema.safeParse({
     payment_id: form.get("payment_id"),

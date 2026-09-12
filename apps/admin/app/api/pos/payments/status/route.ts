@@ -52,7 +52,8 @@ export async function GET(req: Request) {
     else if (
       row.status === "cancelled" ||
       row.status === "refunded" ||
-      (payments.length > 0 && payments.every((p) => p.status === "failed" || p.status === "cancelled"))
+      (payments.length > 0 &&
+        payments.every((p) => p.status === "failed" || p.status === "cancelled"))
     )
       outcome = "failed";
     const out: PaymentStatusResult = {

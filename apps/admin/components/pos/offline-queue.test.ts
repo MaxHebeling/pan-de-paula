@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { NetworkError, type ApiResult } from "./api";
-import { canQueue, createOfflineQueue, syncQueue, syncStatusOf, type QueuedSale } from "./offline-queue";
+import {
+  canQueue,
+  createOfflineQueue,
+  syncQueue,
+  syncStatusOf,
+  type QueuedSale,
+} from "./offline-queue";
 import type { CheckoutRequest, CheckoutResult } from "./types";
 
 function memStorage(initial: Record<string, string> = {}) {
@@ -12,9 +18,12 @@ function memStorage(initial: Record<string, string> = {}) {
   };
 }
 
-const req = (key: string, payments: CheckoutRequest["payments"] = [
-  { provider: "cash", method: "cash", amount_cents: 4500, tendered_cents: 5000 },
-]): CheckoutRequest => ({
+const req = (
+  key: string,
+  payments: CheckoutRequest["payments"] = [
+    { provider: "cash", method: "cash", amount_cents: 4500, tendered_cents: 5000 },
+  ],
+): CheckoutRequest => ({
   idempotency_key: key,
   items: [{ product_id: "11111111-1111-4111-8111-111111111111", qty: 1 }],
   payments,
@@ -58,8 +67,18 @@ describe("canQueue", () => {
   it("solo efectivo y con flag activo", () => {
     expect(canQueue(req("a"), true)).toBe(true);
     expect(canQueue(req("a"), false)).toBe(false);
-    expect(canQueue(req("a", [{ provider: "manual", method: "card_terminal", amount_cents: 4500 }]), true)).toBe(false);
-    expect(canQueue(req("a", [{ provider: "mercadopago", method: "mercadopago", amount_cents: 4500 }]), true)).toBe(false);
+    expect(
+      canQueue(
+        req("a", [{ provider: "manual", method: "card_terminal", amount_cents: 4500 }]),
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      canQueue(
+        req("a", [{ provider: "mercadopago", method: "mercadopago", amount_cents: 4500 }]),
+        true,
+      ),
+    ).toBe(false);
     expect(
       canQueue(
         req("a", [
@@ -157,16 +176,27 @@ describe("syncStatusOf", () => {
     lastStatus,
   });
   it("prioriza GUARDANDO > ERROR > OFFLINE(n) > SINCRONIZADO", () => {
-    expect(syncStatusOf({ online: true, syncing: false, items: [] })).toEqual({ status: "synced", count: 0 });
-    expect(syncStatusOf({ online: false, syncing: false, items: [] })).toEqual({ status: "offline", count: 0 });
-    expect(syncStatusOf({ online: true, syncing: false, items: [item(null), item(null)] })).toEqual({
-      status: "offline",
-      count: 2,
+    expect(syncStatusOf({ online: true, syncing: false, items: [] })).toEqual({
+      status: "synced",
+      count: 0,
     });
+    expect(syncStatusOf({ online: false, syncing: false, items: [] })).toEqual({
+      status: "offline",
+      count: 0,
+    });
+    expect(syncStatusOf({ online: true, syncing: false, items: [item(null), item(null)] })).toEqual(
+      {
+        status: "offline",
+        count: 2,
+      },
+    );
     expect(syncStatusOf({ online: true, syncing: false, items: [item(409), item(null)] })).toEqual({
       status: "error",
       count: 1,
     });
-    expect(syncStatusOf({ online: true, syncing: true, items: [item(null)] })).toEqual({ status: "saving", count: 1 });
+    expect(syncStatusOf({ online: true, syncing: true, items: [item(null)] })).toEqual({
+      status: "saving",
+      count: 1,
+    });
   });
 });

@@ -4,14 +4,26 @@ import { db, sql } from "@/lib/db";
 import { PageHeader, Table, Badge, EmptyState, Money, LinkButton } from "@/components/ui";
 import { UnreadBadge } from "@/components/ops/unread-badge";
 import { Field } from "@/components/ops/field";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_TONE, OPEN_ORDER_STATUSES, type OrderStatus } from "@pdp/domain";
+import {
+  ORDER_STATUSES,
+  ORDER_STATUS_LABELS,
+  ORDER_STATUS_TONE,
+  OPEN_ORDER_STATUSES,
+  type OrderStatus,
+} from "@pdp/domain";
 import { fmtDate } from "@/lib/format";
 
 export const metadata = { title: "Pedidos" };
 export const dynamic = "force-dynamic";
 
 type Search = Record<string, string | undefined>;
-const CHANNELS = { web: "Web", pos: "POS", admin: "Admin", instagram: "Instagram", whatsapp: "WhatsApp" } as const;
+const CHANNELS = {
+  web: "Web",
+  pos: "POS",
+  admin: "Admin",
+  instagram: "Instagram",
+  whatsapp: "WhatsApp",
+} as const;
 const PAYMENT_LABELS: Record<string, string> = {
   pending: "Pendiente",
   authorized: "Autorizado",
@@ -32,14 +44,22 @@ const PAYMENT_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> 
   partially_refunded: "red",
   cancelled: "gray",
 };
-const FULFILLMENT: Record<string, string> = { pickup: "Retiro", scheduled_pickup: "Retiro programado", delivery: "Entrega", preorder: "Preventa" };
+const FULFILLMENT: Record<string, string> = {
+  pickup: "Retiro",
+  scheduled_pickup: "Retiro programado",
+  delivery: "Entrega",
+  preorder: "Preventa",
+};
 const isDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 export default async function PedidosPage({ searchParams }: { searchParams: Promise<Search> }) {
   const session = await requireSession("orders.read");
   const sp = await searchParams;
-  const vista = sp.vista === "hoy" || sp.vista === "proximos" || sp.vista === "todos" ? sp.vista : "abiertos";
-  const estado = ORDER_STATUSES.includes(sp.estado as OrderStatus) ? (sp.estado as OrderStatus) : null;
+  const vista =
+    sp.vista === "hoy" || sp.vista === "proximos" || sp.vista === "todos" ? sp.vista : "abiertos";
+  const estado = ORDER_STATUSES.includes(sp.estado as OrderStatus)
+    ? (sp.estado as OrderStatus)
+    : null;
   const canal = sp.canal && sp.canal in CHANNELS ? sp.canal : null;
   const entrega = isDate(sp.entrega) ? sp.entrega : null;
   const pago = sp.pago && sp.pago in PAYMENT_LABELS ? sp.pago : null;
@@ -80,7 +100,14 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
      limit ${limit + 1} offset ${(page - 1) * limit}`.execute(db());
   const hasMore = rows.rows.length > limit;
   const list = rows.rows.slice(0, limit);
-  const keep: Record<string, string> = { vista, estado: estado ?? "", canal: canal ?? "", entrega: entrega ?? "", pago: pago ?? "", q };
+  const keep: Record<string, string> = {
+    vista,
+    estado: estado ?? "",
+    canal: canal ?? "",
+    entrega: entrega ?? "",
+    pago: pago ?? "",
+    q,
+  };
   const href = (extra: Record<string, string>) => {
     const p = new URLSearchParams({ ...keep, ...extra });
     for (const [k, v] of [...p.entries()]) if (!v) p.delete(k);
@@ -100,7 +127,9 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
         actions={
           <>
             <UnreadBadge />
-            {hasPermission(session, "orders.write") && <LinkButton href="/pedidos/nuevo">+ Nuevo pedido</LinkButton>}
+            {hasPermission(session, "orders.write") && (
+              <LinkButton href="/pedidos/nuevo">+ Nuevo pedido</LinkButton>
+            )}
           </>
         }
       />
@@ -119,7 +148,14 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
       <form className="card mb-4 grid grid-cols-2 gap-3 p-4 md:grid-cols-6" method="get">
         <input type="hidden" name="vista" value={vista} />
         <Field label="Buscar" htmlFor="q" className="col-span-2">
-          <input id="q" name="q" type="search" className="input min-h-11" defaultValue={q} placeholder="Folio, teléfono o nombre" />
+          <input
+            id="q"
+            name="q"
+            type="search"
+            className="input min-h-11"
+            defaultValue={q}
+            placeholder="Folio, teléfono o nombre"
+          />
         </Field>
         <Field label="Estado" htmlFor="estado">
           <select id="estado" name="estado" className="input min-h-11" defaultValue={estado ?? ""}>
@@ -152,7 +188,13 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
           </select>
         </Field>
         <Field label="Entrega" htmlFor="entrega">
-          <input id="entrega" name="entrega" type="date" className="input min-h-11" defaultValue={entrega ?? ""} />
+          <input
+            id="entrega"
+            name="entrega"
+            type="date"
+            className="input min-h-11"
+            defaultValue={entrega ?? ""}
+          />
         </Field>
         <div className="col-span-2 flex items-end gap-2 md:col-span-6">
           <button className="btn btn-secondary min-h-11">Filtrar</button>
@@ -164,8 +206,16 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
       {list.length === 0 ? (
         <EmptyState
           title="Sin pedidos"
-          body={vista === "abiertos" ? "No hay pedidos abiertos con estos filtros." : "Ajusta los filtros o crea un pedido manual."}
-          action={hasPermission(session, "orders.write") ? <LinkButton href="/pedidos/nuevo">Nuevo pedido</LinkButton> : undefined}
+          body={
+            vista === "abiertos"
+              ? "No hay pedidos abiertos con estos filtros."
+              : "Ajusta los filtros o crea un pedido manual."
+          }
+          action={
+            hasPermission(session, "orders.write") ? (
+              <LinkButton href="/pedidos/nuevo">Nuevo pedido</LinkButton>
+            ) : undefined
+          }
         />
       ) : (
         <Table>
@@ -184,7 +234,10 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
             {list.map((o) => (
               <tr key={o.id} data-testid={`order-row-${o.folio}`}>
                 <td>
-                  <Link href={`/pedidos/${o.id}`} className="font-mono text-xs font-semibold underline">
+                  <Link
+                    href={`/pedidos/${o.id}`}
+                    className="font-mono text-xs font-semibold underline"
+                  >
                     {o.folio}
                   </Link>
                   <div className="text-xs text-muted">{fmtDate(o.placed_at, "datetime")}</div>
@@ -198,13 +251,17 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
                 </td>
                 <td>
                   <div>{FULFILLMENT[o.fulfillment_type] ?? o.fulfillment_type}</div>
-                  <div className="text-xs text-muted">{o.scheduled_for ? fmtDate(o.scheduled_for, "datetime") : "—"}</div>
+                  <div className="text-xs text-muted">
+                    {o.scheduled_for ? fmtDate(o.scheduled_for, "datetime") : "—"}
+                  </div>
                 </td>
                 <td>
                   <Badge tone={ORDER_STATUS_TONE[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
                 </td>
                 <td>
-                  <Badge tone={PAYMENT_TONE[o.payment_status] ?? "gray"}>{PAYMENT_LABELS[o.payment_status] ?? o.payment_status}</Badge>
+                  <Badge tone={PAYMENT_TONE[o.payment_status] ?? "gray"}>
+                    {PAYMENT_LABELS[o.payment_status] ?? o.payment_status}
+                  </Badge>
                   {o.payment_status === "partial" && (
                     <div className="text-xs text-muted">
                       <Money cents={o.paid_cents} /> de <Money cents={o.total_cents} />
@@ -222,8 +279,18 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
       )}
       {(page > 1 || hasMore) && (
         <div className="mt-3 flex justify-between">
-          {page > 1 ? <Link href={href({ pagina: String(page - 1) })} className="btn btn-secondary">← Anteriores</Link> : <span />}
-          {hasMore && <Link href={href({ pagina: String(page + 1) })} className="btn btn-secondary">Siguientes →</Link>}
+          {page > 1 ? (
+            <Link href={href({ pagina: String(page - 1) })} className="btn btn-secondary">
+              ← Anteriores
+            </Link>
+          ) : (
+            <span />
+          )}
+          {hasMore && (
+            <Link href={href({ pagina: String(page + 1) })} className="btn btn-secondary">
+              Siguientes →
+            </Link>
+          )}
         </div>
       )}
     </>

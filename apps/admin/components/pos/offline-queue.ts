@@ -12,7 +12,12 @@ export type QueuedSale = {
   key: string; // = request.idempotency_key
   createdAt: string;
   request: CheckoutRequest;
-  summary: { totalCents: number; changeCents: number; itemsCount: number; customerName: string | null };
+  summary: {
+    totalCents: number;
+    changeCents: number;
+    itemsCount: number;
+    customerName: string | null;
+  };
   attempts: number;
   lastError: string | null;
   lastStatus: number | null;
@@ -67,14 +72,20 @@ export function createOfflineQueue(storage: QueueStorage, storageKey = OFFLINE_Q
   function remove(key: string) {
     save(list().filter((i) => i.key !== key));
   }
-  function update(key: string, patch: Partial<Pick<QueuedSale, "attempts" | "lastError" | "lastStatus">>) {
+  function update(
+    key: string,
+    patch: Partial<Pick<QueuedSale, "attempts" | "lastError" | "lastStatus">>,
+  ) {
     save(list().map((i) => (i.key === key ? { ...i, ...patch } : i)));
   }
   return { list, enqueue, remove, update, size: () => list().length };
 }
 
 /** Solo se encolan ventas 100% en efectivo (o de $0) cuando el flag está activo. */
-export function canQueue(request: Pick<CheckoutRequest, "payments">, flagEnabled: boolean): boolean {
+export function canQueue(
+  request: Pick<CheckoutRequest, "payments">,
+  flagEnabled: boolean,
+): boolean {
   if (!flagEnabled) return false;
   return request.payments.every((p) => p.provider === "cash" && p.method === "cash");
 }
@@ -105,7 +116,11 @@ export async function syncQueue(queue: OfflineQueue, post: SyncPoster): Promise<
         report.stoppedOffline = true;
         return report;
       }
-      queue.update(item.key, { attempts: item.attempts + 1, lastError: (e as Error).message, lastStatus: 0 });
+      queue.update(item.key, {
+        attempts: item.attempts + 1,
+        lastError: (e as Error).message,
+        lastStatus: 0,
+      });
       report.failed.push({ key: item.key, error: (e as Error).message, status: 0 });
       continue;
     }
@@ -114,7 +129,11 @@ export async function syncQueue(queue: OfflineQueue, post: SyncPoster): Promise<
       report.synced.push({ key: item.key, result: res.data });
       continue;
     }
-    queue.update(item.key, { attempts: item.attempts + 1, lastError: res.error, lastStatus: res.status });
+    queue.update(item.key, {
+      attempts: item.attempts + 1,
+      lastError: res.error,
+      lastStatus: res.status,
+    });
     report.failed.push({ key: item.key, error: res.error, status: res.status });
     if (res.status >= 500) return report;
   }
@@ -127,7 +146,9 @@ export function syncStatusOf(input: { online: boolean; syncing: boolean; items: 
   status: SyncStatus;
   count: number;
 } {
-  const errors = input.items.filter((i) => i.lastStatus !== null && i.lastStatus >= 400 && i.lastStatus < 500);
+  const errors = input.items.filter(
+    (i) => i.lastStatus !== null && i.lastStatus >= 400 && i.lastStatus < 500,
+  );
   if (input.syncing) return { status: "saving", count: input.items.length };
   if (errors.length) return { status: "error", count: errors.length };
   if (!input.online || input.items.length) return { status: "offline", count: input.items.length };

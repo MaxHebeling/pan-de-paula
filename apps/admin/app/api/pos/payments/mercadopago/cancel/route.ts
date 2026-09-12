@@ -5,7 +5,10 @@ import { apiSession, dbErrorResponse, jsonError, readJson } from "@/lib/pos";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({ orderId: z.string().uuid(), reason: z.string().trim().max(200).optional() });
+const schema = z.object({
+  orderId: z.string().uuid(),
+  reason: z.string().trim().max(200).optional(),
+});
 
 /**
  * Cancela un intento de cobro Point/QR que no se confirmó. Si el webhook ya confirmó la venta,
@@ -18,12 +21,17 @@ export async function POST(req: Request) {
   if (!parsed.success) return jsonError(400, "orderId inválido", "VALIDATION");
   try {
     const r = await withStaff(db(), auth.session.staff.id, (trx) =>
-      callFn<{ cancelled: boolean; sale_id?: string | null; status: string }>(trx, "cancel_pending_pos_order", [
-        parsed.data.orderId,
-        parsed.data.reason ?? "Cobro Mercado Pago cancelado en POS",
-      ]),
+      callFn<{ cancelled: boolean; sale_id?: string | null; status: string }>(
+        trx,
+        "cancel_pending_pos_order",
+        [parsed.data.orderId, parsed.data.reason ?? "Cobro Mercado Pago cancelado en POS"],
+      ),
     );
-    return NextResponse.json({ cancelled: r.cancelled, saleId: r.sale_id ?? null, status: r.status });
+    return NextResponse.json({
+      cancelled: r.cancelled,
+      saleId: r.sale_id ?? null,
+      status: r.status,
+    });
   } catch (e) {
     return dbErrorResponse(e, "cancel_pending_pos_order");
   }

@@ -110,7 +110,8 @@ test("venta en efectivo de punta a punta con caja", async ({ page }) => {
   await page.getByRole("button", { name: "Borrar todo" }).click();
   await typeOnNumpad(page, tendered);
   const expectedChange = tendered - totalCents;
-  const fmt = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (c: number) =>
+    `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   await expect(page.getByTestId("change")).toHaveText(fmt(expectedChange));
   await page.getByRole("button", { name: "Cobrar", exact: true }).click();
 

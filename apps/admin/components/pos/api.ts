@@ -18,7 +18,11 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<ApiR
   try {
     res = await fetch(url, {
       ...init,
-      headers: { "Content-Type": "application/json", Accept: "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(init?.headers ?? {}),
+      },
       cache: "no-store",
     });
   } catch (e) {

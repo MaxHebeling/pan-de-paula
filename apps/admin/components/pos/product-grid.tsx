@@ -8,27 +8,32 @@ import type { PosCatalog, PosProduct } from "./types";
 type Group = { main: PosProduct; variants: PosProduct[] };
 
 function normalize(s: string) {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
 function matches(p: PosProduct, q: string) {
   if (!q) return true;
-  return normalize(p.name).includes(q) || (p.sku ? normalize(p.sku).includes(q) : false) || (p.variantLabel ? normalize(p.variantLabel).includes(q) : false);
+  return (
+    normalize(p.name).includes(q) ||
+    (p.sku ? normalize(p.sku).includes(q) : false) ||
+    (p.variantLabel ? normalize(p.variantLabel).includes(q) : false)
+  );
 }
 
 function StockBadge({ p, allowNegative }: { p: PosProduct; allowNegative: boolean }) {
   if (!p.trackStock) return null;
   if (p.level === "out")
     return (
-      <span className={`pill px-2 py-0.5 text-[11px] font-semibold ${allowNegative ? "st-amber" : "st-red"}`}>
+      <span
+        className={`pill px-2 py-0.5 text-[11px] font-semibold ${allowNegative ? "st-amber" : "st-red"}`}
+      >
         Agotado
       </span>
     );
   if (p.level === "low")
-    return <span className="st-amber pill px-2 py-0.5 text-[11px] font-semibold">Quedan {p.onHand}</span>;
+    return (
+      <span className="st-amber pill px-2 py-0.5 text-[11px] font-semibold">Quedan {p.onHand}</span>
+    );
   return null;
 }
 
@@ -106,7 +111,11 @@ export function ProductGrid({
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <div className="relative">
-        <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+        <Search
+          size={18}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+          aria-hidden
+        />
         <input
           ref={searchRef}
           value={query}
@@ -114,7 +123,11 @@ export function ProductGrid({
           onKeyDown={(e) => {
             if (e.key === "Enter" && q) {
               const first = visible[0];
-              const target = first ? (first.variants.length && !first.main.priceCents ? first.variants[0] : first.main) : null;
+              const target = first
+                ? first.variants.length && !first.main.priceCents
+                  ? first.variants[0]
+                  : first.main
+                : null;
               if (target) {
                 onAdd(target);
                 setQuery("");
@@ -139,7 +152,11 @@ export function ProductGrid({
           </button>
         )}
       </div>
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categorías">
+      <div
+        className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        role="tablist"
+        aria-label="Categorías"
+      >
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -151,7 +168,9 @@ export function ProductGrid({
               setQuery("");
             }}
             className={`pill flex min-h-11 shrink-0 items-center gap-1.5 px-4 text-sm font-semibold transition ${
-              !q && tab === t.id ? "bg-teal text-white" : "bg-white text-ink shadow-card hover:bg-black/5"
+              !q && tab === t.id
+                ? "bg-teal text-white"
+                : "bg-white text-ink shadow-card hover:bg-black/5"
             }`}
           >
             {t.id === "fav" && <Star size={14} />}
@@ -165,7 +184,12 @@ export function ProductGrid({
         ) : (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {visible.map((g) => (
-              <ProductCard key={g.main.id} group={g} onAdd={onAdd} allowNegative={allowNegativeStock} />
+              <ProductCard
+                key={g.main.id}
+                group={g}
+                onAdd={onAdd}
+                allowNegative={allowNegativeStock}
+              />
             ))}
           </div>
         )}
@@ -174,10 +198,19 @@ export function ProductGrid({
   );
 }
 
-function ProductCard({ group, onAdd, allowNegative }: { group: Group; onAdd: (p: PosProduct) => void; allowNegative: boolean }) {
+function ProductCard({
+  group,
+  onAdd,
+  allowNegative,
+}: {
+  group: Group;
+  onAdd: (p: PosProduct) => void;
+  allowNegative: boolean;
+}) {
   const { main, variants } = group;
   const sellable = main.priceCents !== null;
-  const title = main.parentId && main.variantLabel ? `${main.name} · ${main.variantLabel}` : main.name;
+  const title =
+    main.parentId && main.variantLabel ? `${main.name} · ${main.variantLabel}` : main.name;
   return (
     <div className="card flex flex-col gap-2 p-2.5">
       <button
@@ -190,11 +223,17 @@ function ProductCard({ group, onAdd, allowNegative }: { group: Group; onAdd: (p:
         <Thumb p={main} />
         <div className="flex items-start justify-between gap-1">
           <span className="line-clamp-2 text-sm font-semibold leading-tight">{title}</span>
-          {main.favorite && <Star size={14} className="mt-0.5 shrink-0 text-amber" aria-label="Favorito" />}
+          {main.favorite && (
+            <Star size={14} className="mt-0.5 shrink-0 text-amber" aria-label="Favorito" />
+          )}
         </div>
         <div className="flex items-center justify-between gap-1">
           <span className="text-base font-semibold tabular-nums text-teal-deep">
-            {sellable ? formatMXN(main.priceCents!, { compact: true }) : variants.length ? "" : "Sin precio"}
+            {sellable
+              ? formatMXN(main.priceCents!, { compact: true })
+              : variants.length
+                ? ""
+                : "Sin precio"}
           </span>
           <StockBadge p={main} allowNegative={allowNegative} />
         </div>
@@ -214,7 +253,9 @@ function ProductCard({ group, onAdd, allowNegative }: { group: Group; onAdd: (p:
             >
               {v.variantLabel}
               {v.priceCents !== null && (
-                <span className="text-xs tabular-nums text-muted">{formatMXN(v.priceCents, { compact: true })}</span>
+                <span className="text-xs tabular-nums text-muted">
+                  {formatMXN(v.priceCents, { compact: true })}
+                </span>
               )}
             </button>
           ))}

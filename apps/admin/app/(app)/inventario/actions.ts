@@ -72,7 +72,13 @@ export async function adjustAction(_prev: FormState, form: FormData): Promise<Fo
   try {
     await withStaff(db(), session.staff.id, async (trx) => {
       if (d.mode === "waste") {
-        await callFn<string>(trx, "record_waste", [d.product_id, d.qty, d.reason, d.note ?? null, null]);
+        await callFn<string>(trx, "record_waste", [
+          d.product_id,
+          d.qty,
+          d.reason,
+          d.note ?? null,
+          null,
+        ]);
       } else {
         await callFn<number>(trx, "record_stock_correction", [
           d.product_id,
