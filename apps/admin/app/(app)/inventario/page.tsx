@@ -772,7 +772,7 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
                         min="0"
                         inputMode="decimal"
                         className="input min-h-12 text-right text-lg tabular-nums"
-                        defaultValue={Number(it.counted_qty)}
+                        defaultValue={Math.max(0, Number(it.counted_qty))}
                         aria-label={`Contado de ${it.name}`}
                         disabled={!canWrite}
                       />
