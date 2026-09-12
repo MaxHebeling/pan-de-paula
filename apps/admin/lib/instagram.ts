@@ -112,7 +112,7 @@ export async function instagramMetrics() {
     sql<{ week: string; inbound: number; conversations: number; converted: number }>`
       with bs as (select timezone as tz from business_settings where id = 1),
       w as (select generate_series(date_trunc('week', (now() at time zone (select tz from bs))::date) - interval '7 weeks', date_trunc('week', (now() at time zone (select tz from bs))::date), interval '1 week')::date as week)
-      select to_char(w.week, 'DD Mon') as week,
+      select to_char(w.week, 'YYYY-MM-DD') as week,
              (select count(*) from instagram_messages m, bs where m.direction = 'in' and date_trunc('week', m.created_at at time zone bs.tz)::date = w.week)::int as inbound,
              (select count(distinct m.conversation_id) from instagram_messages m, bs where m.direction = 'in' and date_trunc('week', m.created_at at time zone bs.tz)::date = w.week)::int as conversations,
              (select count(*) from instagram_conversations c, bs where c.status = 'converted' and date_trunc('week', c.updated_at at time zone bs.tz)::date = w.week)::int as converted

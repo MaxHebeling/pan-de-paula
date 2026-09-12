@@ -116,7 +116,7 @@ export default async function InstagramPage({ searchParams }: { searchParams: Pr
         </div>
         <div className="flex flex-col gap-4">
           <Card title="Consultas por semana">
-            <Bars items={m.weeks.map((w) => ({ label: w.week, value: w.inbound, hint: `${w.conversations} conversaciones · ${w.converted} convertidas` }))} />
+            <Bars items={m.weeks.map((w) => ({ label: fmtDate(new Date(w.week + "T12:00:00Z")), value: w.inbound, hint: `${w.conversations} conversaciones · ${w.converted} convertidas` }))} />
           </Card>
           <Card title="Intenciones">
             {m.intents.length === 0 ? <p className="text-sm text-muted">Sin datos.</p> : <Bars items={m.intents.map((i) => ({ label: i.intent, value: i.n }))} />}
