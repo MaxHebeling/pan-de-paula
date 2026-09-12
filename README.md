@@ -38,6 +38,7 @@ scripts/               deploy, smoke, rollback, backup, restore-drill, checks
 | ------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------ |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Equipo técnico      | Decisiones, módulos, flujos críticos, ambientes                                      |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)           | Equipo técnico      | Reglas no negociables, convenciones, comandos                                        |
+| [docs/GO_LIVE.md](docs/GO_LIVE.md)                     | Propietario         | Acciones externas pendientes para salir a producción, en orden                       |
 | [docs/DATABASE.md](docs/DATABASE.md)                   | Equipo técnico      | Modelo por módulo, funciones SQL y su contrato jsonb, invariantes, migraciones       |
 | [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Técnico / operador  | Mercado Pago, Meta/Instagram, Resend, Sentry, logger, crons: alta, webhooks, pruebas |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)             | Técnico / operador  | Cada variable de entorno: propósito, origen, obligatoriedad, Vercel                  |
