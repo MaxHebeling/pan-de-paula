@@ -15,6 +15,7 @@
     "build": "echo 'no build (source package)'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.125.0",
     "@pdp/db": "workspace:*",
     "@pdp/domain": "workspace:*",
     "zod": "4.6.2"
