@@ -2,19 +2,21 @@
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { idle, type ActionState } from "@/lib/action-state";
+import { OneTimeSecret } from "./one-time-secret";
 
 type Action = (prev: ActionState, form: FormData) => Promise<ActionState>;
 
 /**
  * Formulario ligado a una server action con estado (error / ok / data).
  * `resetOnSuccess` limpia los campos al terminar bien (útil en formularios de "agregar").
+ * `secret` muestra un dato de una sola vez devuelto en `state.data[valueKey]` (contraseña temporal, enlace).
  */
 export function ActionForm({
   action,
   children,
   className = "",
   resetOnSuccess = false,
-  renderResult,
+  secret,
   confirm: confirmMessage,
   id,
 }: {
@@ -22,7 +24,7 @@ export function ActionForm({
   children: ReactNode;
   className?: string;
   resetOnSuccess?: boolean;
-  renderResult?: (data: Record<string, string>) => ReactNode;
+  secret?: { label: string; valueKey: string; hint?: string };
   confirm?: string;
   id?: string;
 }) {
@@ -43,7 +45,9 @@ export function ActionForm({
     >
       {children}
       <FormMessage state={state} />
-      {state.data && renderResult ? renderResult(state.data) : null}
+      {state.data && secret && state.data[secret.valueKey] ? (
+        <OneTimeSecret label={secret.label} value={state.data[secret.valueKey]!} hint={secret.hint} />
+      ) : null}
     </form>
   );
 }

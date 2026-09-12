@@ -6,7 +6,6 @@ import { fmtDate } from "@/lib/format";
 import { PageHeader, Card, Badge, Alert } from "@/components/ui";
 import { ActionForm, ConfirmButton, SubmitButton } from "@/components/catalog/action-form";
 import { Checkbox, Select, TextInput } from "@/components/catalog/fields";
-import { OneTimeSecret } from "@/components/catalog/one-time-secret";
 import { generateResetLink, revokeSessions, updateUser } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +89,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         <div className="flex flex-col gap-4">
           <Card title="Restablecer contraseña">
             <p className="mb-3 text-sm text-muted">Genera un enlace de un solo uso (vence en 1 hora). Compártelo por WhatsApp o en persona.</p>
-            <ActionForm action={generateResetLink.bind(null, u.id)} renderResult={(d) => <OneTimeSecret label="Enlace de restablecimiento" value={d.url ?? ""} />}>
+            <ActionForm action={generateResetLink.bind(null, u.id)} secret={{ label: "Enlace de restablecimiento", valueKey: "url" }}>
               <SubmitButton variant="secondary" pendingText="Generando…" disabled={!u.is_active}>
                 Generar enlace
               </SubmitButton>

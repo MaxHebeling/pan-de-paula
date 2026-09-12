@@ -6,7 +6,6 @@ import { PageHeader, Card, Table, Badge } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/catalog/action-form";
 import { Select, TextInput } from "@/components/catalog/fields";
 import { createUser } from "./actions";
-import { OneTimeSecret } from "@/components/catalog/one-time-secret";
 
 export const metadata = { title: "Usuarios" };
 export const dynamic = "force-dynamic";
@@ -97,7 +96,7 @@ export default async function UsersPage() {
             action={createUser}
             resetOnSuccess
             className="flex flex-col gap-3"
-            renderResult={(d) => <OneTimeSecret label="Contraseña temporal" value={d.password ?? ""} hint={`Para ${d.email}. Deberá cambiarla al entrar.`} />}
+            secret={{ label: "Contraseña temporal", valueKey: "password", hint: "Deberá cambiarla en su primer acceso." }}
           >
             <TextInput label="Nombre completo" name="full_name" required maxLength={120} autoComplete="off" />
             <TextInput label="Correo" name="email" type="email" required autoComplete="off" />
