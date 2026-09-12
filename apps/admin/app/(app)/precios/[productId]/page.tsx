@@ -7,6 +7,7 @@ import { fmtDate, pct } from "@/lib/format";
 import { PageHeader, Card, Badge, Money, Stat, Table, LinkButton } from "@/components/ui";
 import { ActionForm, ConfirmButton, SubmitButton } from "@/components/catalog/action-form";
 import { FormGrid, MoneyInput, Select, TextInput } from "@/components/catalog/fields";
+import { utcToZonedInput } from "@/lib/tz";
 import { createPromotion, endPromotion, setRegularPrice } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +27,6 @@ type PriceRow = {
   status: "vigente" | "programado" | "cerrado";
 };
 
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export default async function ProductPricesPage({ params }: { params: Promise<{ productId: string }> }) {
   const session = await requireSession("catalog.read");
@@ -43,7 +40,7 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
     .executeTakeFirst();
   if (!product) notFound();
 
-  const [cur, history] = await Promise.all([
+  const [cur, history, tzRow] = await Promise.all([
     sql<{ pos: number | null; web: number | null; cost: number | null }>`
       select current_price_cents(${productId}, 'pos') as pos, current_price_cents(${productId}, 'web') as web, product_cost_cents(${productId}) as cost`.execute(db()),
     sql<PriceRow>`
@@ -51,7 +48,9 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
              case when p.valid_from > now() then 'programado' when p.valid_to is not null and p.valid_to <= now() then 'cerrado' else 'vigente' end as status
       from product_prices p left join staff_users u on u.id = p.created_by
       where p.product_id = ${productId} order by p.valid_from desc, p.created_at desc limit 200`.execute(db()),
+    sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(db()),
   ]);
+  const tz = tzRow.rows[0]?.timezone ?? "America/Tijuana";
   const c = cur.rows[0]!;
   const rows = history.rows;
   const active = rows.filter((r) => r.status !== "cerrado");
@@ -209,8 +208,8 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
                     <option value="web">Solo tienda web</option>
                   </Select>
                   <MoneyInput label="Precio promo (MXN)" name="price" id="promo-price" required hint="Debe ser menor al regular." />
-                  <TextInput label="Inicio" name="valid_from" id="promo-from" type="datetime-local" required defaultValue={toLocalInput(new Date())} />
-                  <TextInput label="Fin (opcional)" name="valid_to" id="promo-to" type="datetime-local" hint="Vacío = hasta que la termines." />
+                  <TextInput label="Inicio" name="valid_from" id="promo-from" type="datetime-local" required defaultValue={utcToZonedInput(new Date(), tz)} />
+                  <TextInput label="Fin (opcional)" name="valid_to" id="promo-to" type="datetime-local" hint={`Vacío = hasta que la termines. Horas en ${tz}.`} />
                 </FormGrid>
                 <div>
                   <SubmitButton variant="secondary">Crear promoción</SubmitButton>

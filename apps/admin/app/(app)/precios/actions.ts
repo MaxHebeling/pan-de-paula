@@ -1,10 +1,16 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db, withStaff, callFn } from "@/lib/db";
+import { db, sql, withStaff, callFn } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { cents, failure, str, strOrNull, zCents, zId, zodMessage } from "@/lib/forms";
 import type { ActionState } from "@/lib/action-state";
+import { zonedToUtc } from "@/lib/tz";
+
+async function businessTz(): Promise<string> {
+  const r = await sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(db());
+  return r.rows[0]?.timezone ?? "America/Tijuana";
+}
 
 const channel = z.enum(["all", "web", "pos"], { error: "Canal inválido" });
 
@@ -61,13 +67,14 @@ export async function createPromotion(productId: string, _prev: ActionState, for
   });
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   try {
+    const tz = await businessTz();
     await withStaff(db(), s.staff.id, (trx) =>
       callFn(trx, "create_promotion", [
         productId,
         parsed.data.channel,
         parsed.data.price_cents,
-        new Date(parsed.data.valid_from).toISOString(),
-        parsed.data.valid_to ? new Date(parsed.data.valid_to).toISOString() : null,
+        zonedToUtc(parsed.data.valid_from, tz).toISOString(),
+        parsed.data.valid_to ? zonedToUtc(parsed.data.valid_to, tz).toISOString() : null,
         parsed.data.label,
       ]),
     );
