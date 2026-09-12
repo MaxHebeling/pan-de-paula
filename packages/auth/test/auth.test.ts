@@ -14,11 +14,22 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 
 config({ path: resolve(import.meta.dirname, "../../../.env"), quiet: true });
-const url = process.env.DATABASE_URL_TEST!;
+// Base propia (sufijo _auth) para no chocar con la suite de @pdp/db, que recrea la suya en paralelo.
+const base = new URL(process.env.DATABASE_URL_TEST!);
+base.pathname = base.pathname.replace(/\/?$/, "") + "_auth";
+const url = base.toString();
 const { db } = createDb({ connectionString: url, ssl: false, max: 2 });
 
 beforeAll(async () => {
-  // La base de pruebas ya fue migrada por la suite de @pdp/db; si no, migramos aquí.
+  const admin = new URL(url);
+  const dbName = admin.pathname.slice(1);
+  admin.pathname = "/postgres";
+  const pg = (await import("pg")).default;
+  const c = new pg.Client({ connectionString: admin.toString() });
+  await c.connect();
+  const exists = await c.query("select 1 from pg_database where datname = $1", [dbName]);
+  if (exists.rowCount === 0) await c.query(`create database "${dbName}"`);
+  await c.end();
   const { migrate } = await import("../../db/scripts/migrate.ts");
   await migrate(url, { log: () => {} });
   await sql`truncate staff_sessions, login_attempts, password_reset_tokens, staff_users restart identity cascade`.execute(
