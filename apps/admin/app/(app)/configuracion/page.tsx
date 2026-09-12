@@ -239,7 +239,7 @@ async function WindowsTab() {
   const rows = await loadWindows();
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_440px]">
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         <Alert tone="blue">
           Una ventana define cuándo se aceptan pedidos y cuándo se entregan. Ej.: “recibimos lunes–miércoles hasta las 18:00; se entrega el viernes”.
         </Alert>
@@ -354,7 +354,7 @@ async function PickupTab() {
   const rows = await db().selectFrom("pickup_points").selectAll().orderBy("sort_order").orderBy("name").execute();
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-      <div className="flex flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
         {rows.length === 0 && <p className="text-sm text-muted">Sin puntos de retiro. La tienda necesita al menos uno para pedidos con recolección.</p>}
         {rows.map((p) => (
           <details key={p.id} className="card p-4">

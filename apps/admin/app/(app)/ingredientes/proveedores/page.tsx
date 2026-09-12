@@ -31,7 +31,7 @@ export default async function SuppliersPage() {
         }
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           {rows.length === 0 ? (
             <EmptyState title="Sin proveedores" body="Registra a quién le compras para llevar historial de precios por proveedor." />
           ) : (

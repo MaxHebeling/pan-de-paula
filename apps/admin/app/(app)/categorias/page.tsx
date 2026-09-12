@@ -39,7 +39,7 @@ export default async function CategoriesPage() {
         subtitle="Orden en que aparecen en la tienda y el POS. Arrástralas con las flechas."
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div>
+        <div className="min-w-0">
           {rows.length === 0 ? (
             <EmptyState title="Sin categorías" body="Crea la primera categoría para organizar el catálogo." />
           ) : (

@@ -113,7 +113,7 @@ export default async function IngredientPage({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           {canWrite && (
             <Card title="Registrar nuevo precio" className="border-teal/30">
               <IngredientPriceForm
@@ -243,7 +243,7 @@ export default async function IngredientPage({
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card title="Datos del ingrediente">
             {canWrite ? (
               <ActionForm action={updateIngredient.bind(null, ing.id)} className="flex flex-col gap-3">

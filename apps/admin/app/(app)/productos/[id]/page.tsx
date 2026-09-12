@@ -135,7 +135,7 @@ export default async function ProductEditPage({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card title="Información">
             {canWrite ? (
               <ProductForm action={updateProduct.bind(null, p.id)} initial={initial} categories={categories} parents={parents} mode="edit" submitLabel="Guardar cambios" />
@@ -148,7 +148,7 @@ export default async function ProductEditPage({
             )}
           </Card>
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card title="Imágenes">
             <ImageManager productId={p.id} images={images} canWrite={canWrite} />
           </Card>

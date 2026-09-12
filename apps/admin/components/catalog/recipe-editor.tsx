@@ -238,7 +238,9 @@ export function RecipeEditor({
           <div className="text-xs font-semibold uppercase tracking-wide text-muted">Costo guardado (SQL, la verdad)</div>
           <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums">
             <dt>Costo por pieza</dt>
-            <dd className="text-right text-base font-semibold">{sqlCostCents === null ? "—" : formatMXN(sqlCostCents)}</dd>
+            <dd className="text-right text-base font-semibold" data-testid="sql-cost">
+              {sqlCostCents === null ? "—" : formatMXN(sqlCostCents)}
+            </dd>
             <dt>Precio POS vigente</dt>
             <dd className="text-right">{posPriceCents === null ? "—" : formatMXN(posPriceCents)}</dd>
             <dt>Margen (previsualizado)</dt>

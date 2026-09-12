@@ -90,7 +90,7 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card title="Vigentes y programados">
             {active.length === 0 ? (
               <p className="text-sm text-muted">Este producto no tiene precio. No se puede vender hasta fijar uno.</p>
@@ -180,7 +180,7 @@ export default async function ProductPricesPage({ params }: { params: Promise<{ 
         </div>
 
         {canWrite && (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
             <Card title="Nuevo precio regular">
               <ActionForm action={setRegularPrice.bind(null, product.id)} resetOnSuccess className="flex flex-col gap-3">
                 <FormGrid>

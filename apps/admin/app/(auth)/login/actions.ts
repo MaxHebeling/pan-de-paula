@@ -18,7 +18,7 @@ export async function loginAction(_prev: LoginState, form: FormData): Promise<Lo
   const parsed = schema.safeParse({
     email: form.get("email"),
     password: form.get("password"),
-    next: form.get("next"),
+    next: form.get("next") ?? undefined, // sin ?next= el campo no existe: null rompía la validación
   });
   if (!parsed.success) return { error: "Escribe un correo válido y tu contraseña." };
   const h = await headers();

@@ -23,7 +23,7 @@ export default async function NewIngredientPage() {
         }
       />
       <Card>
-        <ActionForm action={createIngredient} className="flex flex-col gap-4">
+        <ActionForm action={createIngredient} className="flex min-w-0 flex-col gap-4">
           <FormGrid>
             <TextInput label="Nombre" name="name" required maxLength={80} placeholder="Harina de trigo" />
             <TextInput label="Marca (opcional)" name="brand" maxLength={60} />

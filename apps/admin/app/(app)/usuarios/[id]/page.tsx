@@ -86,7 +86,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             <dd>{u.failed_logins}</dd>
           </dl>
         </Card>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card title="Restablecer contraseña">
             <p className="mb-3 text-sm text-muted">Genera un enlace de un solo uso (vence en 1 hora). Compártelo por WhatsApp o en persona.</p>
             <ActionForm action={generateResetLink.bind(null, u.id)} secret={{ label: "Enlace de restablecimiento", valueKey: "url" }}>

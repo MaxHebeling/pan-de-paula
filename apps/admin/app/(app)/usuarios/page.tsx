@@ -43,6 +43,7 @@ export default async function UsersPage() {
     <>
       <PageHeader title="Usuarios" subtitle="Cuentas del equipo, roles y acceso. Solo puedes administrar roles iguales o inferiores al tuyo." />
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+        <div className="min-w-0">
         <Table>
           <thead>
             <tr>
@@ -91,6 +92,7 @@ export default async function UsersPage() {
             })}
           </tbody>
         </Table>
+        </div>
         <Card title="Nuevo usuario">
           <ActionForm
             action={createUser}
