@@ -5,8 +5,7 @@ import { dbErrorMessage } from "@pdp/db";
 
 /** Resultado estándar de una server action de operación. */
 export type ActionResult<T = undefined> =
-  | { ok: true; data: T; message?: string }
-  | { ok: false; error: string };
+  { ok: true; data: T; message?: string } | { ok: false; error: string };
 
 export function fail(e: unknown, context: string): { ok: false; error: string } {
   const { message, code } = dbErrorMessage(e);
@@ -31,7 +30,10 @@ export function isManager(session: StaffSession): boolean {
 /** "45.50" | "45" → 4550. Devuelve null si no es un monto válido. */
 export function parseMoneyCents(raw: FormDataEntryValue | null): number | null {
   if (typeof raw !== "string") return null;
-  const s = raw.trim().replace(/[^0-9.,-]/g, "").replace(",", ".");
+  const s = raw
+    .trim()
+    .replace(/[^0-9.,-]/g, "")
+    .replace(",", ".");
   if (!s) return null;
   const n = Number(s);
   if (!Number.isFinite(n)) return null;

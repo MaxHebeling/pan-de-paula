@@ -23,24 +23,38 @@ export async function receiptData(orderId: string): Promise<ReceiptData | null> 
   if (!order) return null;
   const [items, payments, loyalty] = await Promise.all([
     sql<{ product_name: string; qty: string; unit_price_cents: number; total_cents: number }>`
-      select product_name, qty::text, unit_price_cents, total_cents from order_items where order_id = ${orderId} order by sort_order`.execute(d),
+      select product_name, qty::text, unit_price_cents, total_cents from order_items where order_id = ${orderId} order by sort_order`.execute(
+      d,
+    ),
     sql<{ method: string; amount_cents: number }>`
-      select method::text, amount_cents from payments where order_id = ${orderId} and status in ('paid','partially_refunded','refunded') order by created_at`.execute(d),
+      select method::text, amount_cents from payments where order_id = ${orderId} and status in ('paid','partially_refunded','refunded') order by created_at`.execute(
+      d,
+    ),
     sql<{ earned: number; balance: number }>`
       select coalesce((select sum(points) from loyalty_transactions lt join sales s on s.id = lt.sale_id where s.order_id = ${orderId} and lt.kind = 'earn'), 0)::int as earned,
-             coalesce((select points_balance from customers where id = ${order.customer_id}), 0)::int as balance`.execute(d),
+             coalesce((select points_balance from customers where id = ${order.customer_id}), 0)::int as balance`.execute(
+      d,
+    ),
   ]);
   return {
     folio: order.folio,
     businessName: order.business_name,
     soldAt: new Date(order.sold_at ?? order.placed_at),
-    items: items.rows.map((i) => ({ name: i.product_name, qty: Number(i.qty), unitPriceCents: i.unit_price_cents, totalCents: i.total_cents })),
+    items: items.rows.map((i) => ({
+      name: i.product_name,
+      qty: Number(i.qty),
+      unitPriceCents: i.unit_price_cents,
+      totalCents: i.total_cents,
+    })),
     subtotalCents: order.subtotal_cents,
     discountCents: order.discount_cents,
     totalCents: order.total_cents,
-    payments: payments.rows.map((p) => ({ method: PAYMENT_METHOD_LABELS[p.method as keyof typeof PAYMENT_METHOD_LABELS] ?? p.method, amountCents: p.amount_cents })),
+    payments: payments.rows.map((p) => ({
+      method: PAYMENT_METHOD_LABELS[p.method as keyof typeof PAYMENT_METHOD_LABELS] ?? p.method,
+      amountCents: p.amount_cents,
+    })),
     customerName: order.customer_name,
     pointsEarned: loyalty.rows[0]?.earned ?? 0,
-    pointsBalance: order.customer_id ? loyalty.rows[0]?.balance ?? 0 : undefined,
+    pointsBalance: order.customer_id ? (loyalty.rows[0]?.balance ?? 0) : undefined,
   };
 }

@@ -17,7 +17,10 @@ export function Tabs({
   keep?: Record<string, string | undefined>;
 }) {
   return (
-    <nav className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--r-card)] bg-black/5 p-1" aria-label="Secciones">
+    <nav
+      className="mb-4 flex gap-1 overflow-x-auto rounded-[var(--r-card)] bg-black/5 p-1"
+      aria-label="Secciones"
+    >
       {items.map((t) => {
         const params = new URLSearchParams();
         for (const [k, v] of Object.entries(keep)) if (v) params.set(k, v);
@@ -34,7 +37,9 @@ export function Tabs({
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
-              <span className={`pill px-2 py-0.5 text-[11px] ${active ? "bg-teal text-white" : "bg-black/10 text-ink"}`}>
+              <span
+                className={`pill px-2 py-0.5 text-[11px] ${active ? "bg-teal text-white" : "bg-black/10 text-ink"}`}
+              >
                 {t.count}
               </span>
             )}

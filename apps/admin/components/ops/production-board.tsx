@@ -36,7 +36,10 @@ export function ProductionBoard({
   threshold: number;
 }) {
   const [totals, setTotals] = useState<Record<string, { produced_today: number; on_hand: number }>>(
-    () => Object.fromEntries(products.map((p) => [p.id, { produced_today: p.produced_today, on_hand: p.on_hand }])),
+    () =>
+      Object.fromEntries(
+        products.map((p) => [p.id, { produced_today: p.produced_today, on_hand: p.on_hand }]),
+      ),
   );
   const [consume, setConsume] = useState(flagDefault);
   const [manual, setManual] = useState<Record<string, string>>({});
@@ -84,7 +87,10 @@ export function ProductionBoard({
         setError(`${p.name}: ${r.error}`);
         return;
       }
-      setTotals((t) => ({ ...t, [p.id]: { produced_today: r.data.produced_today, on_hand: r.data.on_hand } }));
+      setTotals((t) => ({
+        ...t,
+        [p.id]: { produced_today: r.data.produced_today, on_hand: r.data.on_hand },
+      }));
       setManual((m) => ({ ...m, [p.id]: "" }));
       setLast({ ...r.data, product_id: p.id, product_name: p.name, qty });
       showFlash(p.id, `+${qty} · ${r.data.lot_code}`);
@@ -136,7 +142,9 @@ export function ProductionBoard({
             disabled={!canWrite}
           />
           Descontar ingredientes
-          <span className="text-xs text-muted">({flagDefault ? "activo" : "apagado"} por configuración)</span>
+          <span className="text-xs text-muted">
+            ({flagDefault ? "activo" : "apagado"} por configuración)
+          </span>
         </label>
       </div>
 
@@ -169,7 +177,9 @@ export function ProductionBoard({
 
       {[...groups.entries()].map(([category, items]) => (
         <section key={category} aria-label={category}>
-          <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted">{category}</h2>
+          <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
+            {category}
+          </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((p) => {
               const t = totals[p.id] ?? { produced_today: 0, on_hand: 0 };
@@ -194,14 +204,22 @@ export function ProductionBoard({
                     </h3>
                     <p className="mt-1 text-sm text-muted">
                       Hoy:{" "}
-                      <span className="font-semibold tabular-nums text-ink" data-testid="produced-today">
+                      <span
+                        className="font-semibold tabular-nums text-ink"
+                        data-testid="produced-today"
+                      >
                         {t.produced_today.toLocaleString("es-MX")}
                       </span>{" "}
                       · Stock:{" "}
-                      <span className={`font-semibold tabular-nums ${low ? "text-amber-d" : "text-ink"}`} data-testid="on-hand">
+                      <span
+                        className={`font-semibold tabular-nums ${low ? "text-amber-d" : "text-ink"}`}
+                        data-testid="on-hand"
+                      >
                         {t.on_hand.toLocaleString("es-MX")}
                       </span>
-                      {consume && !p.has_recipe && <span className="ml-1 text-xs">(sin receta)</span>}
+                      {consume && !p.has_recipe && (
+                        <span className="ml-1 text-xs">(sin receta)</span>
+                      )}
                     </p>
                   </div>
                   <div className="grid grid-cols-4 gap-2">

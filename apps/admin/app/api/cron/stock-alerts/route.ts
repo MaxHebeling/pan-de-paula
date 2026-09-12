@@ -28,12 +28,17 @@ async function run(req: NextRequest) {
   let runId: string;
   try {
     const r = await sql<{ id: string }>`
-      insert into job_runs(job_name, status, lock_key) values (${JOB}, 'running', ${JOB}) returning id`.execute(d);
+      insert into job_runs(job_name, status, lock_key) values (${JOB}, 'running', ${JOB}) returning id`.execute(
+      d,
+    );
     runId = r.rows[0]!.id;
   } catch (e) {
     const code = (e as { code?: string }).code;
     if (code === "23505") {
-      return NextResponse.json({ ok: true, skipped: true, reason: "ya hay una ejecución en curso" }, { status: 200 });
+      return NextResponse.json(
+        { ok: true, skipped: true, reason: "ya hay una ejecución en curso" },
+        { status: 200 },
+      );
     }
     console.error("[cron stock-alerts] no se pudo registrar job_run", e);
     return NextResponse.json({ ok: false, error: "No se pudo iniciar el job" }, { status: 500 });
@@ -47,7 +52,9 @@ async function run(req: NextRequest) {
   } catch (e) {
     const message = (e as Error).message ?? "error desconocido";
     console.error("[cron stock-alerts] falló", e);
-    await sql`update job_runs set status = 'failed', finished_at = now(), error = ${message} where id = ${runId}`.execute(d);
+    await sql`update job_runs set status = 'failed', finished_at = now(), error = ${message} where id = ${runId}`.execute(
+      d,
+    );
     return NextResponse.json({ ok: false, run_id: runId, error: message }, { status: 500 });
   }
 }
