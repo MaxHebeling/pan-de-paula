@@ -46,7 +46,7 @@ Dos apps Next 16 en Vercel + una base Postgres en Supabase por ambiente. El desp
 | Include files outside root | activado (monorepo)                      | activado                                   |
 | Dominio                    | `elpandepaula.mx`                        | `admin.elpandepaula.mx`                    |
 
-Variables de entorno: ver `ENVIRONMENT.md` (mismo `DATABASE_URL` en ambos proyectos; `SESSION_SECRET`,
+Variables de entorno: ver `ENVIRONMENT.md` e `INTEGRATIONS.md` §7 (mismo `DATABASE_URL` en ambos proyectos; `SESSION_SECRET`,
 `MERCADOPAGO_*`, `META_*`, `RESEND_*`, `SENTRY_*`, `CRON_SECRET`, `STORAGE_*`). Marca Production y Preview
 por separado (credenciales de prueba de Mercado Pago en Preview).
 
@@ -116,7 +116,10 @@ si falla). **NO TEST → NO MERGE → NO DEPLOY.**
 - Crear los dos proyectos Supabase y los dos proyectos Vercel con los ajustes de arriba.
 - Dominios y DNS; certificado automático de Vercel.
 - Mercado Pago: aplicación productiva, webhook apuntando a `https://elpandepaula.mx/api/webhooks/mercadopago`
-  (la ruta se implementa en el módulo de integraciones), `MERCADOPAGO_WEBHOOK_SECRET`.
-- Meta: app, verificación del webhook de Instagram, tokens.
-- Sentry: proyecto y DSN. Resend: dominio verificado.
+  (la ruta ya existe; responde al GET de validación de MP) y `MERCADOPAGO_WEBHOOK_SECRET`. Ver `INTEGRATIONS.md` §1.
+- Meta: app, verificación del webhook `https://elpandepaula.mx/api/webhooks/instagram` (`META_VERIFY_TOKEN`), tokens. Ver `INTEGRATIONS.md` §2.
+- Sentry: proyecto y DSN (el código ya inicializa Sentry en ambas apps). Resend: dominio verificado.
+- Crons: `apps/web/vercel.json` (`webhooks-retry` cada 15 min) y `apps/admin/vercel.json` (`sessions-purge`
+  diario). Vercel Hobby solo ejecuta crons diarios: para el `*/15` hace falta plan Pro o un scheduler externo
+  que llame la ruta con `Authorization: Bearer <CRON_SECRET>`.
 - Activar PITR en Supabase y programar el simulacro mensual de restauración.

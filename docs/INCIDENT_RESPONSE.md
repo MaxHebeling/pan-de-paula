@@ -54,6 +54,10 @@ Síntoma: el cliente muestra el comprobante de MP; en `/pedidos` el pedido está
      (circuit breaker), pedido inexistente (`external_reference` distinto).
    - **`processed`** pero el pedido sigue pendiente → el estado consultado a la API no era `approved` en ese momento
      (p. ej. `in_process`). Sigue al paso 3.
+     El cron `webhooks-retry` (`/api/cron/webhooks-retry`, cada 15 min) reintenta solo los `received`/`failed` de
+     las últimas 48 h con backoff (`attempts`, `last_attempt_at`). Para forzarlo ahora mismo:
+     `curl -H "Authorization: Bearer $CRON_SECRET" https://elpandepaula.mx/api/cron/webhooks-retry`
+     (devuelve el `job_runs` con `status` y `result`). Si tras eso el pedido sigue pendiente, continúa.
 3. Consulta el estado real en la API de MP (nunca confíes en la captura del cliente):
    `GET https://api.mercadopago.com/v1/payments/{payment_id}` con el `MERCADOPAGO_ACCESS_TOKEN`. Toma
    `status`, `transaction_amount`, `external_reference`.
@@ -71,7 +75,8 @@ Síntoma: el cliente muestra el comprobante de MP; en `/pedidos` el pedido está
    Si se llama dos veces devuelve `duplicate: true` sin efectos.
 5. Verifica: pedido `paid`, fila en `sales`, movimiento `SALE`, notificación `new_order`. Avisa al cliente.
 6. Si el webhook estaba `failed`, márcalo `processed` con nota en `last_error` ("aplicado manualmente por …")
-   para que no vuelva a reintentarse.
+   para que el cron no vuelva a reintentarlo:
+   `update webhook_events set status = 'processed', processed_at = now(), last_error = 'aplicado manualmente por <email>' where id = '<id>';`
 7. Postmortem si fue un fallo sistemático (secret, ruta, breaker abierto por caída de MP).
 
 ### R2 · El stock no cuadra

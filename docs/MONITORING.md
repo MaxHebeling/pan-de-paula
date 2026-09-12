@@ -21,12 +21,13 @@ Tres capas: señales HTTP (¿responde?), errores de aplicación (Sentry/logs) y 
 
 ### Sentry
 
-- Estado en el repo: `@sentry/nextjs` está declarado en `apps/web` y `apps/admin`, y las variables
-  `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG/PROJECT/AUTH_TOKEN` existen en `.env.example`,
-  `turbo.json` y `check-env.mjs` (obligatoria en producción). **La inicialización todavía no está en el
-  código** (no hay `instrumentation.ts` ni `withSentryConfig`): es una acción pendiente del módulo de
-  integraciones antes del go-live. Al hacerlo: `release = VERCEL_GIT_COMMIT_SHA`, `environment = APP_ENV`,
-  `tracesSampleRate` bajo (0.1) y sin PII (no enviar teléfonos/emails de clientes).
+- Inicializado en ambas apps (`apps/*/instrumentation.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`,
+  `instrumentation-client.ts`, `global-error.tsx`). Opciones comunes en `apps/*/lib/sentry-options.ts`:
+  `environment = APP_ENV`, `release = VERCEL_GIT_COMMIT_SHA`, `tracesSampleRate 0.1`, `sendDefaultPii false`,
+  tag `app` (`web`/`admin`) y `beforeSend = scrubEvent`, que elimina cookies, `Authorization`, firmas de
+  webhooks, campos `password/token/secret/card` e IP/email del usuario antes de enviar nada.
+- Requiere `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` (obligatoria en producción; sin DSN no envía) y, para
+  source maps, `SENTRY_ORG/PROJECT/AUTH_TOKEN` en Vercel. Detalle en `INTEGRATIONS.md` §4.
 - Alertas recomendadas en Sentry: nuevo issue en producción → inmediato; > 10 eventos/hora del mismo issue → escalar.
 
 ### Logs
@@ -46,14 +47,15 @@ Ejecútalas en el SQL Editor de Supabase o con `psql "$DATABASE_URL"`. Cada una 
 ### Webhooks que fallaron o se atoraron (Mercado Pago / Meta)
 
 ```sql
-select provider, external_id, event_type, status, attempts, last_error, received_at
+select provider, external_id, event_type, status, attempts, last_attempt_at, last_error, received_at
 from webhook_events
 where status = 'failed' or (status in ('received','processing') and received_at < now() - interval '10 minutes')
 order by received_at desc limit 50;
 ```
 
-Umbral: ≥ 1 en la última hora → revisar. Acción: runbook "MP aprueba pero el pedido sigue pendiente"
-(`INCIDENT_RESPONSE.md`). `webhook_events` es idempotente por `(provider, external_id)`: reprocesar es seguro.
+Umbral: `failed` con `attempts ≥ 3` o atorado > 1 h (el cron `webhooks-retry` ya reintentó) → runbook "MP aprueba
+pero el pedido sigue pendiente" (`INCIDENT_RESPONSE.md`). `webhook_events` es idempotente por
+`(provider, external_id)`: reprocesar es seguro.
 
 ### Pedidos web con pago pendiente demasiado tiempo
 
@@ -86,10 +88,20 @@ where (status = 'failed' and started_at > now() - interval '24 hours')
 order by started_at desc;
 ```
 
-Nota: la tabla y el índice único de `lock_key` existen; las rutas `/api/cron/*` (protegidas por `CRON_SECRET`,
-ya en la lista pública de `apps/admin/proxy.ts`) se implementan en su módulo. Cada job debe insertar en
-`job_runs` al iniciar y cerrar con `succeeded/failed`. Un `running` de más de 1 h es un job muerto: márcalo
-`failed` para liberar el lock.
+Los crons están declarados en `apps/*/vercel.json` y protegidos por `Authorization: Bearer <CRON_SECRET>`
+(`isCronAuthorized`); cada uno corre dentro de `runJob()` (`packages/integrations/src/jobs.ts`), que inserta el
+`job_runs` `running` con `lock_key`, registra `succeeded/failed/skipped` y **libera solo** un lock colgado de más
+de 15 min (lo marca `failed` con "lock expirado"):
+
+| Job              | App   | Ruta                       | Frecuencia (`vercel.json`) | Qué hace                                                                                                                       |
+| ---------------- | ----- | -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `webhooks-retry` | web   | `/api/cron/webhooks-retry` | cada 15 min                | Reprocesa notificaciones de Mercado Pago `received/failed` de las últimas 48 h (50 por corrida, backoff con `last_attempt_at`) |
+| `sessions-purge` | admin | `/api/cron/sessions-purge` | diario 09:00 UTC           | Borra sesiones de staff expiradas/revocadas hace más de 30 días                                                                |
+
+Forzar una corrida (por ejemplo tras caída de MP): `curl -H "Authorization: Bearer $CRON_SECRET" https://elpandepaula.mx/api/cron/webhooks-retry`.
+Un `skipped` con `reason: locked` es normal si la corrida anterior sigue viva; un `running` de más de 15 min se
+autolibera en la siguiente ejecución. **Vercel Hobby solo permite crons diarios**: el `*/15` exige plan Pro o un
+scheduler externo que llame la ruta con el Bearer.
 
 ### Stock agotado o bajo
 

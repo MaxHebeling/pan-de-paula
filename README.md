@@ -34,22 +34,23 @@ scripts/               deploy, smoke, rollback, backup, restore-drill, checks
 
 ## Mapa de documentación
 
-| Documento                                              | Para quién          | Contenido                                                                      |
-| ------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------ |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Equipo técnico      | Decisiones, módulos, flujos críticos, ambientes                                |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)           | Equipo técnico      | Reglas no negociables, convenciones, comandos                                  |
-| [docs/DATABASE.md](docs/DATABASE.md)                   | Equipo técnico      | Modelo por módulo, funciones SQL y su contrato jsonb, invariantes, migraciones |
-| [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)             | Técnico / operador  | Cada variable de entorno: propósito, origen, obligatoriedad, Vercel            |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Operador            | Vercel (2 proyectos) + Supabase, `deploy.sh` paso a paso, CI                   |
-| [docs/ROLLBACK.md](docs/ROLLBACK.md)                   | Operador            | Revertir app (Vercel), corregir DB hacia adelante, flags                       |
-| [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)       | Operador            | PITR + `backup.sh` + simulacro, RTO/RPO, restauración real                     |
-| [docs/MONITORING.md](docs/MONITORING.md)               | Operador            | Health/ready, Sentry, logs, alertas con SQL listo                              |
-| [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) | Operador / gerencia | Severidades, runbooks (MP, stock, POS, login), postmortem                      |
-| [docs/RELIABILITY.md](docs/RELIABILITY.md)             | Todos               | Baseline y Definition of Done: qué existe y qué falta                          |
-| [docs/MIGRATION_SHEETS.md](docs/MIGRATION_SHEETS.md)   | Dueño               | Pasar Google Sheets al sistema sin perder ni duplicar nada                     |
-| [docs/POS_MANUAL.md](docs/POS_MANUAL.md)               | Mostrador           | Abrir caja, vender, cobrar, anular, cerrar                                     |
-| [docs/PRODUCTION_MANUAL.md](docs/PRODUCTION_MANUAL.md) | Cocina              | Producción, mermas, conteos, recetas y costos                                  |
-| [docs/ADMIN_MANUAL.md](docs/ADMIN_MANUAL.md)           | Dueño / gerencia    | Mapa del CRM ruta por ruta, roles, flags, rutinas                              |
+| Documento                                              | Para quién          | Contenido                                                                            |
+| ------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------ |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Equipo técnico      | Decisiones, módulos, flujos críticos, ambientes                                      |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)           | Equipo técnico      | Reglas no negociables, convenciones, comandos                                        |
+| [docs/DATABASE.md](docs/DATABASE.md)                   | Equipo técnico      | Modelo por módulo, funciones SQL y su contrato jsonb, invariantes, migraciones       |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)           | Técnico / operador  | Mercado Pago, Meta/Instagram, Resend, Sentry, logger, crons: alta, webhooks, pruebas |
+| [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)             | Técnico / operador  | Cada variable de entorno: propósito, origen, obligatoriedad, Vercel                  |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)               | Operador            | Vercel (2 proyectos) + Supabase, `deploy.sh` paso a paso, CI                         |
+| [docs/ROLLBACK.md](docs/ROLLBACK.md)                   | Operador            | Revertir app (Vercel), corregir DB hacia adelante, flags                             |
+| [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md)       | Operador            | PITR + `backup.sh` + simulacro, RTO/RPO, restauración real                           |
+| [docs/MONITORING.md](docs/MONITORING.md)               | Operador            | Health/ready, Sentry, logs, alertas con SQL listo                                    |
+| [docs/INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) | Operador / gerencia | Severidades, runbooks (MP, stock, POS, login), postmortem                            |
+| [docs/RELIABILITY.md](docs/RELIABILITY.md)             | Todos               | Baseline y Definition of Done: qué existe y qué falta                                |
+| [docs/MIGRATION_SHEETS.md](docs/MIGRATION_SHEETS.md)   | Dueño               | Pasar Google Sheets al sistema sin perder ni duplicar nada                           |
+| [docs/POS_MANUAL.md](docs/POS_MANUAL.md)               | Mostrador           | Abrir caja, vender, cobrar, anular, cerrar                                           |
+| [docs/PRODUCTION_MANUAL.md](docs/PRODUCTION_MANUAL.md) | Cocina              | Producción, mermas, conteos, recetas y costos                                        |
+| [docs/ADMIN_MANUAL.md](docs/ADMIN_MANUAL.md)           | Dueño / gerencia    | Mapa del CRM ruta por ruta, roles, flags, rutinas                                    |
 
 ## Comandos frecuentes
 

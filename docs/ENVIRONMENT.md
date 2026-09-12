@@ -1,6 +1,6 @@
 # Variables de entorno
 
-Fuente de verdad: `.env.example` (sin valores reales). Copia a `.env` en local; en Vercel se cargan por
+Fuente de verdad: `.env.example` (sin valores reales); el detalle de cada proveedor externo está en `INTEGRATIONS.md` §7. Copia a `.env` en local; en Vercel se cargan por
 proyecto y por ambiente. Toda variable nueva se agrega a `.env.example`, a `turbo.json → globalEnv` y, si es
 obligatoria, a `scripts/check-env.mjs`.
 
@@ -48,23 +48,25 @@ obligatoria, a `scripts/check-env.mjs`.
 
 ### Mercado Pago (México)
 
-| Variable                      | Propósito                                            | Dónde obtenerla                                                                                            |
-| ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `MERCADOPAGO_ACCESS_TOKEN`    | Crear preferencias de Checkout Pro y consultar pagos | Panel de desarrolladores → tu aplicación → Credenciales de producción (`APP_USR-…`) o de prueba (`TEST-…`) |
-| `MERCADOPAGO_PUBLIC_KEY`      | Clave pública (frontend, si se usa Bricks)           | Misma pantalla                                                                                             |
-| `MERCADOPAGO_WEBHOOK_SECRET`  | Verificar `x-signature` del webhook                  | Panel → Webhooks → Configurar notificaciones → "Clave secreta"                                             |
-| `MERCADOPAGO_POINT_DEVICE_ID` | Terminal Point (opcional; flag `mercadopago_point`)  | Panel → Point → dispositivos                                                                               |
+| Variable                         | Propósito                                                                       | Dónde obtenerla                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `MERCADOPAGO_ACCESS_TOKEN`       | Crear preferencias de Checkout Pro y consultar pagos                            | Panel de desarrolladores → tu aplicación → Credenciales de producción (`APP_USR-…`) o de prueba (`TEST-…`) |
+| `MERCADOPAGO_PUBLIC_KEY`         | Clave pública (frontend, si se usa Bricks)                                      | Misma pantalla                                                                                             |
+| `MERCADOPAGO_WEBHOOK_SECRET`     | Verificar `x-signature` del webhook                                             | Panel → Webhooks → Configurar notificaciones → "Clave secreta"                                             |
+| `MERCADOPAGO_POINT_DEVICE_ID`    | Terminal Point (opcional; flag `mercadopago_point`)                             | Panel → Point → dispositivos                                                                               |
+| `MERCADOPAGO_QR_EXTERNAL_POS_ID` | Caja externa para QR dinámico (API de Órdenes; opcional, flag `mercadopago_qr`) | Se crea con `POST /pos` en la API de MP (`external_id`); ver `INTEGRATIONS.md` §1.5                        |
 
 Usa credenciales de **prueba** en staging y de **producción** solo en producción.
 
 ### Meta / Instagram
 
-| Variable                      | Propósito                                    | Dónde obtenerla                                            |
-| ----------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| `META_APP_SECRET`             | Verificar la firma de los webhooks de Meta   | developers.facebook.com → App → Configuración básica       |
-| `META_VERIFY_TOKEN`           | Token que Meta envía al suscribir el webhook | Lo inventas tú (`openssl rand -hex 16`) y lo pegas en Meta |
-| `INSTAGRAM_PAGE_ACCESS_TOKEN` | Enviar/leer mensajes de la cuenta            | Token de página de larga duración                          |
-| `INSTAGRAM_ACCOUNT_ID`        | ID de la cuenta profesional de Instagram     | Graph API Explorer / configuración de la app               |
+| Variable                      | Propósito                                    | Dónde obtenerla                                                                                                     |
+| ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `META_APP_SECRET`             | Verificar la firma de los webhooks de Meta   | developers.facebook.com → App → Configuración básica                                                                |
+| `META_VERIFY_TOKEN`           | Token que Meta envía al suscribir el webhook | Lo inventas tú (`openssl rand -hex 16`) y lo pegas en Meta                                                          |
+| `INSTAGRAM_PAGE_ACCESS_TOKEN` | Enviar/leer mensajes de la cuenta            | Token de página de larga duración                                                                                   |
+| `INSTAGRAM_ACCOUNT_ID`        | ID de la cuenta profesional de Instagram     | Graph API Explorer / configuración de la app                                                                        |
+| `INSTAGRAM_API_BASE`          | Base del Send API (opcional)                 | Instagram Login: `https://graph.instagram.com/v25.0` (default) · Facebook Login: `https://graph.facebook.com/v25.0` |
 
 ### Email (Resend)
 
