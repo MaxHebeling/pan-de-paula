@@ -5,6 +5,7 @@ import { Menu, X, LogOut, Bell } from "lucide-react";
 import Link from "next/link";
 import { NavLink } from "./nav-link";
 import { Icon } from "./icon";
+import { GlobalSearch } from "./search/global-search";
 import { NAV_GROUPS, type NavItem } from "@/lib/nav";
 
 export function Shell({
@@ -68,6 +69,7 @@ export function Shell({
             Hola, <span className="font-medium text-ink">{user.name}</span> · {user.role}
           </div>
           <div className="flex items-center gap-1.5">
+            <GlobalSearch />
             <Link
               href="/notificaciones"
               className="btn btn-secondary btn-sm relative"
