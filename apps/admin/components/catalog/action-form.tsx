@@ -17,7 +17,6 @@ export function ActionForm({
   renderResult,
   confirm: confirmMessage,
   id,
-  encType,
 }: {
   action: Action;
   children: ReactNode;
@@ -26,7 +25,6 @@ export function ActionForm({
   renderResult?: (data: Record<string, string>) => ReactNode;
   confirm?: string;
   id?: string;
-  encType?: "multipart/form-data";
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(action, idle);
   const ref = useRef<HTMLFormElement>(null);
@@ -38,7 +36,6 @@ export function ActionForm({
       ref={ref}
       id={id}
       action={formAction}
-      encType={encType}
       className={className}
       onSubmit={(e) => {
         if (confirmMessage && !window.confirm(confirmMessage)) e.preventDefault();

@@ -107,7 +107,7 @@ export default async function CategoriesPage() {
         </div>
         {canWrite && (
           <Card title="Nueva categoría">
-            <ActionForm action={createCategory} resetOnSuccess encType="multipart/form-data" className="flex flex-col gap-3">
+            <ActionForm action={createCategory} resetOnSuccess className="flex flex-col gap-3">
               <TextInput label="Nombre" name="name" required maxLength={80} autoComplete="off" />
               <TextInput
                 label="Slug (opcional)"

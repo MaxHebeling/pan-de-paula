@@ -60,7 +60,7 @@ export default async function CategoryEditPage({
         </div>
       )}
       <Card>
-        <ActionForm action={update} encType="multipart/form-data" className="flex flex-col gap-3">
+        <ActionForm action={update} className="flex flex-col gap-3">
           <FormGrid>
             <TextInput label="Nombre" name="name" required maxLength={80} defaultValue={c.name} />
             <TextInput
