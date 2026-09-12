@@ -164,12 +164,12 @@ POST → verifyMetaSignature(raw, X-Hub-Signature-256, META_APP_SECRET) (401 si 
 
 `runJob(db, name, fn)` registra en `job_runs` (`running → succeeded|failed`), usa `lock_key` + índice único parcial para que no corran dos a la vez (`skipped`), y libera locks colgados (> 15 min). Rutas protegidas con `Authorization: Bearer <CRON_SECRET>` (`isCronAuthorized`, comparación en tiempo constante; Vercel Cron manda la cabecera automáticamente si `CRON_SECRET` existe en el proyecto).
 
-| App   | Ruta                        | Programación (`vercel.json`)        | Qué hace                                                                                                                            |
-| ----- | --------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| web   | `/api/cron/webhooks-retry`  | `*/15 * * * *`                      | Reprocesa `webhook_events` de Mercado Pago `received/failed` de 48 h (máx. 50, backoff `2^attempts` min, tope 6 h, máx. 8 intentos) |
-| admin | `/api/cron/sessions-purge`  | `0 9 * * *` (09:00 UTC)             | `purgeExpiredSessions` de `@pdp/auth`                                                                                               |
-| admin | `/api/cron/stock-alerts`    | **la crea el módulo de inventario** | Al integrar: agregar `{ "path": "/api/cron/stock-alerts", "schedule": "…" }` a `apps/admin/vercel.json`                             |
-| admin | `/api/cron/customer-events` | **la crea el módulo de clientes**   | Al integrar: agregar `{ "path": "/api/cron/customer-events", "schedule": "…" }` a `apps/admin/vercel.json`                          |
+| App   | Ruta                        | Programación (`vercel.json`) | Qué hace                                                                                                                            |
+| ----- | --------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| web   | `/api/cron/webhooks-retry`  | `*/15 * * * *`               | Reprocesa `webhook_events` de Mercado Pago `received/failed` de 48 h (máx. 50, backoff `2^attempts` min, tope 6 h, máx. 8 intentos) |
+| admin | `/api/cron/sessions-purge`  | `0 9 * * *` (09:00 UTC)      | `purgeExpiredSessions` de `@pdp/auth`                                                                                               |
+| admin | `/api/cron/stock-alerts`    | cada 2 h (`0 */2 * * *`)     | Alertas de stock bajo/agotado e insumos críticos, sin duplicar abiertas (`run_stock_alerts()`)                                      |
+| admin | `/api/cron/customer-events` | diario 14:30 UTC             | Cumpleaños, inactividad 30/60 días, aniversarios → `customer_events` + notificaciones                                               |
 
 > Vercel Hobby limita los crons a una ejecución diaria; `*/15` requiere plan Pro. Si se despliega en Hobby, cambiar a `0 */1 * * *` no es posible tampoco: usar un cron externo (p. ej. GitHub Actions `schedule`) que haga `curl -H "Authorization: Bearer $CRON_SECRET"`.
 
