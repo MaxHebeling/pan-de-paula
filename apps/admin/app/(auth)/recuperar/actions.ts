@@ -1,9 +1,9 @@
 "use server";
-import { headers } from "next/headers";
 import { z } from "zod";
 import { createPasswordReset } from "@pdp/auth";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { db, sql } from "@/lib/db";
+import { clientIp } from "@/lib/auth";
 import type { ActionState } from "@/lib/action-state";
 
 const schema = z.object({ email: z.string().trim().toLowerCase().email() });
@@ -18,8 +18,7 @@ const GENERIC_OK =
 export async function requestReset(_prev: ActionState, form: FormData): Promise<ActionState> {
   const parsed = schema.safeParse({ email: form.get("email") });
   if (!parsed.success) return { error: "Escribe un correo válido." };
-  const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || h.get("x-real-ip") || null;
+  const ip = await clientIp();
   try {
     if (ip) {
       const r = await sql<{ n: number }>`

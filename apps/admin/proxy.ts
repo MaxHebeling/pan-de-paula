@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+/** Rutas sin sesión (coincidencia exacta o por prefijo de segmento: "/login" cubre "/login/x" pero no "/loginx"). */
 const PUBLIC_PATHS = [
   "/login",
   "/recuperar",
@@ -17,6 +18,22 @@ const PUBLIC_PATHS = [
   "/icons",
 ];
 
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
+/** Host del header Origin, o null si no es una URL válida. */
+function originHost(origin: string | null): string | null {
+  if (!origin) return null;
+  try {
+    return new URL(origin).host;
+  } catch {
+    return null;
+  }
+}
+
 /** Gate ligero: sin cookie de sesión no se entra al CRM. La validación real ocurre en el servidor (requireSession). */
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -25,23 +42,19 @@ export function proxy(req: NextRequest) {
       headers: new Headers({ ...Object.fromEntries(req.headers), "x-pathname": pathname }),
     },
   });
-  if (
-    PUBLIC_PATHS.some(
-      (p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p),
-    )
-  )
-    return res;
-  // Protección CSRF básica para mutaciones: Origin debe coincidir con Host.
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+  // Protección CSRF para TODA mutación, también en rutas públicas (p. ej. /api/auth/logout): Origin debe coincidir con Host.
+  if (MUTATING.has(req.method)) {
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
-    if (origin && host && new URL(origin).host !== host) {
+    if (origin && host && originHost(origin) !== host) {
       return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
     }
   }
+  if (isPublic(pathname)) return res;
   if (!req.cookies.get("pdp_session")?.value) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
