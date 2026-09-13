@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth";
+import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Card, Badge, Money, EmptyState } from "@/components/ui";
 import { fmtDate, qty } from "@/lib/format";
-import { globalSearch } from "@/lib/search";
+import { globalSearch, searchScope } from "@/lib/search";
 import { CHANNEL_LABELS, ORDER_STATUS_LABELS } from "@/lib/customers";
 
 export const metadata = { title: "Buscar" };
@@ -13,10 +13,17 @@ export default async function SearchPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const sp = await searchParams;
   const q = ((Array.isArray(sp.q) ? sp.q[0] : sp.q) ?? "").trim();
-  const r = q.length >= 2 ? await globalSearch(q, 25) : null;
+  const r =
+    q.length >= 2
+      ? await globalSearch(
+          q,
+          25,
+          searchScope((perm) => hasPermission(session, perm)),
+        )
+      : null;
   const total = r ? r.customers.length + r.orders.length + r.products.length : 0;
   return (
     <>

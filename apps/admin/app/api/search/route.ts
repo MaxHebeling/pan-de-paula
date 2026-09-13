@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSession } from "@/lib/auth";
-import { globalSearch } from "@/lib/search";
+import { getSession, hasPermission } from "@/lib/auth";
+import { globalSearch, searchScope } from "@/lib/search";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   const q = req.nextUrl.searchParams.get("q") ?? "";
   try {
-    const r = await globalSearch(q, 6);
+    const r = await globalSearch(
+      q,
+      6,
+      searchScope((perm) => hasPermission(session, perm)),
+    );
     return NextResponse.json(r, { headers: { "cache-control": "no-store" } });
   } catch (e) {
     console.error("[search] falló", { q, error: (e as Error).message });

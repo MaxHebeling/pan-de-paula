@@ -124,19 +124,41 @@ export async function dbHealth(
 
 /** Traduce errores de Postgres a mensajes de negocio seguros para UI. */
 export function dbErrorMessage(e: unknown): { message: string; code?: string } {
-  const err = e as { code?: string; message?: string; detail?: string };
+  const err = e as { code?: string; message?: string; constraint?: string; table?: string };
   if (!err || typeof err !== "object") return { message: "Error desconocido" };
+  // Errores lanzados por NUESTRAS funciones (RAISE … USING ERRCODE) traen mensajes en español pensados para el
+  // usuario y no llevan `constraint`/`table`. Las violaciones nativas sí: su texto expone tablas y columnas
+  // (regresión auditoría 360°), así que se traducen a un mensaje genérico.
+  const ours =
+    !err.constraint && !err.table && typeof err.message === "string" && err.message.length > 0;
   switch (err.code) {
-    case "23505":
-      return { message: "Ya existe un registro con esos datos", code: err.code };
-    case "23503":
-      return { message: "Referencia inválida o registro en uso", code: err.code };
-    case "23514":
     case "P0001":
       return { message: err.message ?? "Operación no permitida", code: err.code };
+    case "23505":
+      return {
+        message: ours ? err.message! : "Ya existe un registro con esos datos",
+        code: err.code,
+      };
+    case "23503":
+      return {
+        message: ours ? err.message! : "Referencia inválida o registro en uso",
+        code: err.code,
+      };
+    case "23514":
+      return {
+        message: ours ? err.message! : "Un valor está fuera del rango permitido",
+        code: err.code,
+      };
+    case "23502":
+      return { message: "Falta un dato obligatorio", code: err.code };
     case "57014":
       return { message: "La operación tardó demasiado", code: err.code };
     default:
-      return { message: err.message ?? "Error de base de datos", code: err.code };
+      if (err.code?.startsWith("22"))
+        return { message: "Algún dato tiene un formato inválido", code: err.code };
+      return {
+        message: "Error de base de datos. Intenta de nuevo o avisa al administrador.",
+        code: err.code,
+      };
   }
 }

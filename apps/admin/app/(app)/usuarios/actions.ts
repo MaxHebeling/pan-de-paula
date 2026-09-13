@@ -147,6 +147,12 @@ export async function generateResetLink(id: string, _prev: ActionState): Promise
   if (!target) return { error: "Usuario no encontrado" };
   if (target.rank > myRank)
     return { error: "No puedes restablecer la contraseña de un rol superior al tuyo." };
+  // Regresión auditoría 360°: un dueño podía tomar la cuenta de otro dueño generando su enlace de restablecimiento.
+  // Mismo rango: solo super_admin (o uno mismo, que usa "Cambiar contraseña").
+  if (target.rank === myRank && s.staff.roleKey !== "super_admin" && id !== s.staff.id)
+    return {
+      error: "Solo un Super Admin puede restablecer la contraseña de alguien con tu mismo rol.",
+    };
   if (!target.is_active) return { error: "El usuario está desactivado; actívalo primero." };
   try {
     const r = await createPasswordReset(db(), target.email);

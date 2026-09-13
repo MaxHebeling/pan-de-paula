@@ -772,7 +772,10 @@ async function CountTab({ sp, canWrite }: { sp: Search; canWrite: boolean }) {
                         min="0"
                         inputMode="decimal"
                         className="input min-h-12 text-right text-lg tabular-nums"
-                        defaultValue={Math.max(0, Number(it.counted_qty))}
+                        // Stock negativo (ventas sin producción registrada): se deja vacío = "sin contar".
+                        // Vacío no genera corrección; precargar 0 corregía productos que nadie contó.
+                        defaultValue={Number(it.counted_qty) < 0 ? "" : Number(it.counted_qty)}
+                        placeholder={Number(it.counted_qty) < 0 ? "Sin contar" : undefined}
                         aria-label={`Contado de ${it.name}`}
                         disabled={!canWrite}
                       />

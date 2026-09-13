@@ -831,6 +831,17 @@ test("pedidos: filtros, paginación, cero resultados, URL inválida, pedido manu
   page,
 }) => {
   test.setTimeout(150_000);
+  // La paginación necesita más de una página (50): en bases recién sembradas (CI) se crean los pedidos que falten.
+  const existing = await one<{ n: number }>(sql`select count(*)::int as n from orders`);
+  for (let i = existing.n; i < 55; i++) {
+    await sql`select create_order(${JSON.stringify({
+      channel: "admin",
+      fulfillment_type: "pickup",
+      customer_name: `Paginación E2E ${i}`,
+      items: [{ product_id: panId, qty: 1 }],
+      idempotency_key: `audit-ops-paginacion-${i}`,
+    })}::jsonb)`.execute(db);
+  }
   await login(page, ADMIN, "/pedidos");
   await expect(page.getByRole("heading", { name: "Pedidos", exact: true })).toBeVisible();
   await page.goto("/pedidos?vista=todos");

@@ -10,8 +10,9 @@ const isDate = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.t
 /** Exporta la conciliación de inventario (inventory_reconciliation) del rango como CSV. */
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || !hasPermission(session, "inventory.read"))
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!hasPermission(session, "inventory.read"))
+    return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   const desde = req.nextUrl.searchParams.get("desde");
   const hasta = req.nextUrl.searchParams.get("hasta");
   if (!isDate(desde) || !isDate(hasta))

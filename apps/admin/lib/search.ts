@@ -33,31 +33,57 @@ export type SearchResults = {
   }>;
 };
 
-/** Búsqueda global: clientes (nombre/teléfono/email/código), pedidos (folio/teléfono/cliente) y productos (nombre). */
-export async function globalSearch(q: string, limit = 6): Promise<SearchResults> {
+export type SearchScope = { customers: boolean; orders: boolean; products: boolean };
+
+/** Alcance de la búsqueda según permisos del rol (regresión auditoría 360°: la búsqueda ignoraba permisos). */
+export function searchScope(can: (permission: string) => boolean): SearchScope {
+  return {
+    customers: can("customers.read"),
+    orders: can("orders.read"),
+    products: can("catalog.read"),
+  };
+}
+
+const EMPTY = { rows: [] as never[] };
+
+/**
+ * Búsqueda global: clientes (nombre/teléfono/email/código), pedidos (folio/teléfono/cliente) y productos (nombre).
+ * Solo consulta las entidades que el `scope` permite: un rol sin `customers.read` nunca recibe datos de clientes.
+ */
+export async function globalSearch(
+  q: string,
+  limit: number,
+  scope: SearchScope,
+): Promise<SearchResults> {
   const term = q.trim().slice(0, 80);
   if (term.length < 2) return { q: term, customers: [], orders: [], products: [] };
   const like = containsPattern(term);
   const digits = canonicalPhone(term).replace(/\D/g, "");
   const d = db();
   const [customers, orders, products] = await Promise.all([
-    sql<SearchResults["customers"][number]>`
+    !scope.customers
+      ? EMPTY
+      : sql<SearchResults["customers"][number]>`
       select c.id, c.public_code, c.full_name, c.phone::text as phone, c.tier_key, c.points_balance
       from customers c where c.deleted_at is null and c.merged_into_id is null and ${customerSearchCondition(term)}
       order by c.last_purchase_at desc nulls last limit ${limit}`.execute(d),
-    sql<SearchResults["orders"][number]>`
+    !scope.orders
+      ? EMPTY
+      : sql<SearchResults["orders"][number]>`
       select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.total_cents, o.placed_at, o.customer_name, o.customer_phone
       from orders o
       where o.folio ilike ${like} or o.customer_name ilike ${like}
          ${digits.length >= 4 ? sql`or regexp_replace(coalesce(o.customer_phone, ''), '\\D', '', 'g') like ${"%" + digits + "%"}` : sql``}
       order by o.placed_at desc limit ${limit}`.execute(d),
-    sql<SearchResults["products"][number]>`
+    !scope.products
+      ? EMPTY
+      : sql<SearchResults["products"][number]>`
       select p.id, p.name, c.name as category_name, current_price_cents(p.id, 'pos') as price_cents, l.on_hand::text as on_hand, p.is_active
       from products p left join categories c on c.id = p.category_id left join inventory_levels l on l.product_id = p.id
       where p.deleted_at is null and (p.name ilike ${like} or p.sku ilike ${like} or c.name ilike ${like})
       order by p.is_active desc, similarity(p.name, ${term}) desc, p.name limit ${limit}`.execute(
-      d,
-    ),
+          d,
+        ),
   ]);
   return { q: term, customers: customers.rows, orders: orders.rows, products: products.rows };
 }
