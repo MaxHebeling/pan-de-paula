@@ -4,11 +4,18 @@ import { CouponForm } from "@/components/customers/coupon-form";
 import { activeProducts } from "@/lib/loyalty";
 import { loyaltyTiers } from "@/lib/customers";
 import { upsertCouponAction } from "../actions";
+import { db, sql } from "@/lib/db";
 
 export const metadata = { title: "Nuevo cupón" };
 
 export default async function NewCouponPage() {
   await requireSession("loyalty.write");
+  const tz =
+    (
+      await sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(
+        db(),
+      )
+    ).rows[0]?.timezone ?? "America/Tijuana";
   const [products, tiers] = await Promise.all([activeProducts(), loyaltyTiers()]);
   return (
     <>
@@ -22,7 +29,7 @@ export default async function NewCouponPage() {
         }
       />
       <Card>
-        <CouponForm action={upsertCouponAction} products={products} tiers={tiers} />
+        <CouponForm action={upsertCouponAction} products={products} tiers={tiers} timeZone={tz} />
       </Card>
     </>
   );

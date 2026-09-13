@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
   const to = sp.get("to");
   if (!isDate(from) || !isDate(to) || from > to)
     return NextResponse.json({ error: "Rango inválido (from/to YYYY-MM-DD)" }, { status: 400 });
+  if (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`) > 366 * 86_400_000)
+    return NextResponse.json({ error: "El rango máximo es de 366 días" }, { status: 400 });
   try {
     const data = await exportRows(kind, from, to);
     const csv = toCsv(data.columns, data.rows);

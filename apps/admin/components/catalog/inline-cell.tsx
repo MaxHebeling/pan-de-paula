@@ -144,6 +144,9 @@ export function InlineCell({
     onDraft?.(undefined);
   }
   function commit(after?: () => void) {
+    // Enter/Tab repetidos mientras el servidor responde no deben disparar una segunda acción
+    // (en precios crearía dos filas de historial; en parámetros subiría la versión dos veces).
+    if (pending || closingRef.current) return;
     const parsed = parse(kind, draft, nullable);
     if (!parsed.ok) {
       setError(parsed.error);

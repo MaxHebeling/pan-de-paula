@@ -6,6 +6,16 @@ import { requireSession } from "@/lib/auth";
 import { db, sql, callFn, withStaff, dbErrorMessage } from "@/lib/db";
 import { bool, cents, num, optStr, str, type ActionState } from "@/lib/action-state";
 import { VALIDATE_REASONS } from "@/lib/coupons";
+import { zonedToUtc } from "@/lib/tz";
+
+/** Zona del negocio: las fechas del formulario (AAAA-MM-DD) se interpretan como días locales completos. */
+async function businessTz(): Promise<string> {
+  const r = await sql<{
+    timezone: string;
+  }>`select timezone from business_settings where id = 1`.execute(db());
+  return r.rows[0]?.timezone ?? "America/Tijuana";
+}
+const dateRx = /^\d{4}-\d{2}-\d{2}$/;
 
 const uuid = z.string().uuid();
 
@@ -23,8 +33,8 @@ const couponSchema = z
     value_cents: z.number().int().min(1).optional(),
     product_id: uuid.optional(),
     min_subtotal_cents: z.number().int().min(0),
-    starts_at: z.string().optional(),
-    ends_at: z.string().optional(),
+    starts_at: z.string().regex(dateRx, "Fecha de inicio inválida").optional(),
+    ends_at: z.string().regex(dateRx, "Fecha de fin inválida").optional(),
     max_uses: z.number().int().min(1).optional(),
     max_uses_per_customer: z.number().int().min(1).max(1000),
     channels: z.array(z.enum(["all", "web", "pos"])).min(1, "Elige al menos un canal"),
@@ -93,13 +103,17 @@ export async function upsertCouponAction(_prev: ActionState, fd: FormData): Prom
   const valueBps = c.kind === "pct" ? c.value_bps! : null;
   const valueCents = c.kind === "amount" ? c.value_cents! : null;
   const productId = c.kind === "free_product" || c.kind === "pct" ? (c.product_id ?? null) : null;
-  const endsAt = c.ends_at ? `${c.ends_at}T23:59:59` : null;
+  // Antes se guardaban como texto sin zona: en producción (UTC) el cupón arrancaba 7–8 h antes y
+  // vencía a las 16:59 hora local. Ahora: inicio 00:00 y fin 23:59:59 del día en la zona del negocio.
+  const tz = await businessTz();
+  const startsAt = c.starts_at ? zonedToUtc(`${c.starts_at}T00:00:00`, tz).toISOString() : null;
+  const endsAt = c.ends_at ? zonedToUtc(`${c.ends_at}T23:59:59`, tz).toISOString() : null;
   let id = c.id;
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       if (c.id) {
         await sql`update coupons set code = ${c.code}, name = ${c.name ?? null}, kind = ${c.kind}::coupon_kind, value_bps = ${valueBps}, value_cents = ${valueCents},
-                  product_id = ${productId}, min_subtotal_cents = ${c.min_subtotal_cents}, starts_at = ${c.starts_at ?? null}, ends_at = ${endsAt},
+                  product_id = ${productId}, min_subtotal_cents = ${c.min_subtotal_cents}, starts_at = ${startsAt}, ends_at = ${endsAt},
                   max_uses = ${c.max_uses ?? null}, max_uses_per_customer = ${c.max_uses_per_customer}, channels = ${channels}::price_channel[],
                   segment = ${JSON.stringify(segment)}::jsonb, is_active = ${c.is_active} where id = ${c.id}`.execute(
           trx,
@@ -108,7 +122,7 @@ export async function upsertCouponAction(_prev: ActionState, fd: FormData): Prom
         const r = await sql<{
           id: string;
         }>`insert into coupons(code, name, kind, value_bps, value_cents, product_id, min_subtotal_cents, starts_at, ends_at, max_uses, max_uses_per_customer, channels, segment, is_active, created_by)
-                  values (${c.code}, ${c.name ?? null}, ${c.kind}::coupon_kind, ${valueBps}, ${valueCents}, ${productId}, ${c.min_subtotal_cents}, ${c.starts_at ?? null}, ${endsAt},
+                  values (${c.code}, ${c.name ?? null}, ${c.kind}::coupon_kind, ${valueBps}, ${valueCents}, ${productId}, ${c.min_subtotal_cents}, ${startsAt}, ${endsAt},
                           ${c.max_uses ?? null}, ${c.max_uses_per_customer}, ${channels}::price_channel[], ${JSON.stringify(segment)}::jsonb, ${c.is_active}, ${s.staff.id}) returning id`.execute(
           trx,
         );
