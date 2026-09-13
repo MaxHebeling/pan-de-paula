@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { unitCost, costRecipe, marginBps, suggestedPrice, priceChangePct } from "../src/costing.ts";
+import {
+  unitCost,
+  costRecipe,
+  marginBps,
+  suggestedPrice,
+  priceChangePct,
+  ceilToStep,
+  rawSuggestedPrice,
+} from "../src/costing.ts";
 import { toBaseQty, normalizeUnit, formatQty } from "../src/units.ts";
 import { resolvePrice } from "../src/pricing.ts";
 
@@ -51,6 +59,71 @@ describe("costeo (paridad con SQL product_cost_cents)", () => {
     });
     expect(r.hasMissingPrices).toBe(true);
     expect(r.costPerPieceCents).toBe(150);
+  });
+  it("merma: costo por pieza × (1 + merma)", () => {
+    const base = {
+      yieldQty: 10,
+      laborCents: 0,
+      lines: [{ ingredientId: "x", qty: 1, unitCost: 10 }],
+    };
+    expect(costRecipe(base).costPerPieceCents).toBe(100);
+    expect(costRecipe({ ...base, wasteBps: 1000 }).costPerPieceCents).toBe(110);
+    // default global de merma cuando la receta no tiene override; el override de la receta gana
+    expect(costRecipe({ ...base, settings: { defaultWasteBps: 500 } }).costPerPieceCents).toBe(105);
+    expect(
+      costRecipe({ ...base, wasteBps: 1000, settings: { defaultWasteBps: 500 } }).costPerPieceCents,
+    ).toBe(110);
+    expect(() => costRecipe({ ...base, wasteBps: 20000 })).toThrow(/merma/);
+  });
+  it("mano de obra por hora e indirectos como % de insumos", () => {
+    // insumos $100 → 10000 c; MO 30 min × $120/h = 6000 c; indirectos 10% de insumos = 1000 c; rinde 10; merma 5%
+    const r = costRecipe({
+      yieldQty: 10,
+      laborCents: 999, // ignorado: hay minutos y el modo es por hora
+      overheadCents: 999, // ignorado: modo % de insumos
+      laborMinutes: 30,
+      wasteBps: 500,
+      lines: [{ ingredientId: "x", qty: 100, unitCost: 1 }],
+      settings: {
+        laborMode: "per_hour",
+        laborRateCentsPerHour: 12000,
+        overheadMode: "pct_of_ingredients",
+        overheadPctBps: 1000,
+      },
+    });
+    expect(r.laborCents).toBe(6000);
+    expect(r.overheadCents).toBe(1000);
+    expect(r.batchCents).toBe(17000);
+    expect(r.costPerPieceCents).toBe(1785); // 17000 / 10 × 1.05
+    // sin minutos capturados, el modo por hora cae al monto por lote
+    const noMinutes = costRecipe({
+      yieldQty: 10,
+      laborCents: 1200,
+      laborMinutes: null,
+      lines: [],
+      settings: { laborMode: "per_hour", laborRateCentsPerHour: 12000 },
+    });
+    expect(noMinutes.laborCents).toBe(1200);
+    expect(noMinutes.costPerPieceCents).toBe(120);
+    // el margen objetivo resuelto: override > default
+    expect(costRecipe({ yieldQty: 1, lines: [] }).targetMarginBps).toBe(6000);
+    expect(costRecipe({ yieldQty: 1, lines: [], targetMarginBps: 7000 }).targetMarginBps).toBe(
+      7000,
+    );
+  });
+  it("precio sugerido redondea hacia arriba al múltiplo configurado (50, 100, 500, 1000)", () => {
+    expect(suggestedPrice(1605, 6000, 100)).toBe(4100); // 4012.5
+    expect(suggestedPrice(1605, 6000, 50)).toBe(4050);
+    expect(suggestedPrice(1605, 6000, 500)).toBe(4500);
+    expect(suggestedPrice(1605, 6000, 1000)).toBe(5000);
+    expect(suggestedPrice(2000, 6000, 100)).toBe(5000); // múltiplo exacto: no sube al siguiente
+    expect(suggestedPrice(1200, 7000, 100)).toBe(4000); // 1200 / 0.3 = 4000 exacto
+    expect(suggestedPrice(1273, 6000, 100)).toBe(3200); // 3182.5
+    expect(suggestedPrice(0, 6000, 100)).toBe(0);
+    expect(() => suggestedPrice(100, 10000)).toThrow(/100%/);
+    expect(ceilToStep(5000.000000000001, 100)).toBe(5000);
+    expect(ceilToStep(5001, 100)).toBe(5100);
+    expect(rawSuggestedPrice(1273, 6000)).toBeCloseTo(3182.5, 6);
   });
   it("margen y precio sugerido", () => {
     expect(marginBps(4500, 1273)).toBe(7171);

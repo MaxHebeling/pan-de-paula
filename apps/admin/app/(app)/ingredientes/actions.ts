@@ -68,7 +68,9 @@ function toBase(
 function revalidate(id?: string) {
   revalidatePath("/ingredientes");
   revalidatePath("/recetas");
+  revalidatePath("/recetas/hoja");
   revalidatePath("/productos");
+  revalidatePath("/precios");
   if (id) revalidatePath(`/ingredientes/${id}`);
 }
 
@@ -376,4 +378,93 @@ export async function updateSupplier(
   revalidatePath("/ingredientes/proveedores");
   revalidatePath("/ingredientes");
   return { ok: "Proveedor guardado." };
+}
+
+// ── Edición inline (lista de ingredientes / editor de receta) ────────────────
+const quickPriceSchema = z.object({
+  price_cents: zCents,
+  qty: zQty,
+  unit: z.string().trim().min(1, "Elige la unidad de compra"),
+  package_label: z.string().trim().max(80).nullable().optional(),
+});
+
+/**
+ * Registra un nuevo precio de compra desde una celda (sin formulario). Devuelve el costo unitario nuevo,
+ * cuántos productos cambian de costo (product_cost_impact, verdad SQL) y el detalle.
+ */
+export async function recordIngredientPriceQuick(id: string, input: unknown): Promise<ActionState> {
+  const s = await requireSession("recipes.write");
+  if (!zId.safeParse(id).success) return { error: "Ingrediente inválido" };
+  const parsed = quickPriceSchema.safeParse(input);
+  if (!parsed.success) return { error: zodMessage(parsed.error) };
+  const ing = await db()
+    .selectFrom("ingredients")
+    .select(["base_unit", "supplier_id"])
+    .where("id", "=", id)
+    .where("deleted_at", "is", null)
+    .executeTakeFirst();
+  if (!ing) return { error: "Ingrediente no encontrado" };
+  const conv = toBase(parsed.data.qty, parsed.data.unit, ing.base_unit);
+  if (!conv.ok) return { error: conv.error };
+  try {
+    const unitCost = parsed.data.price_cents / 100 / conv.qty;
+    const impact = await sql<{
+      product_id: string;
+      product_name: string;
+      current_cost_cents: number;
+      new_cost_cents: number;
+    }>`select product_id, product_name, current_cost_cents, new_cost_cents from product_cost_impact(${id}, ${unitCost})`.execute(
+      db(),
+    );
+    const changed = impact.rows.filter((r) => r.current_cost_cents !== r.new_cost_cents);
+    await withStaff(db(), s.staff.id, (trx) =>
+      callFn(trx, "record_ingredient_price", [
+        id,
+        conv.qty,
+        parsed.data.price_cents,
+        parsed.data.package_label ?? null,
+        ing.supplier_id,
+        false,
+        1,
+      ]),
+    );
+    revalidate(id);
+    const n = changed.length;
+    return {
+      ok:
+        n === 0
+          ? "Precio registrado. Ningún costo de producto cambió."
+          : `Precio registrado. Cambió el costo de ${n} producto${n === 1 ? "" : "s"}.`,
+      data: {
+        unit_cost: unitCost,
+        package_qty: conv.qty,
+        price_cents: parsed.data.price_cents,
+        changed: n,
+        impact: changed,
+      },
+    };
+  } catch (e) {
+    return failure("ingredientes.price_quick", e);
+  }
+}
+
+export async function setIngredientMinStock(id: string, qty: unknown): Promise<ActionState> {
+  const s = await requireSession("recipes.write");
+  if (!zId.safeParse(id).success) return { error: "Ingrediente inválido" };
+  const q = z.number({ error: "Cantidad inválida" }).min(0).max(1_000_000_000).safeParse(qty);
+  if (!q.success) return { error: zodMessage(q.error) };
+  try {
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx
+        .updateTable("ingredients")
+        .set({ min_stock_qty: q.data })
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute(),
+    );
+  } catch (e) {
+    return failure("ingredientes.min_stock", e);
+  }
+  revalidate(id);
+  return { ok: "Stock mínimo guardado." };
 }

@@ -3,6 +3,10 @@ import { requireSession } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { pct, qty } from "@/lib/format";
 import { PageHeader, Table, Badge, Money, Card, Stat } from "@/components/ui";
+import { LinkTabs } from "@/components/catalog/tabs";
+import { FormulaDetails } from "@/components/catalog/formula";
+import { formulaLines } from "@/components/catalog/formula-lines";
+import { marginTone, normalizeBreakdown } from "@/components/catalog/costing-types";
 
 export const metadata = { title: "Recetas y costos" };
 export const dynamic = "force-dynamic";
@@ -21,6 +25,9 @@ type Row = {
   ingredient_count: number;
   has_missing_prices: boolean;
   updated_at: Date;
+  suggested_price_cents: number | null;
+  target_margin_bps: number;
+  breakdown: unknown;
 };
 
 export default async function RecipesPage({
@@ -34,7 +41,8 @@ export default async function RecipesPage({
   const [withRecipe, without] = await Promise.all([
     sql<Row>`
       select rc.product_id, rc.product_name, c.name as category_name, rc.yield_qty, rc.ingredients_cost, rc.labor_cents, rc.overhead_cents,
-             rc.cost_per_piece_cents, rc.pos_price_cents, rc.margin_bps, rc.ingredient_count::int as ingredient_count, rc.has_missing_prices, r.updated_at
+             rc.cost_per_piece_cents, rc.pos_price_cents, rc.margin_bps, rc.ingredient_count::int as ingredient_count, rc.has_missing_prices, r.updated_at,
+             rc.suggested_price_cents, rc.target_margin_bps, recipe_formula_breakdown(rc.product_id) as breakdown
       from recipe_costing rc
       join recipes r on r.id = rc.recipe_id
       join products p on p.id = rc.product_id and p.deleted_at is null
@@ -55,7 +63,9 @@ export default async function RecipesPage({
       order by p.is_active desc, p.name`.execute(db()),
   ]);
   const rows = withRecipe.rows;
-  const lowMargin = rows.filter((r) => r.margin_bps !== null && r.margin_bps < 3000).length;
+  const lowMargin = rows.filter(
+    (r) => r.margin_bps !== null && r.margin_bps < r.target_margin_bps,
+  ).length;
   const missing = rows.filter((r) => r.has_missing_prices).length;
   const avgMargin = rows.filter((r) => r.margin_bps !== null);
   const avg = avgMargin.length
@@ -66,7 +76,13 @@ export default async function RecipesPage({
     <>
       <PageHeader
         title="Recetas y costos"
-        subtitle="Costo por pieza calculado desde los precios vigentes de los insumos."
+        subtitle="Costo por pieza calculado desde los precios vigentes de los insumos. Abre ▸ Fórmula en cada fila para ver el cálculo con sus números."
+      />
+      <LinkTabs
+        items={[
+          { href: "/recetas", label: "Recetas", active: true },
+          { href: "/recetas/hoja", label: "Hoja de costos", active: false },
+        ]}
       />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Con receta" value={rows.length} hint={`${without.rows.length} sin receta`} />
@@ -76,9 +92,9 @@ export default async function RecipesPage({
           hint="sobre precio POS"
         />
         <Stat
-          label="Margen < 30%"
+          label="Bajo el margen objetivo"
           value={lowMargin}
-          tone={lowMargin ? "red" : undefined}
+          tone={lowMargin ? "amber" : undefined}
           hint={lowMargin ? "revisar precio o receta" : "todo en orden"}
         />
         <Stat
@@ -115,54 +131,69 @@ export default async function RecipesPage({
             <th className="text-right">Costo / pieza</th>
             <th className="text-right">Precio POS</th>
             <th className="text-right">Margen</th>
+            <th className="text-right">Sugerido</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-8 text-center text-muted">
+              <td colSpan={10} className="py-8 text-center text-muted">
                 Ninguna receta{q ? " coincide con la búsqueda" : " registrada todavía"}.
               </td>
             </tr>
           )}
-          {rows.map((r) => (
-            <tr key={r.product_id}>
-              <td>
-                <Link href={`/recetas/${r.product_id}`} className="font-medium hover:underline">
-                  {r.product_name}
-                </Link>
-                <div className="text-xs text-muted">{r.category_name ?? ""}</div>
-              </td>
-              <td className="text-right tabular-nums">{r.ingredient_count}</td>
-              <td className="text-right tabular-nums">{qty(r.yield_qty)}</td>
-              <td className="text-right tabular-nums">${Number(r.ingredients_cost).toFixed(2)}</td>
-              <td className="text-right">
-                <Money cents={r.labor_cents + r.overhead_cents} />
-              </td>
-              <td className="text-right font-medium">
-                <Money cents={r.cost_per_piece_cents} />
-                {r.has_missing_prices && (
-                  <Badge tone="amber" className="ml-1">
-                    incompleto
-                  </Badge>
-                )}
-              </td>
-              <td className="text-right">
-                <Money cents={r.pos_price_cents} />
-              </td>
-              <td
-                className={`text-right tabular-nums ${r.margin_bps !== null && r.margin_bps < 3000 ? "font-semibold text-red-d" : ""}`}
-              >
-                {pct(r.margin_bps)}
-              </td>
-              <td className="text-right">
-                <Link href={`/recetas/${r.product_id}`} className="btn btn-secondary btn-sm">
-                  Editar
-                </Link>
-              </td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const b = normalizeBreakdown(r.breakdown);
+            const tone = marginTone(r.margin_bps, r.target_margin_bps);
+            return (
+              <tr key={r.product_id}>
+                <td>
+                  <Link href={`/recetas/${r.product_id}`} className="font-medium hover:underline">
+                    {r.product_name}
+                  </Link>
+                  <div className="text-xs text-muted">{r.category_name ?? ""}</div>
+                  <FormulaDetails
+                    summary="Fórmula"
+                    lines={formulaLines(b, { includeLines: true, channel: "pos" })}
+                  />
+                </td>
+                <td className="text-right tabular-nums">{r.ingredient_count}</td>
+                <td className="text-right tabular-nums">{qty(r.yield_qty)}</td>
+                <td className="text-right tabular-nums">
+                  ${Number(r.ingredients_cost).toFixed(2)}
+                </td>
+                <td className="text-right">
+                  <Money cents={r.labor_cents + r.overhead_cents} />
+                </td>
+                <td className="text-right font-medium">
+                  <Money cents={r.cost_per_piece_cents} />
+                  {r.has_missing_prices && (
+                    <Badge tone="amber" className="ml-1">
+                      incompleto
+                    </Badge>
+                  )}
+                </td>
+                <td className="text-right">
+                  <Money cents={r.pos_price_cents} />
+                </td>
+                <td
+                  className={`text-right tabular-nums ${tone === "red" ? "font-semibold text-red-d" : tone === "amber" ? "font-semibold text-amber-d" : ""}`}
+                  title={`objetivo ${pct(r.target_margin_bps)}`}
+                >
+                  {pct(r.margin_bps)}
+                </td>
+                <td className="text-right text-muted">
+                  <Money cents={r.suggested_price_cents} />
+                </td>
+                <td className="text-right">
+                  <Link href={`/recetas/${r.product_id}`} className="btn btn-secondary btn-sm">
+                    Editar
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </Table>
 

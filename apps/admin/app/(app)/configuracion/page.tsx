@@ -5,11 +5,15 @@ import { PageHeader, Card, Badge, Alert } from "@/components/ui";
 import { LinkTabs } from "@/components/catalog/tabs";
 import { ActionForm, ConfirmButton, SubmitButton } from "@/components/catalog/action-form";
 import { Checkbox, FormGrid, Select, TextArea, TextInput } from "@/components/catalog/fields";
+import { CostingSettingsForm } from "@/components/catalog/costing-settings-form";
+import { normalizeBreakdown } from "@/components/catalog/costing-types";
+import { loadCostingSettings } from "@/lib/costing";
 import {
   deleteException,
   deletePickup,
   deleteWindow,
   saveBusiness,
+  saveCostingSettings,
   saveException,
   saveHours,
   savePickup,
@@ -26,6 +30,7 @@ const TABS = [
   ["pedidos", "Pedidos"],
   ["calendario", "Calendario"],
   ["retiro", "Puntos de retiro"],
+  ["formulas", "Fórmulas"],
   ["funciones", "Funciones"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
@@ -74,6 +79,7 @@ export default async function SettingsPage({
       {tab === "pedidos" && <WindowsTab />}
       {tab === "calendario" && <CalendarTab />}
       {tab === "retiro" && <PickupTab />}
+      {tab === "formulas" && <FormulasTab />}
       {tab === "funciones" && <FlagsTab />}
     </>
   );
@@ -782,5 +788,28 @@ async function FlagsTab() {
         ))}
       </ul>
     </Card>
+  );
+}
+
+async function FormulasTab() {
+  const [{ row, breakdownSettings }, products] = await Promise.all([
+    loadCostingSettings(),
+    sql<{ id: string; name: string; breakdown: unknown }>`
+      select p.id, p.name, recipe_formula_breakdown(p.id) as breakdown
+      from products p join recipes r on r.product_id = p.id
+      where p.deleted_at is null and p.is_active
+      order by p.name`.execute(db()),
+  ]);
+  return (
+    <CostingSettingsForm
+      action={saveCostingSettings}
+      current={breakdownSettings}
+      updatedAt={fmtDate(row.updated_at, "datetime")}
+      products={products.rows.map((p) => ({
+        id: p.id,
+        name: p.name,
+        breakdown: normalizeBreakdown(p.breakdown),
+      }))}
+    />
   );
 }

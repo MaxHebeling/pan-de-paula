@@ -20,6 +20,7 @@ import {
 } from "@/lib/forms";
 import { removeStoredImage, uploadFromForm } from "@/lib/uploads";
 import type { ActionState } from "@/lib/action-state";
+import { loadBreakdown } from "@/lib/costing";
 
 const slugRx = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const dateRx = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,7 +95,11 @@ function revalidate(id?: string) {
   revalidatePath("/productos");
   revalidatePath("/precios");
   revalidatePath("/recetas");
-  if (id) revalidatePath(`/productos/${id}`);
+  revalidatePath("/recetas/hoja");
+  if (id) {
+    revalidatePath(`/productos/${id}`);
+    revalidatePath(`/precios/${id}`);
+  }
 }
 
 export async function createProduct(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -386,4 +391,65 @@ export async function deleteProduct(id: string): Promise<void> {
   );
   revalidate();
   redirect("/productos?eliminado=1");
+}
+
+// ── Edición inline en la lista ───────────────────────────────────────────────
+const PRODUCT_FLAGS = [
+  "is_active",
+  "show_on_web",
+  "show_on_pos",
+  "is_featured",
+  "pos_favorite",
+] as const;
+export type ProductFlag = (typeof PRODUCT_FLAGS)[number];
+
+export async function setProductFlag(
+  id: string,
+  flag: ProductFlag,
+  value: boolean,
+): Promise<ActionState> {
+  const s = await requireSession("catalog.write");
+  if (!zId.safeParse(id).success) return { error: "Producto inválido" };
+  if (!PRODUCT_FLAGS.includes(flag)) return { error: "Campo inválido" };
+  if (typeof value !== "boolean") return { error: "Valor inválido" };
+  try {
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx
+        .updateTable("products")
+        .set({ [flag]: value })
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute(),
+    );
+  } catch (e) {
+    return failure("productos.flag", e);
+  }
+  revalidate(id);
+  return { ok: "Guardado." };
+}
+
+const priceChannel = z.enum(["all", "pos", "web"], { error: "Canal inválido" });
+
+/** Nuevo precio regular desde la lista (set_regular_price: cierra el anterior, nunca lo edita). */
+export async function setProductPrice(
+  id: string,
+  channel: "all" | "pos" | "web",
+  priceCents: unknown,
+): Promise<ActionState> {
+  const s = await requireSession("catalog.write");
+  if (!zId.safeParse(id).success) return { error: "Producto inválido" };
+  const ch = priceChannel.safeParse(channel);
+  const price = zCents.safeParse(priceCents);
+  if (!ch.success) return { error: zodMessage(ch.error) };
+  if (!price.success) return { error: zodMessage(price.error) };
+  try {
+    await withStaff(db(), s.staff.id, (trx) =>
+      callFn(trx, "set_regular_price", [id, ch.data, price.data, "Lista de productos"]),
+    );
+    const b = await loadBreakdown(id);
+    revalidate(id);
+    return { ok: "Precio regular actualizado.", data: b ? { breakdown: b } : undefined };
+  } catch (e) {
+    return failure("productos.price", e);
+  }
 }
