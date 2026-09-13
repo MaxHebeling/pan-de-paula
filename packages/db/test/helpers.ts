@@ -24,6 +24,9 @@ export async function truncateAll(db: Database) {
   await sql`update business_settings set allow_negative_stock = true, prices_include_tax = true, tax_rate_bps = 0, low_stock_threshold = 5`.execute(
     db,
   );
+  await sql`update costing_settings set default_target_margin_bps = 6000, price_rounding_cents = 100, default_waste_bps = 0, labor_mode = 'per_batch', labor_rate_cents_per_hour = 0, overhead_mode = 'fixed', overhead_pct_bps = 0 where id = 1`.execute(
+    db,
+  );
   await sql`update feature_flags set enabled = true where key in ('loyalty')`.execute(db);
   await sql`update feature_flags set enabled = false where key in ('ingredient_consumption')`.execute(
     db,
