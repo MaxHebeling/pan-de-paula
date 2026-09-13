@@ -36,7 +36,7 @@ export function ProductShowcase({ products }: { products: CatalogProduct[] }) {
           </CinLink>
         </SectionHeading>
 
-        <ol className="cin-showcase-list" aria-label="Productos estrella">
+        <ol className="cin-showcase-list" aria-label="Productos estrella" data-reveal-row>
           {products.map((p, i) => {
             const av = availability(p);
             const photo = productPhoto(p);

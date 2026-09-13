@@ -136,9 +136,10 @@ Lighthouse móvil (Lantern, `next build` + `next start` local, misma máquina, m
 | `/menu`                           | 90 / 3.6 s / 18 ms / 0           | **92** / 3.3 s / 1 ms / 0        |
 | `/producto/croissant-mantequilla` | 90 / 3.6 s / 18 ms / 0           | **93** / 3.2 s / 1 ms / 0        |
 
-Home cinematográfico (`feat/cinematic-home-v2`, mismo método, `next start -p 3120`): antes 88–89 / 3.8–3.9 s /
-20–30 ms / 0; después ver el informe de la rama (misma banda: el LCP simulado lo limita el JS del framework, ~269 KB,
-que no cambió).
+Home cinematográfico (`feat/cinematic-home-v2`, mismo método, `next start -p 3120`, 2 corridas): antes 88–89 /
+3.8–3.9 s / 20–30 ms / 0 · después **88** / 3.9–4.0 s / 20–30 ms / 0; a11y, BP y SEO 100; desktop 100 (LCP 0.8 s).
+JS inicial igual (12 peticiones, 269.9 → 268.9 KB); CSS 13.3 → 16.7 KB. El LCP simulado lo limita el JS del framework
+(~269 KB descargado antes del LCP), no la portada.
 
 Accesibilidad, Best Practices y SEO: 100 en las tres rutas, antes y después. (En producción con CDN y HTTP/2
 los valores absolutos son mejores; lo relevante es la comparación en igualdad de condiciones.)

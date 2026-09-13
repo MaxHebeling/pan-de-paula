@@ -10,6 +10,8 @@ import { motionEnabled } from "./reducedMotion";
  * Con reduced motion o sin JS no pasa nada: todo se ve.
  *
  * Marcado: `data-reveal="up|fade|scale|card|left|none"` y, opcionalmente, `--reveal-delay` (stagger).
+ * Dentro de una fila con scroll horizontal (`[data-reveal-row]` que desborda, p. ej. el showcase en móvil) no se
+ * oculta nada: el scroller recorta la intersección y lo que está fuera a los lados nunca se revelaría al bajar.
  * Hijos con `.reveal-img`, `.reveal-text` o `.word` se animan en cascada desde el CSS (app/motion.css).
  */
 export const REVEAL_WAIT = "reveal-wait";
@@ -34,6 +36,11 @@ export function initScrollReveal(root: ParentNode = document): () => void {
     }
   }
 
+  const inHorizontalRow = (el: HTMLElement) => {
+    const row = el.closest<HTMLElement>("[data-reveal-row]");
+    return Boolean(row && row.scrollWidth > row.clientWidth + 1);
+  };
+
   const show = (el: HTMLElement) => {
     el.classList.remove(REVEAL_WAIT);
     el.classList.add(REVEAL_IN);
@@ -48,7 +55,8 @@ export function initScrollReveal(root: ParentNode = document): () => void {
           io.unobserve(el);
         } else if (!el.classList.contains(REVEAL_IN) && !el.classList.contains(REVEAL_WAIT)) {
           // Primera observación: solo se oculta lo que está entero por debajo del viewport.
-          if (e.boundingClientRect.top >= window.innerHeight) el.classList.add(REVEAL_WAIT);
+          if (e.boundingClientRect.top >= window.innerHeight && !inHorizontalRow(el))
+            el.classList.add(REVEAL_WAIT);
           else {
             show(el);
             io.unobserve(el);
