@@ -75,12 +75,22 @@ test("rutas privadas y /api sin sesión: redirigen a /login y nunca devuelven da
   await page.waitForURL((u) => u.pathname === "/login");
   expect(new URL(page.url()).searchParams.get("next")).toBe("/usuarios");
 
-  const r = await request.get("/api/search?q=pan", { maxRedirects: 0 });
-  expect([307, 308, 401]).toContain(r.status());
-  expect(r.headers()["content-type"] ?? "").not.toContain("application/json");
-
-  const r2 = await request.get("/api/notifications/unread-count", { maxRedirects: 0 });
-  expect([307, 308, 401]).toContain(r2.status());
+  // APIs sin cookie: 401 JSON sin datos (antes 307 a /login → fetch recibía HTML con 200)
+  for (const path of [
+    "/api/search?q=pan",
+    "/api/notifications/unread-count",
+    "/api/reports/export?type=sales",
+    "/api/pos/customers?q=a",
+  ]) {
+    const r = await request.get(path, { maxRedirects: 0 });
+    expect(r.status(), path).toBe(401);
+    expect(await r.json(), path).toEqual({ error: "Sesión expirada", code: "UNAUTHENTICATED" });
+  }
+  const post = await request.post("/api/pos/checkout", { data: {}, maxRedirects: 0 });
+  expect(post.status()).toBe(401);
+  // Páginas siguen redirigiendo; export de conciliación no es /api y también redirige
+  const pageRes = await request.get("/inventario/conciliacion/export", { maxRedirects: 0 });
+  expect(pageRes.status()).toBe(307);
 
   const h = await request.get("/login");
   expect(h.headers()["x-frame-options"]).toBe("DENY");

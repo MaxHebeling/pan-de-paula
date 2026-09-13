@@ -52,6 +52,13 @@ export function proxy(req: NextRequest) {
   }
   if (isPublic(pathname)) return res;
   if (!req.cookies.get("pdp_session")?.value) {
+    // APIs: 401 JSON (mismo formato que apiSession). Un redirect a /login hacía que fetch recibiera HTML con 200.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Sesión expirada", code: "UNAUTHENTICATED" },
+        { status: 401, headers: { "cache-control": "no-store" } },
+      );
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
