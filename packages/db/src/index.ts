@@ -26,10 +26,12 @@ export type DbOptions = {
   max?: number;
 };
 
-function sslFromEnv(): false | { rejectUnauthorized: boolean } {
+function sslFromEnv(): false | { rejectUnauthorized: boolean; ca?: string } {
   const mode = (process.env.DATABASE_SSL ?? "disable").toLowerCase();
   if (mode === "disable" || mode === "false" || mode === "") return false;
-  return { rejectUnauthorized: mode !== "no-verify" };
+  // Supabase firma con su propia CA: se pasa en DATABASE_CA_CERT (PEM; se aceptan "\n" escapados).
+  const ca = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n").trim();
+  return { rejectUnauthorized: mode !== "no-verify", ...(ca ? { ca } : {}) };
 }
 
 let singleton: { db: Database; pool: pg.Pool } | null = null;

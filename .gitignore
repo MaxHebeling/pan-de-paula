@@ -20,3 +20,4 @@ backups/*.sql
 .playwright-mcp/
 # Reportes generados por el importador (uno por batch); se conservan en import_batches/import_rows
 packages/db/import/reports/*.md
+.secrets.*.local

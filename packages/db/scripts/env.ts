@@ -21,9 +21,11 @@ export function databaseUrl(kind: "app" | "test" = "app"): string {
   return url;
 }
 
-export function sslConfig(): false | { rejectUnauthorized: boolean } {
+export function sslConfig(): false | { rejectUnauthorized: boolean; ca?: string } {
   const mode = (process.env.DATABASE_SSL ?? "disable").toLowerCase();
   if (mode === "disable" || mode === "false" || mode === "") return false;
-  // Supabase usa certificados válidos; "no-verify" solo para túneles/proxies locales.
-  return { rejectUnauthorized: mode !== "no-verify" };
+  // "require": verifica el certificado. Supabase firma con su propia CA: pásala en DATABASE_CA_CERT (PEM, \n escapados permitidos).
+  // "no-verify" solo para túneles/proxies locales.
+  const ca = process.env.DATABASE_CA_CERT?.replace(/\\n/g, "\n").trim();
+  return { rejectUnauthorized: mode !== "no-verify", ...(ca ? { ca } : {}) };
 }
