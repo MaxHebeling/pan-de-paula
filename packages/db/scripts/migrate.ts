@@ -113,7 +113,7 @@ if (isMain) {
   const args = process.argv.slice(2);
   const urlIdx = args.indexOf("--url");
   const url =
-    urlIdx >= 0 ? args[urlIdx + 1]! : databaseUrl(args.includes("--test") ? "test" : "app");
+    urlIdx >= 0 ? args[urlIdx + 1]! : databaseUrl(args.includes("--test") ? "test" : "migrate");
   migrate(url, { statusOnly: args.includes("--status") }).catch((e) => {
     console.error(e.message);
     process.exit(1);
