@@ -55,7 +55,7 @@ export default async function CardPage({ params, searchParams }: Props) {
           ¡Bienvenido al club, {firstName}! Guarda esta página o descarga tu QR: es tu tarjeta.
         </p>
       )}
-      <div className="card overflow-hidden">
+      <div className="card card-enter overflow-hidden">
         <div className="flex items-center justify-between gap-4 bg-ink px-6 py-5 text-cream">
           <div>
             <p className="eyebrow text-crust-2">Club El Pan de Paula</p>

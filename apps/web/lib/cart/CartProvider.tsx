@@ -29,7 +29,8 @@ export type CartContextValue = {
   lastAddedAt: number;
   open: () => void;
   close: () => void;
-  add: (line: Omit<CartLine, "qty">, qty?: number) => void;
+  /** Agrega al carrito; por defecto abre el cajón. `open: false` deja que quien llama lo abra después. */
+  add: (line: Omit<CartLine, "qty">, qty?: number, opts?: { open?: boolean }) => void;
   setQty: (productId: string, qty: number) => void;
   remove: (productId: string) => void;
   clear: () => void;
@@ -136,10 +137,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       lastAddedAt,
       open: () => setOpen(true),
       close: () => setOpen(false),
-      add: (line, qty = 1) => {
+      add: (line, qty = 1, opts) => {
         cartStore.add(line, qty);
         setLastAddedAt(Date.now());
-        setOpen(true);
+        if (opts?.open !== false) setOpen(true);
       },
       setQty: cartStore.setQty,
       remove: cartStore.remove,

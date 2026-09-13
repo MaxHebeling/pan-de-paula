@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CartButton } from "./CartButton";
+import { HeaderShell } from "./HeaderShell";
 import { Logo } from "./Logo";
 import { MobileNav } from "./MobileNav";
 
@@ -13,7 +14,7 @@ export const NAV_LINKS = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line/70 bg-cream/85 backdrop-blur supports-[backdrop-filter]:bg-cream/70">
+    <HeaderShell>
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-pill focus:bg-ink focus:px-4 focus:py-2 focus:text-cream"
@@ -46,6 +47,6 @@ export function Header() {
           <MobileNav links={NAV_LINKS} />
         </div>
       </div>
-    </header>
+    </HeaderShell>
   );
 }

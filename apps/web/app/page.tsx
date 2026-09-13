@@ -1,13 +1,19 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { WEEKDAY_LABELS, formatLocalDate } from "@pdp/domain";
-import { Logo } from "@/components/Logo";
+import { CategoryRail } from "@/components/CategoryRail";
+import { ClubCard } from "@/components/ClubCard";
+import { Hero } from "@/components/Hero";
+import { HowToOrder } from "@/components/HowToOrder";
+import { Process } from "@/components/Process";
 import { ProductCard } from "@/components/ProductCard";
-import { ProductArt } from "@/components/ProductArt";
+import { Reveal } from "@/components/Reveal";
 import { Section } from "@/components/Section";
 import { listCategories, listFeatured, listPromos } from "@/lib/catalog";
 import { FULFILLMENT_LABELS, capitalize, hour12, hourRange } from "@/lib/format";
+import { qrDataUrl } from "@/lib/qr";
 import { fulfillmentOptions, fullAddress, getBusiness, openStatus } from "@/lib/site";
+import { getStoryPhotos } from "@/lib/storyPhotos";
 
 export const metadata: Metadata = {
   title: "El Pan de Paula · Panadería artesanal",
@@ -16,85 +22,29 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
 export default async function HomePage() {
   const business = await getBusiness();
-  const [featured, categories, promos] = await Promise.all([
+  const joinUrl = `${SITE_URL}/unete`;
+  const [featured, categories, promos, joinQr] = await Promise.all([
     listFeatured(6),
     listCategories(),
     listPromos(4),
+    qrDataUrl(joinUrl, 256),
   ]);
   const status = openStatus(business);
   const options = fulfillmentOptions(business);
   const address = fullAddress(business);
   const point = business.pickupPoints[0];
   const openDays = business.hours.filter((h) => h.isOpen && h.opensAt && h.closesAt);
+  const storyPhotos = getStoryPhotos();
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="container-x grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="reveal">
-            <p className="eyebrow mb-4">Boulangerie · Made with love</p>
-            <h1 className="display text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">
-              Pan recién horneado,
-              <br />
-              <span className="text-sage">hecho a mano</span> para tu mesa.
-            </h1>
-            <p className="mt-5 max-w-xl text-lg text-ink-2">
-              Croissants de mantequilla, roles de canela y galletas que salen del horno el mismo día
-              que los recoges. Pide en línea; nosotros horneamos para tu fecha.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/menu" className="btn btn-primary btn-lg" data-testid="cta-menu">
-                Ver menú
-              </Link>
-              <Link href="/menu" className="btn btn-secondary btn-lg">
-                Pedir ahora
-              </Link>
-            </div>
-            <p
-              className="mt-6 inline-flex items-center gap-2 rounded-pill border border-line bg-paper/80 px-4 py-2 text-sm"
-              data-testid="open-status"
-            >
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${status.open ? "bg-sage" : "bg-crust"}`}
-                aria-hidden="true"
-              />
-              {status.open ? (
-                <span>
-                  <strong className="font-semibold">Abierto ahora</strong>
-                  {status.closesAt && (
-                    <span className="text-ink-2"> · cerramos a las {hour12(status.closesAt)}</span>
-                  )}
-                </span>
-              ) : (
-                <span>
-                  <strong className="font-semibold">Cerrado</strong>
-                  <span className="text-ink-2">
-                    {" "}
-                    ·{" "}
-                    {status.opensAt && status.reason?.startsWith("Abrimos")
-                      ? `abrimos a las ${hour12(status.opensAt)}`
-                      : status.reason?.toLowerCase()}
-                  </span>
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="reveal reveal-2 relative mx-auto w-full max-w-[240px] sm:max-w-sm lg:max-w-md">
-            <div
-              className="absolute -inset-6 rounded-full bg-crust/15 blur-2xl"
-              aria-hidden="true"
-            />
-            <div className="card relative aspect-square overflow-hidden rounded-full p-6">
-              <Logo size={480} priority className="h-full w-full" />
-            </div>
-          </div>
-        </div>
-      </section>
+      <Hero status={status} />
 
-      {/* Destacados */}
+      {/* Favoritos de la casa */}
       {featured.length > 0 && (
         <Section
           id="destacados"
@@ -104,7 +54,9 @@ export default async function HomePage() {
         >
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((p, i) => (
-              <ProductCard key={p.id} p={p} priority={i < 2} />
+              <Reveal key={p.id} delay={(i % 3) * 90} className="h-full">
+                <ProductCard p={p} priority={i < 2} />
+              </Reveal>
             ))}
           </div>
         </Section>
@@ -113,53 +65,17 @@ export default async function HomePage() {
       {/* Categorías */}
       {categories.length > 0 && (
         <Section id="categorias" eyebrow="Explora" title="Nuestro menú por categorías">
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {categories.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/menu/${c.slug}`}
-                  className="card lift flex min-h-24 items-center gap-3 p-4 transition hover:border-sage/40"
-                >
-                  <span className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                    <ProductArt name={c.name} seed={c.slug} className="h-full w-full" />
-                  </span>
-                  <span>
-                    <span className="block font-display text-lg text-ink">{c.name}</span>
-                    <span className="text-xs text-ink-2">
-                      {c.productCount} {c.productCount === 1 ? "producto" : "productos"}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <Reveal variant="fade">
+            <CategoryRail categories={categories} />
+          </Reveal>
         </Section>
       )}
 
+      {/* Del horno a tu mesa */}
+      <Process photos={storyPhotos} />
+
       {/* Cómo pedir */}
-      <Section id="como-pedir" eyebrow="Así de fácil" title="Cómo pedir" className="bg-cream-2/50">
-        <ol className="grid gap-5 md:grid-cols-3">
-          {[
-            ["Elige tu pan", "Arma tu pedido desde el menú: croissants, roles, galletas y más."],
-            [
-              "Escoge tu fecha",
-              "Te mostramos las próximas fechas disponibles para recoger. Horneamos ese día.",
-            ],
-            [
-              "Recoge y disfruta",
-              "Paga en línea, al recoger o por transferencia. Te avisamos cuando esté listo.",
-            ],
-          ].map(([title, body], i) => (
-            <li key={title} className="card p-6">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-sage font-display text-lg text-white">
-                {i + 1}
-              </span>
-              <h3 className="mt-4 font-display text-xl text-ink">{title}</h3>
-              <p className="mt-2 text-sm text-ink-2">{body}</p>
-            </li>
-          ))}
-        </ol>
-      </Section>
+      <HowToOrder />
 
       {/* Próximas fechas */}
       <Section
@@ -169,32 +85,58 @@ export default async function HomePage() {
         intro="Pide antes de la hora límite y tu pan sale del horno ese día."
       >
         {options.length > 0 ? (
-          <ul className="grid gap-4 md:grid-cols-2">
-            {options.map((o) => (
-              <li
-                key={`${o.windowId}-${o.date}`}
-                className="card flex flex-col gap-2 p-5"
-                data-testid="fulfillment-option"
-              >
-                <p className="eyebrow">{FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}</p>
-                <p className="font-display text-2xl text-ink">
-                  {capitalize(formatLocalDate(o.date))}
-                </p>
-                {(o.from || o.to) && (
-                  <p className="text-sm text-ink-2">
-                    Horario de recolección: {hourRange(o.from, o.to)}
+          <ul className="grid gap-4 md:grid-cols-2" data-reveal-group="80">
+            {options.map((o, i) => {
+              const featuredDate = i === 0;
+              return (
+                <Reveal
+                  as="li"
+                  key={`${o.windowId}-${o.date}`}
+                  className={`card relative flex flex-col gap-2 p-5 ${featuredDate ? "date-featured" : ""}`}
+                  data-testid="fulfillment-option"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="eyebrow">
+                      {FULFILLMENT_LABELS[o.fulfillmentType] ?? o.windowName}
+                    </p>
+                    {featuredDate && (
+                      <span className="badge bg-sage text-white">Próxima fecha</span>
+                    )}
+                  </div>
+                  <p className={`font-display text-ink ${featuredDate ? "text-3xl" : "text-2xl"}`}>
+                    {capitalize(formatLocalDate(o.date))}
                   </p>
-                )}
-                <p className="text-sm text-ink-2">
-                  Pide antes del{" "}
-                  <strong className="text-ink">{formatLocalDate(o.orderBy.date)}</strong> a las{" "}
-                  <strong className="text-ink">{hour12(o.orderBy.time)}</strong>.
-                </p>
-                <Link href="/menu" className="mt-2 text-sm font-medium text-sage hover:underline">
-                  Pedir para esta fecha →
-                </Link>
-              </li>
-            ))}
+                  {(o.from || o.to) && (
+                    <p className="text-sm text-ink-2">
+                      Horario de recolección: {hourRange(o.from, o.to)}
+                    </p>
+                  )}
+                  <p className="text-sm text-ink-2">
+                    Pide antes del{" "}
+                    <strong className="text-ink">{formatLocalDate(o.orderBy.date)}</strong> a las{" "}
+                    <strong className="text-ink">{hour12(o.orderBy.time)}</strong>
+                  </p>
+                  <Link
+                    href="/menu"
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-sage hover:underline"
+                  >
+                    Pedir para esta fecha
+                    <svg
+                      className="btn-icon"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </Link>
+                </Reveal>
+              );
+            })}
           </ul>
         ) : (
           <div className="card p-6 text-ink-2">
@@ -213,8 +155,10 @@ export default async function HomePage() {
           className="bg-cream-2/50"
         >
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {promos.map((p) => (
-              <ProductCard key={p.id} p={p} />
+            {promos.map((p, i) => (
+              <Reveal key={p.id} delay={(i % 4) * 80} className="h-full">
+                <ProductCard p={p} />
+              </Reveal>
             ))}
           </div>
         </Section>
@@ -223,7 +167,7 @@ export default async function HomePage() {
       {/* Horarios y ubicación */}
       <Section id="visitanos" eyebrow="Visítanos" title="Horarios y ubicación">
         <div className="grid gap-5 md:grid-cols-2">
-          <div className="card p-6">
+          <Reveal className="card p-6">
             <h3 className="font-display text-xl text-ink">Horario de la panadería</h3>
             {openDays.length > 0 ? (
               <ul className="mt-4 space-y-1.5 text-sm">
@@ -244,8 +188,8 @@ export default async function HomePage() {
             ) : (
               <p className="mt-3 text-sm text-ink-2">Horarios por confirmar.</p>
             )}
-          </div>
-          <div className="card p-6">
+          </Reveal>
+          <Reveal delay={90} className="card p-6">
             <h3 className="font-display text-xl text-ink">
               {point?.name ?? "Punto de recolección"}
             </h3>
@@ -270,14 +214,14 @@ export default async function HomePage() {
                 </a>
               )}
             </div>
-          </div>
+          </Reveal>
         </div>
       </Section>
 
       {/* Instagram */}
       {business.instagramHandle && (
         <section className="container-x pb-8" aria-labelledby="ig-title">
-          <div className="card flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center sm:p-8">
+          <Reveal className="card flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center sm:p-8">
             <div>
               <p className="eyebrow mb-1">Instagram</p>
               <h2 id="ig-title" className="display text-2xl sm:text-3xl">
@@ -295,41 +239,59 @@ export default async function HomePage() {
             >
               Seguir @{business.instagramHandle}
             </a>
-          </div>
+          </Reveal>
         </section>
       )}
 
       {/* Club */}
-      <section className="container-x pb-8">
-        <div className="card relative overflow-hidden bg-ink p-8 text-cream sm:p-12">
+      <section className="container-x pb-8" aria-labelledby="club-title">
+        <Reveal
+          variant="fade"
+          className="card relative overflow-hidden bg-ink p-8 text-cream sm:p-12"
+        >
           <div
             className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-crust/30 blur-3xl"
             aria-hidden="true"
           />
-          <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+          <div className="relative grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
             <div>
               <p className="eyebrow text-crust-2">Club El Pan de Paula</p>
-              <h2 className="display mt-2 text-3xl text-cream sm:text-4xl">
+              <h2 id="club-title" className="display mt-2 text-3xl text-cream sm:text-4xl">
                 Únete al club y acumula puntos en cada compra
               </h2>
               <p className="mt-3 max-w-xl text-cream/80">
                 Regístrate en 30 segundos, recibe tu tarjeta digital con QR y canjea recompensas en
                 la panadería.
               </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/unete" className="btn btn-lg bg-cream text-ink hover:bg-paper">
+                  Quiero unirme
+                  <svg
+                    className="btn-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/club"
+                  className="btn btn-lg border border-cream/40 text-cream hover:bg-cream/10"
+                >
+                  Conocer el programa
+                </Link>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/unete" className="btn btn-lg bg-cream text-ink hover:bg-paper">
-                Quiero unirme
-              </Link>
-              <Link
-                href="/club"
-                className="btn btn-lg border border-cream/40 text-cream hover:bg-cream/10"
-              >
-                Conocer el programa
-              </Link>
-            </div>
+            <Reveal variant="card" delay={150} className="md:justify-self-end">
+              <ClubCard qrDataUrl={joinQr} joinUrl={joinUrl} />
+            </Reveal>
           </div>
-        </div>
+        </Reveal>
       </section>
     </>
   );
