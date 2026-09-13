@@ -10,7 +10,7 @@ export const MOTION = {
   /** Desplazamiento máximo del parallax (px). */
   parallaxMaxPx: 28,
   /** Profundidad del hero al mover el puntero (px). */
-  heroDepthPx: 7,
+  heroDepthPx: 6,
   /** Atracción magnética de los CTA del hero (px). Nunca "huyen". */
   magneticMaxPx: 5,
   /** Inclinación máxima de las cards al pasar el puntero (grados). */
