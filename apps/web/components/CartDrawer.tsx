@@ -1,49 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { trapFocus } from "@/lib/a11y/focusTrap";
 import { useCart } from "@/lib/cart/CartProvider";
 import { money } from "@/lib/format";
+import { motionEnabled } from "@/lib/motion/reducedMotion";
+import { pauseSmoothScroll, resumeSmoothScroll } from "@/lib/motion/smoothScroll";
 import { QuantityStepper } from "./AddToCart";
 import { ProductArt } from "./ProductArt";
+
+const CLOSE_MS = 300;
+const REMOVE_MS = 180;
 
 export function CartDrawer() {
   const cart = useCart();
   const panel = useRef<HTMLDivElement>(null);
   const closeBtn = useRef<HTMLButtonElement>(null);
 
+  // Presencia: al cerrar, el cajón sigue montado mientras sale (translateX + fade) y se desmonta al terminar.
+  const [mounted, setMounted] = useState(cart.isOpen);
+  const [closing, setClosing] = useState(false);
+  const [prevOpen, setPrevOpen] = useState(cart.isOpen);
+  if (cart.isOpen !== prevOpen) {
+    setPrevOpen(cart.isOpen);
+    if (cart.isOpen) {
+      setMounted(true);
+      setClosing(false);
+    } else if (mounted) {
+      if (motionEnabled()) setClosing(true);
+      else setMounted(false);
+    }
+  }
+  useEffect(() => {
+    if (!closing) return;
+    const t = window.setTimeout(() => {
+      setClosing(false);
+      setMounted(false);
+    }, CLOSE_MS);
+    return () => window.clearTimeout(t);
+  }, [closing]);
+
   useEffect(() => {
     if (!cart.isOpen) return;
     const prev = document.activeElement as HTMLElement | null;
     closeBtn.current?.focus();
     document.body.style.overflow = "hidden";
+    pauseSmoothScroll();
+    const untrap = panel.current ? trapFocus(panel.current) : () => {};
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") cart.close();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = "";
+      resumeSmoothScroll();
+      untrap();
       window.removeEventListener("keydown", onKey);
       prev?.focus?.();
     };
   }, [cart.isOpen, cart]);
 
-  if (!cart.isOpen) return null;
+  const removeLine = (e: React.MouseEvent<HTMLButtonElement>, productId: string) => {
+    const li = e.currentTarget.closest<HTMLElement>("li");
+    if (!motionEnabled() || !li || !("animate" in li)) {
+      cart.remove(productId);
+      return;
+    }
+    li.classList.add("is-removing");
+    window.setTimeout(() => {
+      const h = li.getBoundingClientRect().height;
+      const anim = li.animate(
+        [
+          { height: `${h}px`, paddingTop: getComputedStyle(li).paddingTop },
+          { height: "0px", paddingTop: "0px", paddingBottom: "0px" },
+        ],
+        { duration: 160, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)", fill: "forwards" },
+      );
+      const done = () => cart.remove(productId);
+      anim.addEventListener("finish", done, { once: true });
+      anim.addEventListener("cancel", done, { once: true });
+    }, REMOVE_MS);
+  };
+
+  if (!mounted) return null;
 
   return (
-    <div className="fixed inset-0 z-50" role="presentation">
+    <div className={`fixed inset-0 z-50 ${closing ? "drawer-closing" : ""}`} role="presentation">
       <button
         type="button"
-        className="absolute inset-0 bg-ink/40"
+        className="drawer-overlay absolute inset-0 bg-ink/40"
         aria-label="Cerrar carrito"
         onClick={cart.close}
+        tabIndex={-1}
       />
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-title"
-        className="drawer-in absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-paper shadow-lift"
+        className="drawer-in drawer-panel absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-paper shadow-lift"
         data-testid="cart-drawer"
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
@@ -54,7 +110,7 @@ export function CartDrawer() {
             ref={closeBtn}
             type="button"
             onClick={cart.close}
-            className="tap rounded-full text-ink hover:bg-cream-2"
+            className="tap rounded-full text-ink transition hover:bg-cream-2"
             aria-label="Cerrar"
           >
             <svg
@@ -81,9 +137,13 @@ export function CartDrawer() {
           </div>
         ) : (
           <>
-            <ul className="flex-1 divide-y divide-line overflow-y-auto px-5">
-              {cart.lines.map((l) => (
-                <li key={l.productId} className="flex gap-3 py-4">
+            <ul className="flex-1 divide-y divide-line overflow-y-auto px-5" data-lenis-prevent>
+              {cart.lines.map((l, i) => (
+                <li
+                  key={l.productId}
+                  className="drawer-line flex gap-3 overflow-hidden py-4"
+                  style={{ "--i": Math.min(i, 6) } as CSSProperties}
+                >
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[14px] bg-cream-2">
                     {l.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -97,15 +157,15 @@ export function CartDrawer() {
                       <Link
                         href={`/producto/${l.slug}`}
                         onClick={cart.close}
-                        className="font-medium text-ink hover:text-sage"
+                        className="font-medium text-ink transition-colors hover:text-sage"
                       >
                         {l.name}
                         {l.variantLabel && <span className="text-ink-2"> · {l.variantLabel}</span>}
                       </Link>
                       <button
                         type="button"
-                        onClick={() => cart.remove(l.productId)}
-                        className="tap -mr-2 shrink-0 rounded-full text-ink-2 hover:bg-cream-2 hover:text-wine"
+                        onClick={(e) => removeLine(e, l.productId)}
+                        className="tap -mr-2 shrink-0 rounded-full text-ink-2 transition hover:bg-cream-2 hover:text-wine"
                         aria-label={`Quitar ${l.name}`}
                       >
                         <svg
@@ -169,6 +229,18 @@ export function CartDrawer() {
                   data-testid="drawer-checkout"
                 >
                   Hacer pedido
+                  <svg
+                    className="btn-icon"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
                 </Link>
               </div>
             </div>
