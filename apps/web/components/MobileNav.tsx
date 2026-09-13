@@ -23,7 +23,7 @@ export function MobileNav({ links }: { links: Array<{ href: string; label: strin
         type="button"
         className="tap inline-flex items-center justify-center rounded-full text-ink hover:bg-cream-2"
         aria-expanded={open}
-        aria-controls="mobile-menu"
+        aria-controls={open ? "mobile-menu" : undefined}
         aria-label={open ? "Cerrar menú" : "Abrir menú"}
         onClick={() => setOpenAt(open ? null : pathname)}
       >

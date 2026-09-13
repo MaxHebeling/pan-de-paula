@@ -2,8 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { customerRegistrationSchema } from "@pdp/domain";
+import { isEmailConfigured, sendEmail } from "@pdp/integrations";
+import { findCustomer } from "@/lib/customers";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
+import { cardUrl } from "@/lib/qr";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { getBusiness } from "@/lib/site";
 
 export type JoinValues = {
   full_name: string;
@@ -12,12 +16,19 @@ export type JoinValues = {
   birthday: string;
   marketing_consent: boolean;
 };
-export type JoinState = { error?: string; field?: string; values?: JoinValues } | null;
+export type JoinState = {
+  error?: string;
+  field?: string;
+  /** "existing": ya hay una tarjeta con ese teléfono/correo; no se muestra ni se modifica (privacidad). */
+  notice?: "existing";
+  emailSent?: boolean;
+  values?: JoinValues;
+} | null;
 
 export async function joinClubAction(_prev: JoinState, formData: FormData): Promise<JoinState> {
   const raw = {
     full_name: String(formData.get("full_name") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
+    phone: String(formData.get("phone") ?? ""), // phoneMX lo deja canónico
     email: String(formData.get("email") ?? ""),
     birthday: String(formData.get("birthday") ?? ""),
     marketing_consent: formData.get("marketing_consent") === "on",
@@ -43,19 +54,65 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
   try {
     const rl = await rateLimit("register");
     if (!rl.allowed) return { error: RATE_LIMIT_MESSAGE, values: { ...raw } };
+
+    // Ya existe una cuenta con ese teléfono o correo: no se revela, no se modifica y no se redirige a su
+    // tarjeta (cualquiera podría escribir el teléfono de otra persona). Si la cuenta tiene correo y el envío
+    // está configurado, se le manda el enlace a ESE correo.
+    const existing =
+      (parsed.data.phone ? await findCustomer(parsed.data.phone) : null) ??
+      (parsed.data.email ? await findCustomer(parsed.data.email) : null);
+    if (existing) {
+      console.info(`[club] registro repetido para ${existing.publicCode}; no se expone la tarjeta`);
+      return { notice: "existing", emailSent: await sendCardLink(existing), values: { ...raw } };
+    }
+
     const r = await callFn<{
       customer_id: string;
       public_code: string;
       qr_token: string;
       created: boolean;
     }>(db(), "register_customer", [JSON.stringify(parsed.data)]);
-    token = r.qr_token;
     if (!r.created) {
-      console.info(`[club] registro repetido, se reutiliza la cuenta ${r.public_code}`);
+      // Carrera entre la comprobación y el alta: mismo tratamiento que arriba.
+      console.info(`[club] registro repetido (carrera) para ${r.public_code}`);
+      return { notice: "existing", emailSent: false, values: { ...raw } };
     }
+    token = r.qr_token;
   } catch (e) {
     console.error("[joinClubAction]", e);
     return { error: dbErrorMessage(e).message, values: { ...raw } };
   }
   redirect(`/mi-tarjeta/${encodeURIComponent(token)}?bienvenida=1`);
+}
+
+async function sendCardLink(c: {
+  id: string;
+  email: string | null;
+  qrToken: string;
+  fullName: string;
+}) {
+  if (!c.email || !isEmailConfigured()) return false;
+  try {
+    const business = await getBusiness();
+    const link = cardUrl(c.qrToken);
+    const first = c.fullName.split(/\s+/)[0] ?? "";
+    const r = await sendEmail({
+      to: c.email,
+      subject: `Tu tarjeta del club · ${business.name}`,
+      html: `<p>Hola ${escapeHtml(first)}, aquí tienes el enlace a tu tarjeta del club de ${escapeHtml(business.name)}:</p><p><a href="${link}">${link}</a></p><p>Es personal: no lo compartas.</p>`,
+      text: `Hola ${first}, tu tarjeta del club de ${business.name}: ${link}`,
+      idempotencyKey: `card-link-${c.id}-${new Date().toISOString().slice(0, 10)}`,
+    });
+    return Boolean(r.sent);
+  } catch (e) {
+    console.error("[club] no se pudo enviar el enlace de la tarjeta", e);
+    return false;
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 }

@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { formatLocalDate, newIdempotencyKey } from "@pdp/domain";
+import { formatLocalDate } from "@pdp/domain";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/lib/cart/CartProvider";
+import {
+  cartSignature,
+  clearIdempotencyKey,
+  getOrCreateIdempotencyKey,
+} from "@/lib/checkout/idempotency";
 import { FULFILLMENT_LABELS, capitalize, hour12, hourRange, money } from "@/lib/format";
 import { lookupCustomerAction, placeOrderAction, type CheckoutPayload } from "./actions";
 
@@ -40,7 +45,9 @@ export function CheckoutForm({
   const cart = useCart();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [idem] = useState(() => newIdempotencyKey("web"));
+  // Clave de idempotencia ligada al contenido del carrito y persistida en sessionStorage: un refresh o un
+  // "atrás" a mitad del envío reutiliza la misma clave y el servidor devuelve el pedido ya creado.
+  const signature = cartSignature(cart.lines);
 
   const [optionKey, setOptionKey] = useState(
     options[0] ? `${options[0].windowId}|${options[0].date}` : "",
@@ -156,7 +163,7 @@ export function CheckoutForm({
       notes: cart.notes.trim() || undefined,
       payment_method: method,
       marketing_consent: consent,
-      idempotency_key: idem,
+      idempotency_key: getOrCreateIdempotencyKey(safeSessionStorage(), signature),
     };
     startTransition(async () => {
       const r = await placeOrderAction(payload);
@@ -164,6 +171,7 @@ export function CheckoutForm({
         setError({ message: r.error, field: r.field });
         return;
       }
+      clearIdempotencyKey(safeSessionStorage());
       cart.clear();
       if (/^https?:\/\//.test(r.redirect) && !r.redirect.startsWith(window.location.origin)) {
         window.location.assign(r.redirect);
@@ -174,6 +182,9 @@ export function CheckoutForm({
   };
 
   const err = (field: string) => (error?.field === field ? error.message : null);
+  // Campos con mensaje propio junto al control; cualquier otro error (o sin campo) se muestra en el resumen.
+  const INLINE_FIELDS = ["customer_name", "customer_phone", "customer_email", "delivery_address"];
+  const summaryError = error && !INLINE_FIELDS.includes(error.field ?? "") ? error.message : null;
 
   return (
     <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_380px]" noValidate>
@@ -244,7 +255,7 @@ export function CheckoutForm({
                 {pickupPoints.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
-                    {p.address ? ` · ${p.address}` : ""}
+                    {p.address && p.address !== "Dirección por configurar" ? ` · ${p.address}` : ""}
                   </option>
                 ))}
               </select>
@@ -413,7 +424,12 @@ export function CheckoutForm({
                     id="lookup"
                     className="input"
                     value={lookup}
-                    onChange={(e) => setLookup(e.target.value)}
+                    onChange={(e) => {
+                      setLookup(e.target.value);
+                      // Al editar el dato, la confirmación anterior deja de valer.
+                      setLookupHint(null);
+                      setLookupError(null);
+                    }}
                     placeholder="PDP-000123 o 6641234567"
                   />
                   <button
@@ -568,13 +584,11 @@ export function CheckoutForm({
               {(option.from || option.to) && ` · ${hourRange(option.from, option.to)}`}
             </p>
           )}
-          {error &&
-            (!error.field ||
-              ["items", "coupon_code", "date", "payment_method"].includes(error.field)) && (
-              <p className="error" role="alert" data-testid="checkout-error">
-                {error.message}
-              </p>
-            )}
+          {summaryError && (
+            <p className="error" role="alert" data-testid="checkout-error">
+              {summaryError}
+            </p>
+          )}
           <button
             type="submit"
             className="btn btn-primary btn-lg mt-5 w-full"
@@ -605,6 +619,14 @@ export function CheckoutForm({
       </aside>
     </form>
   );
+}
+
+function safeSessionStorage(): Storage | null {
+  try {
+    return typeof window !== "undefined" ? window.sessionStorage : null;
+  } catch {
+    return null; // modo privado / almacenamiento bloqueado
+  }
 }
 
 function PayOption({

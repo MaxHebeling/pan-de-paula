@@ -104,6 +104,21 @@ export function JoinForm() {
           {state.error}
         </p>
       )}
+      {state?.notice === "existing" && (
+        <div
+          className="rounded-card border border-crust/50 bg-crust/10 px-4 py-3 text-sm text-ink"
+          role="status"
+          data-testid="join-existing"
+        >
+          <p className="font-medium">Ese teléfono o correo ya tiene una tarjeta del club.</p>
+          <p className="mt-1 text-ink-2">
+            Para proteger tus datos no la mostramos aquí.{" "}
+            {state.emailSent
+              ? "Te enviamos el enlace de tu tarjeta al correo registrado."
+              : "Pídela en la panadería con tu teléfono o escríbenos y te la reenviamos."}
+          </p>
+        </div>
+      )}
       <button
         type="submit"
         className="btn btn-primary btn-lg w-full sm:w-auto"

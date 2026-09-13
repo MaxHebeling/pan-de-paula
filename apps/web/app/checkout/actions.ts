@@ -20,6 +20,7 @@ export type LookupResult = { found: true; hint: string } | { found: false; error
 
 /** "Ya soy cliente": confirma solo un nombre parcial; el vínculo real se hace en el servidor al crear el pedido. */
 export async function lookupCustomerAction(query: string): Promise<LookupResult> {
+  // find_customer normaliza el teléfono (+52 / 52 / 521 / 01 → 10 dígitos) en SQL; códigos PDP y correos pasan tal cual.
   const q = (query ?? "").trim().slice(0, 120);
   if (q.length < 6) return { found: false, error: "Escribe tu teléfono o tu código PDP." };
   try {
@@ -58,6 +59,28 @@ export type CheckoutPayload = {
 export type CheckoutResult =
   { ok: true; redirect: string } | { ok: false; error: string; field?: string };
 
+/**
+ * create_order es idempotente por `idempotency_key`, pero dos envíos simultáneos con la misma clave
+ * (doble clic con red lenta, dos pestañas) pueden pasar ambos la comprobación previa: el segundo choca con
+ * el índice único. Aquí se resuelve devolviendo el pedido que ya existe en vez de un error genérico.
+ */
+async function createWebOrder(payload: Record<string, unknown> & { idempotency_key: string }) {
+  try {
+    return await callFn<string>(db(), "create_order", [JSON.stringify(payload)]);
+  } catch (e) {
+    const err = e as { code?: string; constraint?: string };
+    if (err.code === "23505" && err.constraint === "orders_idempotency_key_key") {
+      const row = await db()
+        .selectFrom("orders")
+        .select("id")
+        .where("idempotency_key", "=", payload.idempotency_key)
+        .executeTakeFirst();
+      if (row) return row.id;
+    }
+    throw e;
+  }
+}
+
 export async function placeOrderAction(payload: CheckoutPayload): Promise<CheckoutResult> {
   try {
     const rl = await rateLimit("checkout");
@@ -93,7 +116,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       scheduled_date: option.date,
       pickup_point_id: isDelivery ? undefined : payload.pickup_point_id,
       customer_name: payload.customer_name,
-      customer_phone: payload.customer_phone,
+      customer_phone: payload.customer_phone, // phoneMX lo deja canónico (canonicalPhone)
       customer_email: payload.customer_email ?? "",
       delivery_address: isDelivery ? payload.delivery_address : undefined,
       coupon_code: payload.coupon_code ?? "",
@@ -190,26 +213,24 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     // 7) Crear pedido (precios del servidor, canal web).
     const scheduledFor = zonedToUtc(option.date, option.from ?? "00:00", business.timezone);
     const deliveryFee = isDelivery ? (business.policies.delivery_fee_cents ?? 0) : 0;
-    const orderId = await callFn<string>(db(), "create_order", [
-      JSON.stringify({
-        channel: "web",
-        price_channel: "web",
-        fulfillment_type: window.fulfillmentType,
-        customer_id: customerId,
-        customer_name: data.customer_name,
-        customer_phone: data.customer_phone,
-        customer_email: data.customer_email,
-        pickup_point_id: pickupPointId,
-        delivery_address: isDelivery ? data.delivery_address : undefined,
-        scheduled_for: scheduledFor.toISOString(),
-        ordering_window_id: window.id,
-        notes: data.notes,
-        items: data.items.map((i) => ({ product_id: i.product_id, qty: i.qty, notes: i.notes })),
-        coupon_code: data.coupon_code,
-        delivery_fee_cents: deliveryFee,
-        idempotency_key: data.idempotency_key,
-      }),
-    ]);
+    const orderId = await createWebOrder({
+      channel: "web",
+      price_channel: "web",
+      fulfillment_type: window.fulfillmentType,
+      customer_id: customerId,
+      customer_name: data.customer_name,
+      customer_phone: data.customer_phone,
+      customer_email: data.customer_email,
+      pickup_point_id: pickupPointId,
+      delivery_address: isDelivery ? data.delivery_address : undefined,
+      scheduled_for: scheduledFor.toISOString(),
+      ordering_window_id: window.id,
+      notes: data.notes,
+      items: data.items.map((i) => ({ product_id: i.product_id, qty: i.qty, notes: i.notes })),
+      coupon_code: data.coupon_code,
+      delivery_fee_cents: deliveryFee,
+      idempotency_key: data.idempotency_key,
+    });
 
     const row = await db()
       .selectFrom("orders")
