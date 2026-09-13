@@ -21,7 +21,7 @@ mkdir -p backups
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 OUT="backups/pdp-$ENV-$STAMP-$LABEL.dump"
 # Solo el esquema public (los esquemas internos de Supabase no son nuestros ni accesibles para pdp_app)
-pg_dump --format=custom --no-owner --no-privileges --schema=public --file="$OUT" "$SRC"
+pg_dump --format=custom --no-owner --no-privileges --schema=public --enable-row-security --file="$OUT" "$SRC"
 pg_restore --list "$OUT" >/dev/null   # verifica que el archivo es legible
 SIZE=$(du -h "$OUT" | cut -f1)
 echo "✔ Respaldo: $OUT ($SIZE)"
