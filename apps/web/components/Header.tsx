@@ -24,15 +24,15 @@ export function Header() {
       <div className="container-x relative flex h-16 items-center justify-between gap-3 sm:h-[72px]">
         <Link href="/" className="flex items-center gap-3" aria-label="El Pan de Paula, inicio">
           <Logo size={44} priority />
-          <span className="hidden font-display text-lg leading-none text-ink sm:block">
+          <span className="header-on-dark hidden font-display text-lg leading-none text-ink sm:block">
             El Pan de Paula
           </span>
         </Link>
-        <nav aria-label="Navegación principal" className="hidden md:block">
+        <nav aria-label="Navegación principal" className="header-nav-enter hidden md:block">
           <ul className="flex items-center gap-1">
             {NAV_LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="btn btn-ghost px-3.5 text-[15px]">
+                <Link href={l.href} className="header-on-dark btn btn-ghost px-3.5 text-[15px]">
                   {l.label}
                 </Link>
               </li>
@@ -40,7 +40,7 @@ export function Header() {
           </ul>
         </nav>
         <div className="flex items-center gap-1">
-          <Link href="/menu" className="btn btn-sage hidden px-4 sm:inline-flex">
+          <Link href="/menu" className="header-nav-enter btn btn-sage hidden px-4 sm:inline-flex">
             Pedir ahora
           </Link>
           <CartButton />

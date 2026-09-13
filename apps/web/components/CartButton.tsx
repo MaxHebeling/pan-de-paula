@@ -8,7 +8,7 @@ export function CartButton() {
     <button
       type="button"
       onClick={cart.open}
-      className="tap relative inline-flex items-center justify-center rounded-full text-ink transition hover:bg-cream-2 active:scale-95"
+      className="header-on-dark tap relative inline-flex items-center justify-center rounded-full text-ink transition hover:bg-cream-2 active:scale-95"
       aria-label={`Abrir carrito, ${cart.count} ${cart.count === 1 ? "artículo" : "artículos"}`}
       data-testid="cart-button"
       data-cart-target
