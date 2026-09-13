@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description:
     "Sistema operativo de El Pan de Paula: POS, producción, inventario, clientes y reportes.",
   robots: { index: false, follow: false },
+  icons: { icon: "/logo.png", apple: "/apple-icon.png" },
 };
 export const viewport: Viewport = {
   themeColor: "#f5f5f7",

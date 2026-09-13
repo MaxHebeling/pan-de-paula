@@ -11,7 +11,8 @@ const PUBLIC_PATHS = [
   "/403",
   "/_next",
   "/favicon.ico",
-  "/logo.jpeg",
+  "/logo.png",
+  "/apple-icon.png",
   "/manifest.webmanifest",
   "/icons",
 ];

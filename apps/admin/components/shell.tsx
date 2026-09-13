@@ -47,7 +47,7 @@ export function Shell({
     <div className="min-h-dvh md:grid md:grid-cols-[240px_1fr]">
       <aside className="glass sticky top-0 hidden h-dvh overflow-y-auto border-r border-line md:block">
         <div className="flex items-center gap-2.5 px-4 py-4">
-          <Image src="/logo.jpeg" alt="" width={36} height={36} className="rounded-full" />
+          <Image src="/logo.png" alt="" width={36} height={36} className="rounded-full" />
           <div>
             <div className="text-sm font-semibold leading-tight">El Pan de Paula</div>
             <div className="text-[11px] text-muted">Sistema operativo</div>

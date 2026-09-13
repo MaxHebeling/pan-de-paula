@@ -18,7 +18,7 @@ export default async function LoginPage({
       <div className="card card-lg w-full max-w-sm p-6 md:p-8">
         <div className="mb-6 flex flex-col items-center text-center">
           <Image
-            src="/logo.jpeg"
+            src="/logo.png"
             alt="El Pan de Paula"
             width={72}
             height={72}
