@@ -826,6 +826,13 @@ test("pedidos: filtros, paginación, cero resultados, URL inválida, pedido manu
   await expect(page.getByRole("link", { name: "← Anteriores" })).toBeVisible();
   await page.goto("/pedidos?vista=todos&q=NO-EXISTE-XYZ");
   await expect(page.getByText("Sin pedidos")).toBeVisible();
+  // Comodines LIKE literales: "%" y "_" no deben listar todos los pedidos
+  for (const w of ["%25", "_"]) {
+    await page.goto(`/pedidos?vista=todos&q=${w}`);
+    await expect(page.getByText("Sin pedidos")).toBeVisible();
+  }
+  await page.goto("/pos/ventas?q=%25%25%25");
+  await expect(page.getByText("No hay ventas para mostrar.")).toBeVisible();
   await page.goto("/pedidos?vista=todos&estado=refunded&canal=pos");
   await expect(page.getByRole("heading", { name: "Pedidos", exact: true })).toBeVisible();
   await page.goto("/pedidos/not-a-uuid");
@@ -1484,13 +1491,22 @@ test("pedido sin pagar no ofrece 'Pagado'; anular venta POS cobrada por Mercado 
   expect(await onHand(panId)).toBe(stockBefore);
 
   // 3) Exportar CSV con un nombre de producto que parece fórmula
-  const evil = await ensureProduct('=HYPERLINK("x")', "audit-csv-formula", 1000, 5);
+  const evil = await ensureProduct('=HYPERLINK("x")', "audit-csv-formula", 1000, 0);
+  await sql`update products set deleted_at = null, is_active = true where id = ${evil}::uuid`.execute(
+    db,
+  );
+  await db.transaction().execute(async (trx) => {
+    await sql`select set_config('app.staff_id', ${staff.id}, true)`.execute(trx);
+    await sql`select record_stock_correction(${evil}::uuid, -2, 'error', 'csv audit')`.execute(trx);
+  });
   const csv = await page.request.get(
     `/inventario/conciliacion/export?desde=2020-01-01&hasta=2030-12-31`,
     { headers: await apiLogin(page.request, page) },
   );
   const line = (await csv.text()).split("\r\n").find((l) => l.includes("HYPERLINK"))!;
   expect(line.startsWith(`"'=HYPERLINK(""x"")"`)).toBe(true);
+  // Los números negativos (correcciones) no se prefijan
+  expect(line.split(",").slice(-3)).toEqual(["-2.000", "0", "-2.000"]);
   await sql`update products set is_active = false, deleted_at = now() where id = ${evil}::uuid`.execute(
     db,
   );
@@ -1562,4 +1578,81 @@ test("sesión expirada en el POS: el cobro muestra error claro y la cola offline
   } finally {
     await setFlag("pos_offline_queue", false);
   }
+});
+
+test("API POS: validación de entrada y reglas de negocio con mensajes claros (sin pedidos huérfanos)", async ({
+  page,
+}) => {
+  await login(page, ADMIN, "/pos");
+  const headers = await apiLogin(page.request, page);
+  const inactive = await ensureProduct("Audit Inactivo E2E", "audit-inactivo-e2e", 1000, 5);
+  await sql`update products set is_active = false where id = ${inactive}::uuid`.execute(db);
+  const noPrice = await ensureProduct("Audit Sin Precio E2E", "audit-sinprecio-e2e", 1000, 5);
+  await sql`delete from product_prices where product_id = ${noPrice}::uuid`.execute(db);
+  const ordersBefore = (await one<{ n: number }>(sql`select count(*)::int as n from orders`)).n;
+  const post = (items: unknown, payments: unknown, extra: Record<string, unknown> = {}) =>
+    page.request.post("/api/pos/checkout", {
+      headers,
+      data: {
+        idempotency_key: `aud-val-${Date.now()}-${Math.random()}`,
+        items,
+        payments,
+        ...extra,
+      },
+    });
+  const card = (amount: number) => [
+    { provider: "manual", method: "card_terminal", amount_cents: amount },
+  ];
+  const cases: Array<[string, Promise<import("@playwright/test").APIResponse>, number, RegExp]> = [
+    ["qty 0", post([{ product_id: panId, qty: 0 }], card(4000)), 400, /./],
+    ["qty negativa", post([{ product_id: panId, qty: -1 }], card(4000)), 400, /./],
+    ["sin productos", post([], card(4000)), 400, /./],
+    ["uuid inválido", post([{ product_id: "x", qty: 1 }], card(4000)), 400, /./],
+    [
+      "producto inexistente",
+      post([{ product_id: "00000000-0000-0000-0000-000000000000", qty: 1 }], card(4000)),
+      400,
+      /Referencia inválida|no existe/,
+    ],
+    ["inactivo", post([{ product_id: inactive, qty: 1 }], card(1000)), 409, /no está disponible/],
+    ["sin precio", post([{ product_id: noPrice, qty: 1 }], card(1000)), 409, /precio/],
+    ["pago parcial", post([{ product_id: panId, qty: 1 }], card(1000)), 409, /no cubren el total/],
+    ["sobrepago", post([{ product_id: panId, qty: 1 }], card(5000)), 409, /excede/],
+    [
+      "efectivo recibido menor",
+      post(
+        [{ product_id: panId, qty: 1 }],
+        [{ provider: "manual", method: "card_terminal", amount_cents: 4000, tendered_cents: 100 }],
+      ),
+      201,
+      /./,
+    ],
+    ["body no JSON", page.request.post("/api/pos/checkout", { headers, data: "{" }), 400, /./],
+  ];
+  for (const [name, pr, status, msg] of cases) {
+    const r = await pr;
+    expect(r.status(), name).toBe(status);
+    if (status >= 400) expect((await r.json()).error, name).toMatch(msg);
+  }
+  // tendered_cents solo cuenta en efectivo: la tarjeta con "recibido" absurdo se ignora (1 venta creada arriba)
+  expect((await one<{ n: number }>(sql`select count(*)::int as n from orders`)).n).toBe(
+    ordersBefore + 1,
+  );
+  // Descuento por línea con permiso (admin) sí se acepta y el servidor calcula el total
+  const disc = await post([{ product_id: panId, qty: 2, discount_cents: 500 }], card(7500));
+  expect(disc.status()).toBe(201);
+  expect((await disc.json()).totalCents).toBe(7500);
+  // Comprobante por email con el flag apagado → 409 claro
+  const orderId = (
+    await one<{ id: string }>(sql`select id from orders order by created_at desc limit 1`)
+  ).id;
+  const email = await page.request.post("/api/pos/receipt", {
+    headers,
+    data: { orderId, channel: "email", destination: "a@b.mx" },
+  });
+  expect(email.status()).toBe(409);
+  expect((await email.json()).code).toBe("FLAG_OFF");
+  await sql`update products set deleted_at = now() where id in (${inactive}::uuid, ${noPrice}::uuid)`.execute(
+    db,
+  );
 });

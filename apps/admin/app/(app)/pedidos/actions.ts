@@ -1,7 +1,13 @@
 "use server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { ORDER_STATUSES, PAYMENT_METHOD_LABELS, phoneMX, emailSchema } from "@pdp/domain";
+import {
+  containsPattern,
+  ORDER_STATUSES,
+  PAYMENT_METHOD_LABELS,
+  phoneMX,
+  emailSchema,
+} from "@pdp/domain";
 import { isEmailConfigured, sendReceiptEmail } from "@pdp/integrations";
 import { requireSession } from "@/lib/auth";
 import { db, sql, callFn, withStaff } from "@/lib/db";
@@ -256,7 +262,7 @@ export async function searchCustomersAction(q: string): Promise<
       union
       (select id, full_name, phone::text, email::text, public_code from customers
         where deleted_at is null and merged_into_id is null
-          and (full_name ilike '%' || ${term} || '%' or phone::text like '%' || ${term.replace(/[^0-9]/g, "") || " "} || '%')
+          and (full_name ilike ${containsPattern(term)} or phone::text like '%' || ${term.replace(/[^0-9]/g, "") || " "} || '%')
         order by last_purchase_at desc nulls last limit 8)
       limit 8`.execute(db());
     return { ok: true, data: r.rows };

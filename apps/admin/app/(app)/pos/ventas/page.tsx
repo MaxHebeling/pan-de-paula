@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { containsPattern } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { todayLocal } from "@/lib/format";
@@ -51,7 +52,7 @@ export default async function VentasPage({
     left join staff_users su on su.id = s.staff_id
     cross join business_settings bs
     where s.channel = 'pos'
-      and case when ${byFolio} then o.folio ilike ${"%" + q + "%"}
+      and case when ${byFolio} then o.folio ilike ${containsPattern(q)}
                else (s.sold_at at time zone bs.timezone)::date = ${fecha}::date end
     order by s.sold_at desc
     limit 300`.execute(db());

@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { containsPattern } from "@pdp/domain";
 import { isEmailConfigured, isMercadoPagoConfigured } from "@pdp/integrations";
 import type { StaffSession } from "@pdp/auth";
 import { getSession, hasPermission } from "./auth";
@@ -277,7 +278,7 @@ export async function searchCustomers(query: string, limit = 8): Promise<PosCust
   );
   if (exact.rows.length) return exact.rows.map(toCustomer);
   const digits = q.replace(/[^0-9]/g, "");
-  const like = `%${q.replace(/[%_]/g, "")}%`;
+  const like = containsPattern(q);
   const fuzzy = await sql<CustomerRow>`
     select ${CUSTOMER_COLS} from customers c left join loyalty_tiers t on t.key = c.tier_key
     where c.deleted_at is null and c.merged_into_id is null

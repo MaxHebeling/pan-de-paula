@@ -8,7 +8,7 @@ import { UnreadBadge } from "@/components/ops/unread-badge";
 import { ActionForm } from "@/components/ops/action-form";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Field } from "@/components/ops/field";
-import { WASTE_REASONS, expectedClosing } from "@pdp/domain";
+import { WASTE_REASONS, containsPattern, expectedClosing } from "@pdp/domain";
 import { fmtDate, qty, todayLocal } from "@/lib/format";
 import {
   adjustAction,
@@ -174,7 +174,7 @@ async function StockTab({ q, canWrite }: { q: string; canWrite: boolean }) {
     updated_at: Date | null;
   }>`select s.product_id, s.name, c.name as category_name, s.track_stock, s.on_hand::text, s.level, s.low_stock_threshold::text, s.updated_at
      from stock_status s left join categories c on c.id = s.category_id
-     where (${q} = '' or s.name ilike '%' || ${q} || '%')
+     where (${q} = '' or s.name ilike ${containsPattern(q)})
      order by s.track_stock desc, case s.level when 'out' then 0 when 'low' then 1 else 2 end, c.sort_order nulls last, s.name`.execute(
     db(),
   );
