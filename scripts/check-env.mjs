@@ -23,9 +23,20 @@ const prod = [
   "RESEND_API_KEY",
   "EMAIL_FROM",
 ];
-const required = env === "production" ? [...base, ...prod] : base;
+// Integraciones (prod): opcionales y protegidas por feature flags; avisan pero no bloquean el deploy.
+const required = base;
 const missing = required.filter((k) => !process.env[k] || /CAMBIAME/.test(process.env[k]));
 const weak = [];
+if (env === "production") {
+  for (const k of prod.filter((k) => !process.env[k]))
+    console.warn(
+      `[${env}] Aviso: falta ${k} (integración opcional; su feature flag debe seguir apagado)`,
+    );
+  if (process.env.DATABASE_SSL === "require" && !process.env.DATABASE_CA_CERT)
+    console.warn(
+      `[${env}] Aviso: sin DATABASE_CA_CERT la verificación TLS depende de las CA del sistema`,
+    );
+}
 if ((process.env.SESSION_SECRET ?? "").length < 32)
   weak.push("SESSION_SECRET debe tener 32+ caracteres");
 if (env === "production" && (process.env.DATABASE_SSL ?? "disable") === "disable")
