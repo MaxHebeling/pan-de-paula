@@ -93,7 +93,7 @@ export default async function HoursPage() {
                   <p className="text-sm text-ink-2">{hourRange(o.from, o.to)}</p>
                 )}
                 <p className="mt-1 text-sm text-ink-2">
-                  Pide antes del {formatLocalDate(o.orderBy.date)} a las {hour12(o.orderBy.time)}.
+                  Pide antes del {formatLocalDate(o.orderBy.date)} a las {hour12(o.orderBy.time)}
                 </p>
               </li>
             ))}

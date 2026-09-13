@@ -3,20 +3,22 @@ import { WEEKDAY_LABELS } from "@pdp/domain";
 import { hourRange } from "@/lib/format";
 import { fullAddress, whatsappLink, type Business } from "@/lib/site";
 import { Logo } from "./Logo";
+import { Reveal } from "./Reveal";
 
+/** Pie de página. Entrada progresiva sutil por columnas (jerarquía D: casi estático). */
 export function Footer({ business }: { business: Business }) {
   const address = fullAddress(business);
   const wa = whatsappLink(business, "Hola, El Pan de Paula 👋");
   const openDays = business.hours.filter((h) => h.isOpen && h.opensAt && h.closesAt);
   return (
     <footer className="mt-20 border-t border-line/70 bg-cream-2/60">
-      <div className="container-x grid gap-10 py-12 md:grid-cols-4">
-        <div className="md:col-span-1">
+      <div className="container-x grid gap-10 py-12 md:grid-cols-4" data-reveal-group="80">
+        <Reveal variant="fade" className="md:col-span-1">
           <Logo size={72} />
           <p className="mt-4 font-display text-xl text-ink">{business.name}</p>
           {business.tagline && <p className="text-sm text-ink-2">{business.tagline}</p>}
-        </div>
-        <div>
+        </Reveal>
+        <Reveal variant="fade">
           <h2 className="eyebrow mb-3">Horarios</h2>
           {openDays.length > 0 ? (
             <ul className="space-y-1 text-sm text-ink-2">
@@ -36,8 +38,8 @@ export function Footer({ business }: { business: Business }) {
           >
             Ver horarios y fechas de entrega
           </Link>
-        </div>
-        <div>
+        </Reveal>
+        <Reveal variant="fade">
           <h2 className="eyebrow mb-3">Encuéntranos</h2>
           <address className="text-sm text-ink-2 not-italic">
             {address ? <p>{address}</p> : <p>Dirección disponible en Instagram y WhatsApp.</p>}
@@ -81,8 +83,8 @@ export function Footer({ business }: { business: Business }) {
               </a>
             )}
           </div>
-        </div>
-        <div>
+        </Reveal>
+        <Reveal variant="fade">
           <h2 className="eyebrow mb-3">Explora</h2>
           <ul className="space-y-1.5 text-sm text-ink-2">
             <li>
@@ -116,7 +118,7 @@ export function Footer({ business }: { business: Business }) {
               </Link>
             </li>
           </ul>
-        </div>
+        </Reveal>
       </div>
       <div className="border-t border-line/60">
         <div className="container-x flex flex-col gap-2 py-5 text-xs text-ink-2 sm:flex-row sm:items-center sm:justify-between">
