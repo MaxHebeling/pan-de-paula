@@ -1,10 +1,26 @@
 /** Esquemas zod compartidos entre apps (validación en servidor siempre). */
 import { z } from "zod";
 
+/**
+ * Normaliza un teléfono capturado a la forma canónica que se guarda y se compara:
+ * números mexicanos ("+52 664 123 4567", "52 664…", "+521…", "01 664…") → 10 dígitos;
+ * otros internacionales con "+" se conservan en E.164. Así "6641234567" y "+526641234567"
+ * son el mismo cliente (espejo de normalize_mx_phone en SQL).
+ */
+export function canonicalPhone(raw: string): string {
+  const s = raw.replace(/[^0-9+]/g, "");
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 10) return digits;
+  if (digits.length === 12 && digits.startsWith("52")) return digits.slice(2);
+  if (digits.length === 13 && digits.startsWith("521")) return digits.slice(3);
+  if (digits.length === 12 && digits.startsWith("01")) return digits.slice(2);
+  return s.startsWith("+") ? `+${digits}` : digits;
+}
+
 export const phoneMX = z
   .string()
   .trim()
-  .transform((s) => s.replace(/[^0-9+]/g, ""))
+  .transform(canonicalPhone)
   .refine((s) => /^\+?\d{10,15}$/.test(s), "Teléfono inválido (10 dígitos)");
 
 export const emailSchema = z.string().trim().toLowerCase().email("Email inválido").max(254);

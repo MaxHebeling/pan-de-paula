@@ -28,11 +28,41 @@ const EXT: Record<(typeof ALLOWED_IMAGE_TYPES)[number], string> = {
   "image/avif": "avif",
 };
 
+/** Tipo real según los primeros bytes (el content-type del navegador se puede falsificar renombrando el archivo). */
+export function sniffImageType(bytes: Uint8Array): (typeof ALLOWED_IMAGE_TYPES)[number] | null {
+  const b = bytes;
+  const ascii = (from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (
+    b.length >= 8 &&
+    b[0] === 0x89 &&
+    b[1] === 0x50 &&
+    b[2] === 0x4e &&
+    b[3] === 0x47 &&
+    b[4] === 0x0d &&
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
+  )
+    return "image/png";
+  if (b.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
+  // ISO-BMFF: [size:4]['ftyp'][brand:4] con marca avif/avis
+  if (b.length >= 12 && ascii(4, 8) === "ftyp" && /^avi[fs]$/.test(ascii(8, 12)))
+    return "image/avif";
+  return null;
+}
+
 export function validateImage(input: Pick<UploadInput, "bytes" | "contentType">): void {
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(input.contentType))
     throw new Error("Formato de imagen no permitido (usa JPG, PNG, WebP o AVIF)");
   if (input.bytes.byteLength === 0) throw new Error("La imagen está vacía");
   if (input.bytes.byteLength > MAX_IMAGE_BYTES) throw new Error("La imagen supera 5 MB");
+  const real = sniffImageType(input.bytes);
+  if (real === null) throw new Error("El archivo no es una imagen válida (JPG, PNG, WebP o AVIF)");
+  if (real !== input.contentType)
+    throw new Error(
+      `El archivo dice ser ${input.contentType} pero su contenido es ${real}; súbelo con su extensión real`,
+    );
 }
 
 export type StorageDriver = "local" | "supabase";

@@ -7,6 +7,7 @@ import {
   defaultLocalRoot,
   keyFromUrl,
   publicUrlForKey,
+  sniffImageType,
   storageConfigFromEnv,
   uploadImage,
   validateImage,
@@ -14,12 +15,48 @@ import {
 } from "../src/storage.ts";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+const JPG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
+const WEBP = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38,
+]);
+const AVIF = new Uint8Array([
+  0x00, 0x00, 0x00, 0x1c, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66, 0x00, 0x00, 0x00, 0x00,
+]);
 
 describe("validateImage", () => {
   it("acepta formatos permitidos y rechaza el resto", () => {
     expect(() => validateImage({ bytes: PNG, contentType: "image/png" })).not.toThrow();
     expect(() => validateImage({ bytes: PNG, contentType: "image/gif" })).toThrow(/no permitido/);
     expect(() => validateImage({ bytes: PNG, contentType: "application/pdf" })).toThrow();
+  });
+  it("verifica la firma binaria: un .exe renombrado a .png o un PNG declarado como JPEG se rechazan", () => {
+    expect(sniffImageType(PNG)).toBe("image/png");
+    expect(sniffImageType(JPG)).toBe("image/jpeg");
+    expect(sniffImageType(WEBP)).toBe("image/webp");
+    expect(sniffImageType(AVIF)).toBe("image/avif");
+    expect(
+      sniffImageType(new Uint8Array([0x4d, 0x5a, 0x90, 0x00, 1, 2, 3, 4, 5, 6, 7, 8])),
+    ).toBeNull();
+    expect(() =>
+      validateImage({
+        bytes: new Uint8Array([0x4d, 0x5a, 0x90, 0, 1, 2, 3, 4]),
+        contentType: "image/png",
+      }),
+    ).toThrow(/no es una imagen válida/);
+    expect(() => validateImage({ bytes: PNG, contentType: "image/jpeg" })).toThrow(
+      /contenido es image\/png/,
+    );
+    expect(() => validateImage({ bytes: JPG, contentType: "image/jpeg" })).not.toThrow();
+    expect(() => validateImage({ bytes: WEBP, contentType: "image/webp" })).not.toThrow();
+    expect(() => validateImage({ bytes: AVIF, contentType: "image/avif" })).not.toThrow();
+    // Nombre de archivo extraño no importa: solo cuentan bytes y tipo
+    expect(() =>
+      validateImage({
+        bytes: PNG,
+        contentType: "image/png",
+        fileName: "../../etc/passwd 🍞.png",
+      } as never),
+    ).not.toThrow();
   });
   it("rechaza vacías y mayores a 5 MB", () => {
     expect(() => validateImage({ bytes: new Uint8Array(0), contentType: "image/png" })).toThrow(
@@ -75,7 +112,7 @@ describe("driver local", () => {
   });
 
   it("usa la carpeta products por defecto y mapea jpeg → .jpg", async () => {
-    const r = await uploadImage({ bytes: PNG, contentType: "image/jpeg", fileName: "x" }, cfg);
+    const r = await uploadImage({ bytes: JPG, contentType: "image/jpeg", fileName: "x" }, cfg);
     expect(r.key).toMatch(/^products\/.+\.jpg$/);
   });
 
@@ -98,7 +135,7 @@ describe("driver local", () => {
   });
 
   it("borra el archivo y es idempotente si ya no existe", async () => {
-    const r = await uploadImage({ bytes: PNG, contentType: "image/webp", fileName: "x" }, cfg);
+    const r = await uploadImage({ bytes: WEBP, contentType: "image/webp", fileName: "x" }, cfg);
     await deleteImage(r.key, cfg);
     await expect(stat(join(root, "uploads", r.key))).rejects.toThrow();
     await expect(deleteImage(r.key, cfg)).resolves.toBeUndefined();
