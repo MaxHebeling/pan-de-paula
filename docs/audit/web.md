@@ -1,6 +1,6 @@
 # Auditoría 360° · Sitio público y tienda (`apps/web`)
 
-- **Fecha:** 2026-09-12 · **Rama:** `audit/web`, rebasada sobre `main` 138d448 (incluye `0080_security_defaults.sql`, la auditoría de catálogo con `0014`/`0041` y `canonicalPhone`).
+- **Fecha:** 2026-09-12 · **Rama:** `audit/web`, rebasada sobre `main` 647f98d (incluye `0080_security_defaults.sql`, la auditoría de catálogo con `0014`/`0041` y `canonicalPhone`, y la auditoría de infraestructura con `0015` y `smoke.spec.ts`).
 - **Entorno:** base dev propia `pdp_audit_web_dev` (migrada + seed), base de pruebas `pdp_test_audit_web` (+ `_web`). Build de producción servido con `next start -p 3113` para la E2E, Lighthouse y la matriz manual. `next dev -p 3113` solo para explorar.
 - **Principio:** nada es PASS sin evidencia (test automatizado, SQL o respuesta HTTP/navegador reproducible). Lo que no se pudo verificar queda **BLOCKED**, con el motivo.
 - **Health score del área: 93/100** (ver §11).
@@ -161,7 +161,7 @@ Evidencia:
 
 ## 9. Lighthouse
 
-Móvil, build de producción, `lighthouse@12.8.2`, throttling simulado. Tres corridas (dos antes y una después del último rebase); se muestran los rangos.
+Móvil, build de producción, `lighthouse@12.8.2`, throttling simulado. Cuatro corridas (la última sobre 647f98d: 92 / 94 / 93); se muestran los rangos.
 
 | Ruta                              | Performance | Accesibilidad | Buenas prácticas | SEO | LCP       | FCP   | TBT  | CLS | SI        | Elemento LCP                     |
 | --------------------------------- | ----------- | ------------- | ---------------- | --- | --------- | ----- | ---- | --- | --------- | -------------------------------- |
@@ -171,20 +171,20 @@ Móvil, build de producción, `lighthouse@12.8.2`, throttling simulado. Tres cor
 
 ## 10. Corridas finales
 
-Todas después del último `git rebase main` (138d448), `pnpm install`, `pnpm db:migrate` (aplica 0014, 0041 y 0080 + post-migración; `/api/ready` reporta 20 migraciones) y `pnpm db:codegen`.
+Todas después del último `git rebase main` (647f98d), `pnpm install`, `pnpm db:migrate` (aplica 0014, 0015, 0041 y 0080 + post-migración; `/api/ready` reporta 21 migraciones) y `pnpm db:codegen`.
 
-| Comando                                                                   | Resultado                                                                              |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `pnpm --filter @pdp/web test`                                             | 6 archivos, **53 passed**                                                              |
-| `pnpm --filter @pdp/web typecheck`                                        | OK                                                                                     |
-| `pnpm --filter @pdp/web lint`                                             | 0 errores (1 warning preexistente)                                                     |
-| `pnpm --filter @pdp/domain test` / `typecheck`                            | 6 archivos, **51 passed** / OK                                                         |
-| `pnpm --filter @pdp/db test` / `typecheck`                                | 15 archivos, **131 passed** (incluye `security_grants` y `audit_catalog` de main) / OK |
-| `pnpm format:check`                                                       | OK                                                                                     |
-| `unset NODE_ENV; pnpm --filter @pdp/web build`                            | OK                                                                                     |
-| `E2E_WEB_URL=http://localhost:3113 playwright test` (build de producción) | **35 passed, 1 skipped** (Tab por la nav de escritorio en el proyecto móvil), 1.6 min  |
-| Matriz manual M                                                           | **22/22 PASS**                                                                         |
-| Lighthouse móvil                                                          | 92 / 93–94 / 93–94                                                                     |
+| Comando                                                                   | Resultado                                                                                                                         |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @pdp/web test`                                             | 7 archivos, **70 passed** (incluye `webhook-audit-infra` de main)                                                                 |
+| `pnpm --filter @pdp/web typecheck`                                        | OK                                                                                                                                |
+| `pnpm --filter @pdp/web lint`                                             | 0 errores (1 warning preexistente)                                                                                                |
+| `pnpm --filter @pdp/domain test` / `typecheck`                            | 6 archivos, **51 passed** / OK                                                                                                    |
+| `pnpm --filter @pdp/db test` / `typecheck`                                | 16 archivos, **154 passed** (incluye `security_grants`, `audit_catalog` y `audit_infra` de main) / OK                             |
+| `pnpm format:check`                                                       | OK                                                                                                                                |
+| `unset NODE_ENV; pnpm --filter @pdp/web build`                            | OK                                                                                                                                |
+| `E2E_WEB_URL=http://localhost:3113 playwright test` (build de producción) | **57 passed, 1 skipped** (incluye `smoke.spec` de main; el omitido es Tab por la nav de escritorio en el proyecto móvil), 1.6 min |
+| Matriz manual M                                                           | **22/22 PASS**                                                                                                                    |
+| Lighthouse móvil                                                          | 92 / 93–94 / 93–94                                                                                                                |
 
 ## 11. Health score del área: 93/100
 
