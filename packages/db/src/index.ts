@@ -112,7 +112,13 @@ export async function dbHealth(
     );
     return { ok: true, latencyMs: Date.now() - t0, migrations: r.rows[0]?.n ?? 0 };
   } catch (e) {
-    return { ok: false, latencyMs: Date.now() - t0, migrations: 0, error: (e as Error).message };
+    // pg envuelve ECONNREFUSED en un AggregateError con message vacío: rescatamos código/nombre/causa
+    // para que /api/ready diga por qué no está listo (sin exponer credenciales: nunca incluye la URL).
+    const err = e as { message?: string; code?: string; name?: string; cause?: unknown };
+    const cause = err.cause as { message?: string; code?: string } | undefined;
+    const message =
+      err.message || cause?.message || err.code || cause?.code || err.name || "sin detalle";
+    return { ok: false, latencyMs: Date.now() - t0, migrations: 0, error: message };
   }
 }
 

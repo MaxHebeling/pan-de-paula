@@ -66,13 +66,17 @@ Vincula el monorepo a ambos proyectos una sola vez desde la raíz: `vercel link 
 ## Qué hace `scripts/deploy.sh <staging|production>`
 
 1. **Árbol limpio y rama**: aborta si hay cambios sin commit; producción solo desde `main`.
-2. **Variables**: `node scripts/check-env.mjs <env>`.
+2. **Variables**: `node scripts/check-env.mjs <env>` (solo con lo cargado de `.env.<env>`; el `.env` local no rellena
+   huecos fuera de development). Además de las obligatorias valida coherencia: `CRON_SECRET` ≥ 16 caracteres,
+   `DATABASE_SSL=require`, URLs `https://`, y que ninguna integración quede a medias (p. ej. `MERCADOPAGO_ACCESS_TOKEN`
+   sin `MERCADOPAGO_WEBHOOK_SECRET`, `RESEND_API_KEY` sin `EMAIL_FROM`, `STORAGE_DRIVER=supabase` sin sus claves).
 3. **Calidad**: `pnpm verify` = lint + typecheck + tests (unit + integración con `DATABASE_URL_TEST` local) + build.
 4. **Respaldo previo (solo producción)**: `scripts/backup.sh production pre-deploy-<sha>`; después `pnpm db:migrate`
    contra la base del ambiente. Las migraciones son aditivas, así que la app vieja sigue funcionando mientras se despliega.
 5. **Vercel**: `vercel deploy --yes` en `apps/web` y `apps/admin` (`--prod` en producción). Imprime ambas URLs.
 6. **Smoke**: `scripts/smoke.sh <web> <admin>` — `/api/health`, `/api/ready`, `/`, `/menu` en web; `/api/health`,
    `/api/ready`, `/login` en admin. Cualquier código ≠ 200 falla el deploy (la app ya está publicada: haz rollback).
+   Después, opcionalmente, `pnpm smoke:e2e -- <web> <admin>` (suite Playwright de solo lectura, ver abajo).
 7. **Etiqueta**: tag `deploy-<env>-<AAAAMMDD-HHMMSS>-<sha>` (se sube a origin) y línea en `.deploys-<env>.log`
    (ignorado en git). Ese tag es el **LAST KNOWN GOOD** para `ROLLBACK.md`.
 
@@ -93,6 +97,28 @@ rama → PR → CI verde (lint, typecheck, tests, build, e2e) → merge a main
   → pnpm deploy:prod     → smoke automático → verificar /api/health.version == sha
   → bash scripts/release-migrations.sh (si hubo migraciones)
 ```
+
+## Smoke E2E permanente (`pnpm smoke:e2e`)
+
+Además de `scripts/smoke.sh` (códigos HTTP con `curl`, lo corre `deploy.sh`), existe una suite Playwright **de solo
+lectura** etiquetada `@smoke` en `apps/web/e2e/smoke.spec.ts` y `apps/admin/e2e/smoke.spec.ts`. No crea pedidos ni
+modifica datos; sirve para validar staging/producción después de un deploy, un rollback o un cambio de infraestructura:
+
+```bash
+pnpm smoke:e2e -- https://elpandepaula.mx https://admin.elpandepaula.mx
+# con login del admin (lee dashboard, pedidos, productos, notificaciones; no escribe nada):
+E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... pnpm smoke:e2e -- <web-url> <admin-url>
+```
+
+| App   | Comprueba                                                                                                                                                                  |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| web   | `/api/health`, `/api/ready` (migraciones > 0), home, `/menu`, un producto del menú, `/unete`, páginas informativas, manifest, robots, sitemap, cabeceras de seguridad, 404 |
+| admin | `/api/health`, `/api/ready`, `/login`, redirección de rutas privadas, crons responden 401 sin secreto, cabeceras (`noindex`), login + dashboard si hay credenciales        |
+
+Detalles: usa `E2E_WEB_URL` / `E2E_BASE_URL` (los mismos que los E2E normales), `E2E_NO_SERVER=1` para no levantar
+`pnpm start`, proyecto `desktop` por defecto (`SMOKE_PROJECT=mobile` para el móvil). Requiere Chromium de Playwright
+(`pnpm --filter @pdp/web exec playwright install chromium`). Los mismos tests corren también en local dentro de
+`pnpm test:e2e` (misma etiqueta).
 
 ## Verificar la versión desplegada
 

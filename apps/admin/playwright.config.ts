@@ -14,10 +14,13 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["iPhone 13"], browserName: "chromium" } },
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: {
-    command: "pnpm start",
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 240_000,
-  },
+  // E2E_NO_SERVER=1: correr contra un ambiente ya desplegado (smoke post-deploy) sin levantar `pnpm start`.
+  webServer: process.env.E2E_NO_SERVER
+    ? undefined
+    : {
+        command: "pnpm start",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 240_000,
+      },
 });

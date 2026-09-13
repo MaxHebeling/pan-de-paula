@@ -17,7 +17,8 @@ env:
   NEXT_PUBLIC_SITE_URL: http://localhost:3000
   NEXT_PUBLIC_ADMIN_URL: http://localhost:3001
   META_VERIFY_TOKEN: ci-verify
-  CRON_SECRET: ci-cron
+  # ≥ 16 caracteres: isCronAuthorized rechaza secretos más cortos (los crons responderían 401 siempre)
+  CRON_SECRET: ci-cron-secret-0123456789abcdef
   APP_ENV: development
 
 jobs:
@@ -56,6 +57,10 @@ jobs:
           pnpm db:migrate
           pnpm db:codegen
           pnpm db:seed
+      - name: Verificar privilegios (anon/authenticated sin acceso a tablas, vistas, secuencias ni funciones)
+        run: bash scripts/check-grants.sh "$DATABASE_URL"
+      - name: Variables de entorno de CI coherentes
+        run: node scripts/check-env.mjs development
       - name: Formato
         run: pnpm format:check
       - name: Lint

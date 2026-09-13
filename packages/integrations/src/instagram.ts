@@ -87,7 +87,8 @@ export function parseInstagramWebhook(body: unknown): IgIncomingMessage[] {
   if (!body || typeof body !== "object") return out;
   const b = body as { object?: string; entry?: unknown[] };
   if (b.object !== "instagram" || !Array.isArray(b.entry)) return out;
-  for (const entry of b.entry as Array<Record<string, unknown>>) {
+  for (const entry of b.entry as Array<Record<string, unknown> | null>) {
+    if (!entry || typeof entry !== "object") continue;
     const igAccountId = String(entry.id ?? "");
     const events = Array.isArray(entry.messaging)
       ? (entry.messaging as Array<Record<string, unknown>>)
@@ -95,6 +96,8 @@ export function parseInstagramWebhook(body: unknown): IgIncomingMessage[] {
         ? (entry.standby as Array<Record<string, unknown>>)
         : [];
     for (const ev of events) {
+      // Un elemento malformado (null, número) no debe tumbar el webhook completo: se omite.
+      if (!ev || typeof ev !== "object") continue;
       const sender = (ev.sender as { id?: unknown } | undefined)?.id;
       const recipient = (ev.recipient as { id?: unknown } | undefined)?.id;
       if (!sender || !recipient) continue;
@@ -140,18 +143,21 @@ export function parseInstagramWebhook(body: unknown): IgIncomingMessage[] {
 
 // ── Envío ───────────────────────────────────────────────────────────────────
 
-/** Recorta a ≤ maxBytes UTF-8 sin partir caracteres. */
+const ELLIPSIS = "…";
+const ELLIPSIS_BYTES = Buffer.byteLength(ELLIPSIS, "utf8"); // 3 bytes, no 1
+
+/** Recorta a ≤ maxBytes UTF-8 (incluida la elipsis) sin partir caracteres. */
 export function truncateUtf8(text: string, maxBytes = INSTAGRAM_TEXT_MAX_BYTES): string {
   if (Buffer.byteLength(text, "utf8") <= maxBytes) return text;
   let out = "";
   let bytes = 0;
   for (const ch of text) {
     const b = Buffer.byteLength(ch, "utf8");
-    if (bytes + b > maxBytes - 1) break;
+    if (bytes + b > maxBytes - ELLIPSIS_BYTES) break;
     out += ch;
     bytes += b;
   }
-  return out.trimEnd() + "…";
+  return out.trimEnd() + ELLIPSIS;
 }
 
 export async function sendInstagramMessage(input: {

@@ -46,6 +46,18 @@ export const ingredients: EntityHandler = {
       )
     ).rows)
       latest.set(p.ingredient_id, p);
+    // Historial completo (precio + contenido + día local de vigencia): una fila con "Vigente desde" anterior al precio
+    // actual nunca coincide con `latest`; sin esto cada --apply volvía a insertar el mismo precio histórico.
+    const history = new Set(
+      (
+        await sql<{ k: string }>`
+          select ip.ingredient_id || '|' || ip.price_cents || '|' || trim_scale(ip.package_qty)::text || '|' ||
+                 to_char(ip.valid_from at time zone (select timezone from business_settings where id = 1), 'YYYY-MM-DD') as k
+          from ingredient_prices ip`.execute(ctx.db)
+      ).rows.map((r) => r.k),
+    );
+    const histKey = (id: string, priceCents: number, qtyBase: number | null, day: string) =>
+      `${id}|${priceCents}|${Number(qtyBase)}|${day}`;
     const seen = new Map<string, number>();
     const units: WorkUnit[] = [];
     for (const mr of rows) {
@@ -144,9 +156,14 @@ export const ingredients: EntityHandler = {
       }
       if (res.kind === "exact") {
         const cur = latest.get(res.item.id);
+        const validDay = normalized.valid_from;
         const samePrice =
           price === null ||
-          (cur !== undefined && cur.price_cents === price && Number(cur.package_qty) === pkgBase);
+          (validDay === null &&
+            cur !== undefined &&
+            cur.price_cents === price &&
+            Number(cur.package_qty) === pkgBase) ||
+          (validDay !== null && history.has(histKey(res.item.id, price, pkgBase, validDay)));
         const row = rowFrom(mr, samePrice ? "matched" : "updated", normalized);
         row.targetId = res.item.id;
         const id = res.item.id;

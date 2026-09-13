@@ -35,8 +35,10 @@ export async function fetchWithResilience(url: string, opts: HttpOptions = {}): 
       clearTimeout(t);
       const shouldRetry = retryOn ? retryOn(res, null) : res.status >= 500 || res.status === 429;
       if (res.ok || !shouldRetry || attempt === retries) {
+        // Solo los fallos transitorios (5xx/429/red) cuentan para el breaker: un 404/400 es una
+        // respuesta válida del proveedor (p. ej. ids simulados de Mercado Pago) y no debe abrir el circuito.
         if (res.ok) breakers.delete(host);
-        else recordFailure(host);
+        else if (shouldRetry) recordFailure(host);
         return res;
       }
       recordFailure(host);

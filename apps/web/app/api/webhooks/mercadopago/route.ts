@@ -64,11 +64,13 @@ export async function POST(req: Request) {
   if (!event.isNew && (event.status === "processed" || event.status === "ignored")) {
     return NextResponse.json({ ok: true, duplicate: true, status: event.status });
   }
-  if (!event.isNew && event.status === "processing") {
+
+  // received/failed → se procesa; processing → solo si quedó huérfano (la función anterior murió); si otro
+  // proceso lo tiene en curso, el claim falla y respondemos duplicado (MP no debe reintentar).
+  const result = await processMercadoPagoEvent(db(), event.id);
+  if (result.status === "ignored" && result.reason === "not_claimable") {
     return NextResponse.json({ ok: true, duplicate: true, status: "processing" });
   }
-
-  const result = await processMercadoPagoEvent(db(), event.id);
   if (result.status === "failed") {
     return NextResponse.json({ ok: false, status: "failed" }, { status: 500 });
   }

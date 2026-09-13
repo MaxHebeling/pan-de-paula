@@ -17,7 +17,10 @@ prueba y qué tiempos de recuperación esperamos.
 2. **Supabase — PITR** (add-on del plan Pro): permite volver a cualquier minuto dentro de la ventana contratada
    (7–28 días). Es la herramienta para "se borró/alteró algo a las 10:32". Actívalo antes del go-live.
 3. **Respaldo lógico propio — `scripts/backup.sh`**: `pg_dump --format=custom` comprimido, verificado con
-   `pg_restore --list`, portable a cualquier Postgres 17 (independiente del proveedor).
+   `pg_restore --list`, portable a cualquier Postgres 17 (independiente del proveedor). Incluye **solo el esquema
+   `public` más las extensiones** de las que dependen las tablas (`--extension=citext/pgcrypto/pg_trgm`, lista viva
+   desde `pg_extension`); sin ellas un dump `--schema=public` no se puede restaurar en una base nueva (cada tabla con
+   `citext` falla). El script se niega a dar por bueno un dump sin extensiones.
    - `pnpm backup` → `bash scripts/backup.sh local` usando `.env`.
    - `bash scripts/backup.sh production [etiqueta]` usa `.env.production` (solo en la máquina del operador).
    - Salida: `backups/pdp-<env>-<AAAAMMDD-HHMMSS>-<etiqueta>.dump` + línea en `backups/backups-<env>.log`.
@@ -36,10 +39,14 @@ pnpm restore:drill                      # usa el .dump más reciente en backups/
 bash scripts/restore-drill.sh backups/pdp-production-20260901-020000-diario.dump
 ```
 
-Qué hace: crea una base local temporal `pdp_restore_drill_<ts>`, `pg_restore` completo, imprime conteos de
-`products`, `orders`, `customers`, `schema_migrations`, ejecuta una función de negocio en lectura
-(`suggested_production(current_date)`) para comprobar que las funciones restauraron, borra la base y registra
-duración y resultado en `backups/restore-drills.log`. **Ese tiempo es tu RTO medido.**
+Qué hace: crea una base local temporal `pdp_restore_drill_<ts>`, crea las extensiones (`pgcrypto`, `citext`,
+`pg_trgm`; compatible con dumps anteriores que no las traían), `pg_restore` completo, **falla si `pg_restore`
+reporta cualquier error real o si el número de tablas restauradas no coincide con las del dump**, imprime conteos de
+`products`, `orders`, `customers`, `schema_migrations` (avisa si el dump tiene menos migraciones que el repo),
+ejecuta una función de negocio en lectura (`suggested_production(current_date)`) para comprobar que las funciones
+restauraron, borra la base (también si falla: `trap`) y registra duración y resultado (`OK`/`FAIL`) en
+`backups/restore-drills.log`. **Ese tiempo es tu RTO medido** (local, con seed + demo: 1 s; el RTO real de producción
+lo dominan crear el proyecto, cambiar `DATABASE_URL` y redeployar).
 
 Hazlo **una vez al mes** (primer lunes) y después de cambios grandes de esquema. Requisitos: Postgres 17 local
 (`createdb`, `pg_restore`, `psql` en PATH).
@@ -58,7 +65,11 @@ Hazlo **una vez al mes** (primer lunes) y después de cambios grandes de esquema
 ### B. Proyecto perdido o migración a otro Postgres — respaldo lógico
 
 1. Crea la base destino (nuevo proyecto Supabase o Postgres propio).
-2. Restaura como owner:
+2. Crea las extensiones antes de restaurar (los dumps nuevos ya las incluyen; hacerlo es idempotente):
+   ```sql
+   create extension if not exists pgcrypto; create extension if not exists citext; create extension if not exists pg_trgm;
+   ```
+   Restaura como owner:
    ```bash
    pg_restore --no-owner --no-privileges --dbname "$NUEVA_DATABASE_URL_DIRECTA" backups/pdp-production-<stamp>.dump
    ```
@@ -71,8 +82,15 @@ Hazlo **una vez al mes** (primer lunes) y después de cambios grandes de esquema
    grant usage, select on all sequences in schema public to pdp_app;
    grant execute on all functions in schema public to pdp_app;
    ```
-   (RLS y políticas viajan con el dump porque forman parte de las tablas.)
+   (RLS y políticas viajan con el dump porque forman parte de las tablas.) Y vuelve a cerrar el EXECUTE de funciones
+   a `PUBLIC` (los grants no viajan con `--no-privileges`):
+   ```sql
+   revoke execute on all routines in schema public from public, anon, authenticated;
+   alter default privileges revoke execute on routines from public;
+   ```
+   Comprueba con `psql -f scripts/db-integrity.sql` (bloque 9: `funciones_publicas = 0`).
 3. `pnpm db:migrate` con la URL nueva: no debe quedar nada pendiente (el dump incluye `schema_migrations`).
+   El único error tolerable de `pg_restore` es `schema "public" already exists`; cualquier otro = restauración incompleta.
 4. `select rebuild_inventory_levels();` no es necesario (los niveles viajan), pero es barato y elimina dudas.
 5. Cambia `DATABASE_URL` en ambos proyectos Vercel → redeploy (`vercel --prod` desde cada app o `pnpm deploy:prod`).
 6. Smoke + prueba manual de una venta en POS.

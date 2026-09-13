@@ -44,6 +44,24 @@ Tres capas: señales HTTP (¿responde?), errores de aplicación (Sentry/logs) y 
 
 Ejecútalas en el SQL Editor de Supabase o con `psql "$DATABASE_URL"`. Cada una trae su umbral y su acción.
 
+**Todo en uno (solo lectura):** `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/db-integrity.sql` corre las
+invariantes de inventario, puntos, pagos/reembolsos, cupones, contadores de clientes, huérfanos, webhooks, jobs,
+privilegios (tablas, **vistas**, secuencias, funciones) y migraciones. Sano = todos los bloques `[0 filas]` vacíos y los
+`[resumen]` en 0. Correrlo una vez por semana y después de cada deploy con migraciones.
+
+### Conciliación de Mercado Pago (monto distinto, pedido cancelado, pago duplicado)
+
+```sql
+select created_at, kind, title, body, entity_id as order_id from notifications
+where kind in ('payment_mismatch','payment_on_cancelled_order') and read_at is null order by created_at desc;
+```
+
+Umbral: ≥ 1 → inmediato. `apply_mercadopago_payment` (0015) ya no aplica a ciegas lo que diga MP: si el monto
+acreditado difiere del saldo del pedido, el pedido queda parcial (menor) o se registra solo el saldo (mayor); si el
+pedido estaba cancelado o ya pagado, no se registra el pago. En todos los casos deja esta alerta con folio, id de pago y
+montos. Acción: abrir el pago en el panel de MP → reembolsar la diferencia/duplicado o cobrar el faltante → marcar la
+notificación como leída.
+
 ### Webhooks que fallaron o se atoraron (Mercado Pago / Meta)
 
 ```sql
@@ -93,10 +111,17 @@ Los crons están declarados en `apps/*/vercel.json` y protegidos por `Authorizat
 `job_runs` `running` con `lock_key`, registra `succeeded/failed/skipped` y **libera solo** un lock colgado de más
 de 15 min (lo marca `failed` con "lock expirado"):
 
-| Job              | App   | Ruta                       | Frecuencia (`vercel.json`) | Qué hace                                                                                                                       |
-| ---------------- | ----- | -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `webhooks-retry` | web   | `/api/cron/webhooks-retry` | cada 15 min                | Reprocesa notificaciones de Mercado Pago `received/failed` de las últimas 48 h (50 por corrida, backoff con `last_attempt_at`) |
-| `sessions-purge` | admin | `/api/cron/sessions-purge` | diario 09:00 UTC           | Borra sesiones de staff expiradas/revocadas hace más de 30 días                                                                |
+| Job               | App   | Ruta                        | Frecuencia (`vercel.json`) | Qué hace                                                                                                                       |
+| ----------------- | ----- | --------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `webhooks-retry`  | web   | `/api/cron/webhooks-retry`  | cada 15 min                | Reprocesa notificaciones de Mercado Pago `received/failed` de las últimas 48 h (50 por corrida, backoff con `last_attempt_at`) |
+| `sessions-purge`  | admin | `/api/cron/sessions-purge`  | diario 09:00 UTC           | Borra sesiones de staff expiradas/revocadas hace más de 30 días                                                                |
+| `stock-alerts`    | admin | `/api/cron/stock-alerts`    | cada 2 h                   | Notificaciones de stock bajo/agotado e insumos críticos sin duplicar las abiertas                                              |
+| `customer-events` | admin | `/api/cron/customer-events` | diario 14:30 UTC           | Cumpleaños, inactividad 30/60 días, aniversarios                                                                               |
+
+`webhooks-retry` también retoma eventos atorados en `processing` más de 10 min (función que murió a medio camino).
+Un `running` de más de 15 min en `job_runs` se libera automáticamente al insertar la siguiente corrida del mismo job
+(trigger de 0015, cubre también a los crons que no usan `runJob`). **`CRON_SECRET` debe tener ≥ 16 caracteres**
+(`check-env` lo exige): con menos, `webhooks-retry` y `sessions-purge` responden 401 siempre.
 
 Forzar una corrida (por ejemplo tras caída de MP): `curl -H "Authorization: Bearer $CRON_SECRET" https://elpandepaula.mx/api/cron/webhooks-retry`.
 Un `skipped` con `reason: locked` es normal si la corrida anterior sigue viva; un `running` de más de 15 min se
@@ -160,17 +185,19 @@ pnpm --filter @pdp/db run migrate:status   # con DATABASE_URL del ambiente; debe
 
 ## 4. Resumen de alertas accionables
 
-| Señal                                     | Umbral            | Canal            | Acción                                              |
-| ----------------------------------------- | ----------------- | ---------------- | --------------------------------------------------- |
-| `/api/ready` 503 (cualquiera de las apps) | 2 fallos seguidos | WhatsApp+email   | Runbook "No se puede vender en POS" / `ROLLBACK.md` |
-| Sentry: issue nuevo en producción         | 1                 | email/Slack      | Triage en < 1 h                                     |
-| `webhook_events` failed                   | ≥ 1 / hora        | email            | Runbook MP                                          |
-| Pedido web pendiente con pago aprobado    | > 30 min          | email            | Runbook MP                                          |
-| `job_runs` failed o running > 1 h         | ≥ 1               | email            | Revisar log del job, marcar failed                  |
-| Deriva de inventario                      | > 0 filas         | email            | `rebuild_inventory_levels()` + postmortem           |
-| Stock agotado de producto activo          | ≥ 1               | notificación CRM | Producción                                          |
-| Respaldo diario ausente                   | > 26 h            | email            | `BACKUP_RESTORE.md`                                 |
-| Uso de pooler Supabase > 80 %             | 5 min             | Supabase         | Revisar `max` del pool / fugas                      |
+| Señal                                                      | Umbral            | Canal            | Acción                                                       |
+| ---------------------------------------------------------- | ----------------- | ---------------- | ------------------------------------------------------------ |
+| `/api/ready` 503 (cualquiera de las apps)                  | 2 fallos seguidos | WhatsApp+email   | Runbook "No se puede vender en POS" / `ROLLBACK.md`          |
+| Sentry: issue nuevo en producción                          | 1                 | email/Slack      | Triage en < 1 h                                              |
+| `webhook_events` failed                                    | ≥ 1 / hora        | email            | Runbook MP                                                   |
+| `payment_mismatch` / `payment_on_cancelled_order` sin leer | ≥ 1               | email + CRM      | Conciliar en el panel de MP (reembolso/cobro)                |
+| `check-grants.sh` / bloque 9 de `db-integrity.sql` ≠ 0     | ≥ 1               | inmediato        | `pnpm db:migrate` (ejecuta `_post_migrate.sql`) + postmortem |
+| Pedido web pendiente con pago aprobado                     | > 30 min          | email            | Runbook MP                                                   |
+| `job_runs` failed o running > 1 h                          | ≥ 1               | email            | Revisar log del job, marcar failed                           |
+| Deriva de inventario                                       | > 0 filas         | email            | `rebuild_inventory_levels()` + postmortem                    |
+| Stock agotado de producto activo                           | ≥ 1               | notificación CRM | Producción                                                   |
+| Respaldo diario ausente                                    | > 26 h            | email            | `BACKUP_RESTORE.md`                                          |
+| Uso de pooler Supabase > 80 %                              | 5 min             | Supabase         | Revisar `max` del pool / fugas                               |
 
 Hasta que exista automatización de alertas (acción externa), esta lista se revisa **a diario** desde el
 dashboard del CRM y una vez por semana con las consultas SQL.

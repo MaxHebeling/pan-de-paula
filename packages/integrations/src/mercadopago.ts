@@ -96,6 +96,8 @@ type MpRequest = {
   /** GET y operaciones con X-Idempotency-Key son seguras de reintentar. */
   idempotent: boolean;
   timeoutMs?: number;
+  /** Reintentos (default: 2 si es idempotente, 0 si no). */
+  retries?: number;
 };
 
 async function mpFetch<T>(req: MpRequest): Promise<T> {
@@ -111,7 +113,7 @@ async function mpFetch<T>(req: MpRequest): Promise<T> {
     headers,
     body: req.body === undefined ? undefined : JSON.stringify(req.body),
     idempotent: req.idempotent,
-    retries: req.idempotent ? 2 : 0,
+    retries: req.retries ?? (req.idempotent ? 2 : 0),
     timeoutMs: req.timeoutMs ?? 10_000,
   });
   const text = await res.text();
@@ -135,14 +137,18 @@ export class MercadoPagoApiError extends HttpError {
       message?: string;
       cause?: Array<{ code?: string | number; description?: string }>;
     } = {};
+    let isJson = false;
     try {
       parsed = JSON.parse(body);
+      isJson = parsed !== null && typeof parsed === "object";
     } catch {
       parsed = {};
     }
-    this.mpMessage = parsed.message ?? null;
-    this.mpCauses = Array.isArray(parsed.cause) ? parsed.cause : [];
-    this.message = `Mercado Pago HTTP ${status} ${path}${this.mpMessage ? `: ${this.mpMessage}` : ""}`;
+    this.mpMessage = (isJson && parsed.message) || null;
+    this.mpCauses = isJson && Array.isArray(parsed.cause) ? parsed.cause : [];
+    // Sin JSON (HTML de mantenimiento, proxy, cuerpo vacío) se conserva un extracto del cuerpo para diagnosticar.
+    const detail = this.mpMessage ?? (!isJson && body ? body.slice(0, 160) : null);
+    this.message = `Mercado Pago HTTP ${status} ${path}${detail ? `: ${detail}` : ""}`;
   }
 }
 
@@ -225,6 +231,14 @@ type MpPaymentRaw = {
   currency_id?: string;
 };
 
+/**
+ * Presupuesto de tiempo de la consulta de pago desde el webhook: la ruta tiene `maxDuration = 20` y MP corta a
+ * los 22 s. 2 intentos × 5 s + backoff ≈ 10.5 s en el peor caso; así el evento nunca queda `processing` por
+ * un timeout de la función. Si la API sigue caída, el evento queda `failed` y el cron lo reintenta.
+ */
+export const MP_PAYMENT_FETCH_TIMEOUT_MS = 5_000;
+export const MP_PAYMENT_FETCH_RETRIES = 1;
+
 /** Consulta un pago por id (fuente de verdad del estado). */
 export async function fetchMercadoPagoPayment(paymentId: string): Promise<MpPayment> {
   assertConfigured();
@@ -233,6 +247,8 @@ export async function fetchMercadoPagoPayment(paymentId: string): Promise<MpPaym
     method: "GET",
     path: `/v1/payments/${encodeURIComponent(String(paymentId))}`,
     idempotent: true,
+    timeoutMs: MP_PAYMENT_FETCH_TIMEOUT_MS,
+    retries: MP_PAYMENT_FETCH_RETRIES,
   });
   return mapPayment(raw);
 }

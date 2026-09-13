@@ -19,17 +19,18 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 
 ### Datos
 
-| Elemento                                                                  |                 Estado                 | Evidencia                                                              |
-| ------------------------------------------------------------------------- | :------------------------------------: | ---------------------------------------------------------------------- |
-| Migraciones inmutables con checksum y advisory lock                       |                   ✅                   | `scripts/migrate.ts`, `scripts/check-migrations.sh`, `RELEASED`        |
-| Inventario append-only + nivel reconstruible                              |                   ✅                   | triggers `forbid_change`, `rebuild_inventory_levels()`                 |
-| Snapshots financieros (precio/costo por ítem, venta inmutable)            |                   ✅                   | `order_items`, `sales`                                                 |
-| Auditoría de cambios (`audit_logs`) y eventos de dominio                  |                   ✅                   | trigger `audit_row_change`, `emit_event`                               |
-| RLS en todas las tablas; rol `pdp_app` mínimo privilegio; anon sin acceso |                   ✅                   | `0009_security.sql`                                                    |
-| Respaldo lógico + verificación + retención                                |                   ✅                   | `scripts/backup.sh`                                                    |
-| Simulacro de restauración con RTO medido                                  | ✅ script / ⏳ ejecutarlo mensualmente | `scripts/restore-drill.sh`, `backups/restore-drills.log`               |
-| PITR en Supabase                                                          |                   ⏳                   | plan Pro + add-on (`BACKUP_RESTORE.md`)                                |
-| Importación desde Sheets con trazabilidad y dry-run                       |                   ✅                   | `import_batches`/`import_rows`, `packages/db/scripts/import-sheets.ts` |
+| Elemento                                                                                                   |                 Estado                 | Evidencia                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | :------------------------------------: | ----------------------------------------------------------------------------------- |
+| Migraciones inmutables con checksum y advisory lock                                                        |                   ✅                   | `scripts/migrate.ts`, `scripts/check-migrations.sh`, `RELEASED`                     |
+| Inventario append-only + nivel reconstruible                                                               |                   ✅                   | triggers `forbid_change`, `rebuild_inventory_levels()`                              |
+| Snapshots financieros (precio/costo por ítem, venta inmutable)                                             |                   ✅                   | `order_items`, `sales`                                                              |
+| Auditoría de cambios (`audit_logs`) y eventos de dominio                                                   |                   ✅                   | trigger `audit_row_change`, `emit_event`                                            |
+| RLS en todas las tablas; rol `pdp_app` mínimo privilegio; anon sin acceso a tablas ni EXECUTE en funciones |                   ✅                   | `0009_security.sql`, `0015_audit_infra.sql`, `packages/db/test/audit_infra.test.ts` |
+| Respaldo lógico + verificación + retención (incluye extensiones)                                           |                   ✅                   | `scripts/backup.sh`                                                                 |
+| Simulacro de restauración con RTO medido (falla si faltan tablas/errores)                                  | ✅ script / ⏳ ejecutarlo mensualmente | `scripts/restore-drill.sh`, `backups/restore-drills.log`                            |
+| Consultas de integridad para producción (solo lectura)                                                     |                   ✅                   | `scripts/db-integrity.sql` (`docs/MONITORING.md` §3)                                |
+| PITR en Supabase                                                                                           |                   ⏳                   | plan Pro + add-on (`BACKUP_RESTORE.md`)                                             |
+| Importación desde Sheets con trazabilidad y dry-run                                                        |                   ✅                   | `import_batches`/`import_rows`, `packages/db/scripts/import-sheets.ts`              |
 
 ### Entrega
 
@@ -44,14 +45,15 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 
 ### Observabilidad
 
-| Elemento                                                                             |                  Estado                  | Evidencia                                                                          |
-| ------------------------------------------------------------------------------------ | :--------------------------------------: | ---------------------------------------------------------------------------------- |
-| `/api/health` y `/api/ready` en ambas apps                                           |                    ✅                    | `apps/*/app/api/{health,ready}/route.ts`                                           |
-| Sentry inicializado con release/environment y redacción de PII                       |            ✅ código / ⏳ DSN            | `apps/*/instrumentation.ts`, `apps/*/lib/sentry-options.ts` (`scrubEvent`)         |
-| Monitor de uptime externo con alerta                                                 |                    ⏳                    | `MONITORING.md`                                                                    |
-| `job_runs` con lock + crons (`webhooks-retry` */15, `sessions-purge` diario)         | ✅ código / ⏳ plan Vercel Pro para */15 | `packages/integrations/src/jobs.ts`, `apps/*/vercel.json`, `apps/*/app/api/cron/*` |
-| Webhooks idempotentes de Mercado Pago e Instagram + reintentos + consultas de alerta |                    ✅                    | `apps/web/app/api/webhooks/*`, `apps/web/lib/webhooks/*`, `0060`, `MONITORING.md`  |
-| Notificaciones internas (stock bajo, pago rechazado, VIP)                            |                    ✅                    | `finalize_sale`, `record_payment`, `recompute_customer_tier`                       |
+| Elemento                                                                                                                                                  |                  Estado                  | Evidencia                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------: | ------------------------------------------------------------------------------------------ |
+| `/api/health` y `/api/ready` en ambas apps                                                                                                                |                    ✅                    | `apps/*/app/api/{health,ready}/route.ts`                                                   |
+| Sentry inicializado con release/environment y redacción de PII                                                                                            |            ✅ código / ⏳ DSN            | `apps/*/instrumentation.ts`, `apps/*/lib/sentry-options.ts` (`scrubEvent`)                 |
+| Monitor de uptime externo con alerta                                                                                                                      |                    ⏳                    | `MONITORING.md`                                                                            |
+| `job_runs` con lock + crons (`webhooks-retry` */15, `sessions-purge`, `stock-alerts`, `customer-events`); locks huérfanos se liberan solos (trigger 0015) | ✅ código / ⏳ plan Vercel Pro para */15 | `packages/integrations/src/jobs.ts`, `apps/*/vercel.json`, `apps/*/app/api/cron/*`, `0015` |
+| Webhooks idempotentes de Mercado Pago e Instagram + reintentos (incl. eventos huérfanos en `processing`) + conciliación de montos + consultas de alerta   |                    ✅                    | `apps/web/app/api/webhooks/*`, `apps/web/lib/webhooks/*`, `0060`, `0015`, `MONITORING.md`  |
+| Smoke E2E de solo lectura contra cualquier ambiente (`pnpm smoke:e2e`)                                                                                    |                    ✅                    | `apps/*/e2e/smoke.spec.ts`, `scripts/smoke-e2e.sh`, `DEPLOYMENT.md`                        |
+| Notificaciones internas (stock bajo, pago rechazado, VIP)                                                                                                 |                    ✅                    | `finalize_sale`, `record_payment`, `recompute_customer_tier`                               |
 
 ### Seguridad
 
@@ -90,7 +92,7 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 
 - [ ] Todo lo anterior + probado en staging con el flujo real (venta POS, pedido web con MP de prueba, webhook).
 - [ ] `pnpm deploy:prod` desde `main` con árbol limpio (respaldo `pre-deploy` automático).
-- [ ] Smoke OK; `/api/health.version` = sha del tag; anotar en `.deploys-production.log`.
+- [ ] Smoke OK (`smoke.sh` automático + `pnpm smoke:e2e -- <web> <admin>`); `/api/health.version` = sha del tag; anotar en `.deploys-production.log`.
 - [ ] `bash scripts/release-migrations.sh` si hubo migraciones; commit de `RELEASED`.
 - [ ] Sentry sin errores nuevos en los primeros 30 min; revisar consultas de `MONITORING.md`.
 
@@ -104,5 +106,5 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 - [ ] Meta/Instagram verificado (si se lanza el bot); Resend con dominio verificado.
 - [ ] Migración desde Sheets aplicada y verificada (`MIGRATION_SHEETS.md`); hoja original archivada.
 - [ ] Admin cambió la contraseña sembrada; usuarios y roles creados; caja abierta con fondo real.
-- [ ] Primer `backup.sh production` y primer `restore:drill` registrados.
+- [ ] Primer `backup.sh production` y primer `restore:drill` registrados; `psql -f scripts/db-integrity.sql` limpio.
 - [ ] Equipo capacitado con `POS_MANUAL.md` y `PRODUCTION_MANUAL.md`; ventas en papel como plan B conocido.
