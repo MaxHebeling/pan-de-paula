@@ -6,6 +6,9 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/JsonLd";
 import { CartProvider } from "@/lib/cart/CartProvider";
+import { MotionProvider } from "@/lib/motion/MotionProvider";
+import { PageTransition } from "@/lib/motion/pageTransition";
+import { MOTION_BOOT_SCRIPT } from "@/lib/motion/reducedMotion";
 import { fullAddress, getBusiness } from "@/lib/site";
 import "./globals.css";
 
@@ -79,16 +82,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang="es-MX"
       className={`${display.variable} ${body.variable}`}
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
     >
       <body className="paper-bg flex min-h-dvh flex-col">
+        {/* Fija html[data-motion] antes del primer paint (≈200 B). Sin JS nunca se aplica: el sitio se ve completo. */}
+        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT_SCRIPT }} />
         <CartProvider>
           <Header />
           <main id="contenido" className="flex-1">
-            {children}
+            <PageTransition>{children}</PageTransition>
           </main>
           <Footer business={business} />
           <CartDrawer />
         </CartProvider>
+        <MotionProvider />
         <JsonLd data={bakeryLd} />
       </body>
     </html>

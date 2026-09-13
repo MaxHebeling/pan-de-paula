@@ -1,0 +1,486 @@
+/* ── Sistema de movimiento · El Pan de Paula (ver docs/WEB_MOTION.md) ────────────
+   Reglas:
+   · Todo lo que oculta o desplaza contenido cuelga de html[data-motion="on"]. Ese atributo lo fija un
+     script inline antes del primer paint y solo si el usuario NO pidió reduced motion. Sin JS o con
+     reduced motion el atributo no vale "on" y el sitio se ve completo y estático.
+   · Solo transform y opacity. Nada de layout. Sin opacity:0 en el LCP (h1 del hero → solo transform).
+   · Jerarquía: A hero · B revelados de sección · C microinteracciones · D contenido casi estático. */
+
+:root {
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in: cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* ── A · Hero: secuencia de entrada ≈ 1.3 s (marca → titular → subtítulo → CTA → estado → arte) ── */
+@keyframes hero-rise {
+  from {
+    transform: translateY(18px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes hero-art-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-line {
+  display: block;
+}
+html[data-motion="on"] .hero-eyebrow {
+  animation: hero-fade-up 0.7s var(--ease-out) both;
+}
+/* El h1 es el LCP: sube sin tocar la opacidad. */
+html[data-motion="on"] .hero-line {
+  animation: hero-rise 0.9s var(--ease-out) both;
+}
+html[data-motion="on"] .hero-line:nth-child(2) {
+  animation-delay: 0.1s;
+}
+html[data-motion="on"] .hero-sub {
+  animation: hero-fade-up 0.8s var(--ease-out) 0.35s both;
+}
+html[data-motion="on"] .hero-cta {
+  animation: hero-fade-up 0.8s var(--ease-out) 0.5s both;
+}
+html[data-motion="on"] .hero-status {
+  animation: hero-fade-up 0.8s var(--ease-out) 0.7s both;
+}
+html[data-motion="on"] .hero-art-enter {
+  animation: hero-art-in 1.1s var(--ease-out) 0.15s both;
+}
+[data-depth] {
+  will-change: transform;
+}
+.status-dot {
+  box-shadow: 0 0 0 4px rgba(47, 107, 95, 0.16);
+}
+.status-dot-closed {
+  box-shadow: 0 0 0 4px rgba(201, 138, 62, 0.18);
+}
+
+/* ── B · Revelados al hacer scroll (IntersectionObserver: lib/motion/scrollReveal.ts) ── */
+html[data-motion="on"] .reveal-wait {
+  opacity: 0;
+  transform: translateY(22px);
+}
+html[data-motion="on"] [data-reveal="fade"].reveal-wait {
+  transform: none;
+}
+html[data-motion="on"] [data-reveal="scale"].reveal-wait {
+  transform: scale(1.04);
+}
+html[data-motion="on"] [data-reveal="card"].reveal-wait {
+  transform: rotate(2deg) scale(0.96);
+}
+html[data-motion="on"] [data-reveal="left"].reveal-wait {
+  transform: translateX(-22px);
+}
+html[data-motion="on"] [data-reveal="none"].reveal-wait {
+  opacity: 1;
+  transform: none;
+}
+html[data-motion="on"] .reveal-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.8s var(--ease-out),
+    transform 0.8s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+html[data-motion="on"] [data-reveal="card"].reveal-in {
+  transition-duration: 1s;
+}
+/* Cascada interna: imagen (scale 1.05→1) y texto (y 20→0) dentro del elemento revelado */
+html[data-motion="on"] .reveal-wait .reveal-img {
+  transform: scale(1.06);
+}
+html[data-motion="on"] .reveal-in .reveal-img {
+  transform: none;
+  transition: transform 1.1s var(--ease-out) var(--reveal-delay, 0ms);
+}
+html[data-motion="on"] .reveal-wait .reveal-text {
+  opacity: 0;
+  transform: translateY(18px);
+}
+html[data-motion="on"] .reveal-in .reveal-text {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.7s var(--ease-out);
+  transition-delay: calc(var(--reveal-delay, 0ms) + 120ms);
+}
+/* Títulos clave por palabras (lib/motion/textReveal.tsx) */
+.word {
+  display: inline-block;
+}
+html[data-motion="on"] .reveal-wait .word {
+  opacity: 0;
+  transform: translateY(0.45em);
+}
+html[data-motion="on"] .reveal-in .word {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.6s var(--ease-out);
+  transition-delay: calc(var(--reveal-delay, 0ms) + var(--w, 0) * 45ms);
+}
+
+/* ── Header: transparente arriba → fondo con blur tras el scroll ── */
+.site-header {
+  transition:
+    background-color 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+.site-header[data-scrolled="false"] {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.site-header[data-scrolled="true"] {
+  box-shadow: 0 1px 0 rgba(31, 42, 58, 0.06);
+}
+
+/* ── C · Cards de producto: hover con profundidad mínima y tilt ≤ 1.5° ── */
+.card-hover {
+  transition:
+    transform 0.4s var(--ease-out),
+    box-shadow 0.4s var(--ease-out);
+}
+.card-hover .card-img {
+  transition: scale 0.7s var(--ease-out);
+}
+.card-hover .card-cta {
+  transition:
+    transform 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out),
+    background-color 0.2s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-hover {
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))
+      translateY(var(--ty, 0px));
+  }
+  .card-hover:hover {
+    --ty: -4px;
+    box-shadow: var(--shadow-lift);
+  }
+  .card-hover:hover .card-img {
+    scale: 1.03;
+  }
+  .card-hover:hover .card-cta {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+@keyframes card-nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-3px) scale(1.02);
+  }
+}
+html[data-motion="on"] .is-added .card-img-wrap {
+  animation: card-nudge 0.55s var(--ease-out);
+}
+@keyframes check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+html[data-motion="on"] .check-in {
+  animation: check-in 0.3s var(--ease-out) both;
+}
+.fly-dot {
+  position: fixed;
+  z-index: 70;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-sage);
+  box-shadow: 0 2px 10px rgba(31, 42, 58, 0.25);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ── Botones: respuesta coherente, icono que avanza, magnetismo desktop ── */
+.btn {
+  transition:
+    transform 0.2s var(--ease-out),
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.25s var(--ease-out);
+}
+.btn:active {
+  transform: translateY(1px) scale(0.985);
+}
+.btn-icon {
+  transition: transform 0.25s var(--ease-out);
+}
+@media (hover: hover) {
+  .btn:hover .btn-icon {
+    transform: translateX(3px);
+  }
+}
+[data-magnetic] {
+  transition:
+    transform 0.35s var(--ease-out),
+    background-color 0.2s,
+    box-shadow 0.25s var(--ease-out);
+}
+
+/* ── Carrito lateral: entrada/salida, líneas progresivas, microfeedback ── */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes drawer-out {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes qty-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.drawer-overlay {
+  animation: overlay-in 0.3s ease both;
+}
+.drawer-closing .drawer-overlay {
+  animation: overlay-out 0.25s ease both;
+}
+.drawer-closing .drawer-panel {
+  animation: drawer-out 0.28s var(--ease-in) both;
+}
+html[data-motion="on"] .drawer-line {
+  animation: line-in 0.45s var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 100ms);
+}
+.drawer-line {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s var(--ease-out);
+}
+.drawer-line.is-removing {
+  opacity: 0;
+  transform: translateX(14px);
+}
+html[data-motion="on"] .qty-pop {
+  animation: qty-pop 0.25s var(--ease-out);
+}
+
+/* ── Categorías: carrusel con snap (botones en desktop, swipe en móvil) ──
+   Snap "proximity" + scroll-padding igual al padding lateral: con "mandatory" el navegador reajustaba la fila
+   al cargar (scroll programático) y Chrome dejaba de reportar candidatos de LCP en toda la página. */
+.rail {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > li {
+  scroll-snap-align: start;
+}
+.rail-card .card-img {
+  transition: scale 0.8s var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .rail-card:hover .card-img {
+    scale: 1.05;
+  }
+}
+
+/* ── Del horno a tu mesa: imagen fija con zoom sutil, textos que cambian con el scroll ── */
+.story-art-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 1.4s var(--ease-out);
+}
+.story-art-layer:first-child,
+.story-art-layer.is-active {
+  opacity: 1;
+  transform: none;
+}
+.story:has(.is-active) .story-art-layer:first-child:not(.is-active) {
+  opacity: 0;
+  transform: scale(1.04);
+}
+.story-step {
+  transition: opacity 0.5s var(--ease-out);
+}
+@media (min-width: 1024px) {
+  html[data-motion="on"] .story:has(.is-active) .story-step:not(.is-active) {
+    opacity: 0.38;
+  }
+}
+
+/* ── Cómo pedir: la línea se dibuja 01 → 02 → 03 y los pasos se encienden en secuencia ── */
+.steps-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.steps-vline {
+  transform-origin: top;
+}
+.step-num {
+  transition:
+    background-color 0.45s var(--ease-out),
+    color 0.45s var(--ease-out),
+    transform 0.45s var(--ease-out),
+    box-shadow 0.45s var(--ease-out);
+}
+html[data-motion="on"] .reveal-wait .steps-line {
+  stroke-dashoffset: 1;
+}
+html[data-motion="on"] .reveal-in .steps-line {
+  transition: stroke-dashoffset 1.6s var(--ease-out) 0.25s;
+}
+html[data-motion="on"] .reveal-wait .steps-vline {
+  transform: scaleY(0);
+}
+html[data-motion="on"] .reveal-in .steps-vline {
+  transition: transform 1.6s var(--ease-out) 0.25s;
+}
+html[data-motion="on"] .reveal-wait .step-num {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  transform: scale(0.9);
+}
+html[data-motion="on"] .reveal-in .step-num {
+  transition-delay: calc(0.2s + var(--i, 0) * 0.65s);
+}
+
+/* ── Próximas fechas: la más próxima destaca sin animación ── */
+.date-featured {
+  box-shadow:
+    0 0 0 2px var(--color-sage),
+    var(--shadow-soft);
+}
+
+/* ── Tarjeta del club en /mi-tarjeta: entra con rotate 1.5°→0 y scale .97→1 (sin opacidad: puede ser LCP) ── */
+@keyframes card-enter {
+  from {
+    transform: rotate(1.5deg) scale(0.97);
+  }
+  to {
+    transform: none;
+  }
+}
+html[data-motion="on"] .card-enter {
+  animation: card-enter 0.9s var(--ease-out) both;
+}
+
+/* ── Transición de página (solo navegaciones en cliente; nunca en la primera carga) ── */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+html[data-motion="on"] .page-enter {
+  animation: page-in 0.32s var(--ease-out) both;
+}
+
+/* ── Lenis (solo cuando está activo: html.lenis) ── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ── Reduced motion: todo visible y quieto, también lo que no cuelga de data-motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .drawer-overlay,
+  .drawer-closing .drawer-overlay,
+  .drawer-closing .drawer-panel,
+  .drawer-line,
+  .qty-pop,
+  .check-in {
+    animation: none !important;
+  }
+  .card-hover,
+  .card-hover .card-img,
+  .rail-card .card-img,
+  .story-art-layer,
+  .story-step,
+  .step-num,
+  .site-header,
+  .btn,
+  [data-magnetic] {
+    transition: none !important;
+  }
+  .rail {
+    scroll-behavior: auto;
+  }
+}
