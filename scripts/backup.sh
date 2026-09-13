@@ -11,10 +11,17 @@ else
   set -a; source .env; set +a
 fi
 : "${DATABASE_URL:?Falta DATABASE_URL}"
+# Respaldo: usa BACKUP_DATABASE_URL si existe (pooler en modo sesión, puerto 5432); si no, DATABASE_URL.
+SRC="${BACKUP_DATABASE_URL:-$DATABASE_URL}"
+# TLS verificado contra la CA raíz de Supabase cuando DATABASE_SSL=require
+if [ "${DATABASE_SSL:-disable}" = "require" ]; then
+  export PGSSLMODE=verify-full PGSSLROOTCERT="$(pwd)/certs/supabase-root-2021-ca.pem"
+fi
 mkdir -p backups
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 OUT="backups/pdp-$ENV-$STAMP-$LABEL.dump"
-pg_dump --format=custom --no-owner --no-privileges --file="$OUT" "$DATABASE_URL"
+# Solo el esquema public (los esquemas internos de Supabase no son nuestros ni accesibles para pdp_app)
+pg_dump --format=custom --no-owner --no-privileges --schema=public --file="$OUT" "$SRC"
 pg_restore --list "$OUT" >/dev/null   # verifica que el archivo es legible
 SIZE=$(du -h "$OUT" | cut -f1)
 echo "✔ Respaldo: $OUT ($SIZE)"
