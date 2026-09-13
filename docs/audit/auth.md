@@ -1,20 +1,20 @@
 # Auditoría 360° — Autenticación, autorización, seguridad y administración
 
-- **Rama:** `audit/auth` (rebasada sobre `main` 576df36, incluye 0080 + `_post_migrate.sql`)
+- **Rama:** `audit/auth`, rebasada sobre `main` e7c9a02 (incluye 0080 + `_post_migrate.sql` y las auditorías infra, ops, catalog y web integradas)
 - **Fecha:** 2026-09-12
 - **Entorno:** solo local. Dev server `next dev -p 3110` y `next start -p 3111` para las cookies de producción. Base de desarrollo `pdp_dev_audit_auth` y bases de prueba `pdp_test_audit_auth` y `pdp_test_audit_auth_auth`. Producción no se tocó.
 - **Principio:** nada cuenta como PASS sin evidencia (petición HTTP, consulta SQL, test unitario/SQL o E2E). Las server actions se invocaron **directamente** (POST con `Next-Action` y la cookie de cada rol), no solo desde la UI. El formato de invocación se validó con un control positivo del owner.
 
 ## Resumen ejecutivo
 
-|                                              |                                                                                                                                               |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bugs encontrados                             | 24 (0 P0 · 0 P1 · 11 P2 · 13 P3)                                                                                                              |
-| Corregidos en esta rama                      | 18 (10 P2 · 8 P3), cada uno con test de regresión o evidencia HTTP/SQL                                                                        |
-| Documentados sin corregir (fuera de alcance) | 1 P2 · 5 P3                                                                                                                                   |
-| Tests nuevos                                 | 21 unitarios/DB en `@pdp/auth` · 12 SQL en `@pdp/db` · 9 E2E × 2 proyectos Chromium                                                           |
-| Suites finales                               | auth 26/26 · db 120/120 · E2E audit-auth 18/18 · E2E admin completo (desktop) 18/18 · typecheck ×3 OK · lint 0 errores · format OK · build OK |
-| **Health score del área**                    | **84 / 100** (estimado antes de la auditoría: ~66)                                                                                            |
+|                                              |                                                                                                                                                                                                                   |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bugs encontrados                             | 24 (0 P0 · 0 P1 · 11 P2 · 13 P3)                                                                                                                                                                                  |
+| Corregidos en esta rama                      | 18 (10 P2 · 8 P3), cada uno con test de regresión o evidencia HTTP/SQL                                                                                                                                            |
+| Documentados sin corregir (fuera de alcance) | 1 P2 · 5 P3                                                                                                                                                                                                       |
+| Tests nuevos                                 | 21 unitarios/DB en `@pdp/auth` · 12 SQL en `@pdp/db` · 9 E2E × 2 proyectos Chromium                                                                                                                               |
+| Suites finales                               | auth 26/26 · db 199/199 · E2E audit-auth 18/18 (mobile+desktop) · E2E admin completo desktop 47/47 · typecheck ×3 OK · lint sin problemas · format OK · build OK · `check:migrations` 23 OK · `check-grants.sh` ✓ |
+| **Health score del área**                    | **84 / 100** (estimado antes de la auditoría: ~66)                                                                                                                                                                |
 
 El modelo de seguridad de base es sólido: argon2id con parámetros OWASP, tokens de 256 bits guardados como sha256, cookie `httpOnly`/`Lax`/`Secure` en producción, permisos recalculados en cada request, `requireSession(permiso)` en **todas** las server actions del CRM, RLS + `pdp_app` y jerarquía por rango. Los bugs estaban en los bordes: cabeceras no confiables, carreras, contadores, rutas públicas, gating de `/api` y vida de la sesión.
 
@@ -296,7 +296,7 @@ Cerrar O-01 y O-04 llevaría el área a ~93.
 cd /Users/maxhebeling/Documents/pan-de-paula-wt/audit-auth
 pnpm install && pnpm db:migrate && pnpm db:codegen
 pnpm --filter @pdp/auth test        # 26
-pnpm --filter @pdp/db test          # 120
+pnpm --filter @pdp/db test          # 199
 pnpm --filter @pdp/admin typecheck && pnpm --filter @pdp/admin lint && pnpm format:check
 set -a; source .env; set +a; unset NODE_ENV
 pnpm --filter @pdp/admin exec next dev -p 3110 &
@@ -304,5 +304,7 @@ cd apps/admin && E2E_BASE_URL=http://localhost:3110 pnpm exec playwright test e2
 ```
 
 Nota: `login_attempts` acumula fallos de `::1` entre corridas seguidas del E2E. Si aparece «Demasiados intentos», `delete from login_attempts` en la base local.
+
+Nota 3 (entorno local, no son bugs): (a) la base de prueba de `@pdp/auth` (`<DATABASE_URL_TEST>_auth`) no se recrea entre corridas; si una migración local aún no publicada cambia, hay que borrarla (`drop database … with (force)`), porque el runner rechaza checksums distintos. (b) Si el `.env` cambia con el servidor encendido, hay que reiniciarlo: `ops.spec` falló con 401 en el cron por un `CRON_SECRET` distinto entre el servidor y Playwright. (c) `audit-ops.spec` requiere más de 50 pedidos para la paginación (`pnpm --filter @pdp/db exec tsx scripts/seed-demo-sales.ts`) y `DATABASE_URL` en el entorno de Playwright.
 
 Nota 2: las sondas manuales de configuración de §2 modifican datos globales (costeo, horarios). Durante la auditoría dejaron `default_waste_bps=200` y eso hizo fallar `catalog.spec`/`catalog-sheet.spec`, que asumen merma 0. Tras restaurar los valores del seed, el E2E completo quedó en 18/18. El `.env` del worktree apunta `DATABASE_URL` a la base aislada `pdp_dev_audit_auth` (no se versiona), que conserva usuarios y puntos de retiro de prueba.
