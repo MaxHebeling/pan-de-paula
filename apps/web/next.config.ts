@@ -6,7 +6,31 @@ import { resolve } from "node:path";
 loadEnv({ path: resolve(process.cwd(), "../../.env"), override: false, quiet: true });
 import { withSentryConfig } from "@sentry/nextjs/config";
 
+const isDev = process.env.NODE_ENV !== "production";
+const SENTRY_CONNECT = "https://*.ingest.sentry.io https://*.ingest.us.sentry.io";
+/**
+ * Content-Security-Policy (auditoría 360°). Next.js inyecta scripts inline de hidratación sin nonce, así que
+ * script-src necesita 'unsafe-inline'; aun así la política bloquea orígenes externos de scripts, objetos,
+ * framing, <base> y envíos de formularios a terceros. 'unsafe-eval' solo en desarrollo (React Refresh).
+ */
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${SENTRY_CONNECT}${isDev ? " ws:" : ""}`,
+  "frame-src https://www.google.com https://maps.google.com",
+  "worker-src 'self' blob:",
+  "media-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://*.mercadopago.com.mx https://*.mercadopago.com",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

@@ -159,20 +159,51 @@ export async function adjustPointsAction(_prev: ActionState, fd: FormData): Prom
     reason: str(fd, "reason"),
   });
   if (!p.success) return { error: p.error.issues[0]?.message ?? "Datos inválidos" };
+  const key = str(fd, "idempotency_key").slice(0, 80);
   try {
-    const balance = await withStaff(db(), s.staff.id, (trx) =>
-      callFn<number>(trx, "loyalty_post", [
+    // Regresión auditoría 360°: un doble envío (doble clic, reintento de red) sumaba los puntos dos veces.
+    // Con clave: lock transaccional por clave + registro en domain_events; la segunda llamada devuelve el saldo sin tocarlo.
+    const result = await withStaff(db(), s.staff.id, async (trx) => {
+      if (key) {
+        await sql`select pg_advisory_xact_lock(hashtext(${"points-adjust:" + key}))`.execute(trx);
+        const dup = await sql<{ n: number }>`
+          select count(*)::int as n from domain_events
+          where event_type = 'POINTS_ADJUSTED' and aggregate_id = ${p.data.id} and payload->>'idempotency_key' = ${key}`.execute(
+          trx,
+        );
+        if ((dup.rows[0]?.n ?? 0) > 0) {
+          const bal = await sql<{
+            b: number;
+          }>`select points_balance as b from customers where id = ${p.data.id}`.execute(trx);
+          return { balance: bal.rows[0]?.b ?? 0, duplicate: true };
+        }
+      }
+      const balance = await callFn<number>(trx, "loyalty_post", [
         p.data.id,
         "adjust",
         p.data.points,
         null,
         null,
         `Ajuste manual: ${p.data.reason}`,
-      ]),
-    );
-    await withStaff(db(), s.staff.id, (trx) => callFn(trx, "recompute_customer_tier", [p.data.id]));
+      ]);
+      await callFn(trx, "emit_event", [
+        "POINTS_ADJUSTED",
+        "customer",
+        p.data.id,
+        JSON.stringify({
+          points: p.data.points,
+          reason: p.data.reason,
+          idempotency_key: key || null,
+        }),
+      ]);
+      return { balance, duplicate: false };
+    });
+    if (!result.duplicate)
+      await withStaff(db(), s.staff.id, (trx) =>
+        callFn(trx, "recompute_customer_tier", [p.data.id]),
+      );
     revalidatePath(`/clientes/${p.data.id}`);
-    return { ok: `Puntos ajustados. Nuevo saldo: ${balance}` };
+    return { ok: `Puntos ajustados. Nuevo saldo: ${result.balance}` };
   } catch (e) {
     console.error("[clientes] ajuste de puntos falló", e);
     return { error: dbErrorMessage(e).message };

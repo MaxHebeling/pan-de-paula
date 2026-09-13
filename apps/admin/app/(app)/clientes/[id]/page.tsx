@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { tierProgress } from "@pdp/domain";
@@ -331,6 +332,8 @@ export default async function CustomerPage({
             <Card title="Ajustar puntos">
               <ActionForm action={adjustPointsAction} submitLabel="Aplicar ajuste" resetOnOk>
                 <input type="hidden" name="id" value={c.id} />
+                {/* Idempotencia: un doble envío con la misma clave no suma dos veces */}
+                <input type="hidden" name="idempotency_key" value={randomUUID()} />
                 <div className="grid grid-cols-[120px_1fr] gap-2">
                   <div>
                     <label className="label" htmlFor="points">

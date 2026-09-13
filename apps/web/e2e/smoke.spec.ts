@@ -104,6 +104,32 @@ test.describe("@smoke web", () => {
     expect(h["x-frame-options"]).toBe("DENY");
     expect(h["referrer-policy"]).toBeTruthy();
     expect(h["x-powered-by"]).toBeUndefined();
+    expect(h["content-security-policy"]).toMatch(/frame-ancestors 'none'/);
+    expect(h["content-security-policy"]).toMatch(/object-src 'none'/);
+  });
+
+  test("la CSP no bloquea nada en home, menú y un producto (sin violaciones en consola)", async ({
+    page,
+  }) => {
+    const violations: string[] = [];
+    page.on("console", (m) => {
+      if (
+        /Content[- ]Security[- ]Policy|Refused to (load|execute|connect|frame|apply)/i.test(
+          m.text(),
+        )
+      )
+        violations.push(m.text());
+    });
+    for (const path of ["/", "/menu"]) {
+      await page.goto(path);
+      await page.waitForLoadState("load");
+    }
+    const first = page.locator('a[href^="/producto/"]').first();
+    if (await first.count()) {
+      await first.click();
+      await page.waitForLoadState("load");
+    }
+    expect(violations).toEqual([]);
   });
 
   test("404 controlado en ruta inexistente", async ({ page }) => {

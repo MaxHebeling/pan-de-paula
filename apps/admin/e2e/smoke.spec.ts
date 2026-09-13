@@ -66,6 +66,24 @@ test.describe("@smoke admin", () => {
     expect(h["x-content-type-options"]).toBe("nosniff");
     expect(h["x-robots-tag"]).toMatch(/noindex/);
     expect(h["x-powered-by"]).toBeUndefined();
+    expect(h["content-security-policy"]).toMatch(/frame-ancestors 'none'/);
+    expect(h["content-security-policy"]).toMatch(/form-action 'self'/);
+  });
+
+  test("la CSP no bloquea la pantalla de login (sin violaciones en consola)", async ({ page }) => {
+    const violations: string[] = [];
+    page.on("console", (m) => {
+      if (
+        /Content[- ]Security[- ]Policy|Refused to (load|execute|connect|frame|apply)/i.test(
+          m.text(),
+        )
+      )
+        violations.push(m.text());
+    });
+    await page.goto("/login");
+    await page.waitForLoadState("load");
+    await expect(page.locator("#email")).toBeVisible();
+    expect(violations).toEqual([]);
   });
 
   test("login con credenciales E2E y dashboard carga (solo si hay credenciales)", async ({
