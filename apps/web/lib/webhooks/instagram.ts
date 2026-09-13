@@ -42,7 +42,13 @@ export type IgProcessResult = {
   eventId?: string;
 };
 
-/** Registra el evento; si ya existía (processed/ignored/processing) devuelve null. */
+/** Un evento `received`/`processing` sin avance en este tiempo se considera huérfano (función muerta) y se retoma. */
+export const IG_STALE_PROCESSING_MS = 10 * 60_000;
+
+/**
+ * Registra el evento; si ya existía procesado/ignorado o en curso devuelve null. Un `failed` (Meta reintenta)
+ * o un `received`/`processing` huérfano vuelve a `received` para reprocesarse.
+ */
 async function recordEvent(
   db: Database,
   ev: IgIncomingMessage,
@@ -57,7 +63,12 @@ async function recordEvent(
   `.execute(db);
   if (ins.rows[0]) return ins.rows[0];
   const claim = await sql<{ id: string }>`
-    update webhook_events set status = 'received' where provider = ${META_PROVIDER} and external_id = ${externalId} and status = 'failed' returning id
+    update webhook_events set status = 'received'
+    where provider = ${META_PROVIDER} and external_id = ${externalId}
+      and (status = 'failed'
+           or (status in ('received','processing')
+               and coalesce(last_attempt_at, received_at) < now() - make_interval(secs => ${IG_STALE_PROCESSING_MS / 1000})))
+    returning id
   `.execute(db);
   return claim.rows[0] ?? null;
 }

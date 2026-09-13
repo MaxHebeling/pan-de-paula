@@ -15,6 +15,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e --concurrency=1",
+    "smoke:e2e": "bash scripts/smoke-e2e.sh",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,sql}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css,sql}\"",
     "db:migrate": "pnpm --filter @pdp/db run migrate",

@@ -21,6 +21,12 @@ export type MpProcessDeps = {
   fetchPayment?: (paymentId: string) => Promise<MpPayment>;
 };
 
+/**
+ * Un evento en `processing` más viejo que esto se considera huérfano (la función murió: timeout de Vercel,
+ * OOM, deploy) y vuelve a ser reclamable. Debe ser mayor que `maxDuration` de la ruta (20 s) con holgura.
+ */
+export const MP_STALE_PROCESSING_MS = 10 * 60_000;
+
 export type MpProcessResult =
   | { status: "processed"; detail: Record<string, unknown> }
   | { status: "ignored"; reason: string }
@@ -62,14 +68,17 @@ export async function recordMercadoPagoEvent(
 }
 
 /**
- * Procesa un evento ya registrado. Hace claim atómico (received/failed → processing); si otro proceso
- * lo tiene, devuelve ignored. Actualiza status/attempts/last_error/last_attempt_at.
+ * Procesa un evento ya registrado. Hace claim atómico (received/failed → processing, o processing huérfano
+ * de más de `staleProcessingMs`); si otro proceso lo tiene, devuelve ignored. Actualiza
+ * status/attempts/last_error/last_attempt_at.
  */
 export async function processMercadoPagoEvent(
   db: Database,
   eventId: string,
   deps: MpProcessDeps = {},
+  opts: { staleProcessingMs?: number } = {},
 ): Promise<MpProcessResult> {
+  const staleSecs = (opts.staleProcessingMs ?? MP_STALE_PROCESSING_MS) / 1000;
   const claim = await sql<{
     id: string;
     event_type: string | null;
@@ -77,7 +86,9 @@ export async function processMercadoPagoEvent(
     attempts: number;
   }>`
     update webhook_events set status = 'processing', attempts = attempts + 1, last_attempt_at = now()
-    where id = ${eventId} and status in ('received','failed')
+    where id = ${eventId}
+      and (status in ('received','failed')
+           or (status = 'processing' and coalesce(last_attempt_at, received_at) < now() - make_interval(secs => ${staleSecs})))
     returning id, event_type, payload, attempts
   `.execute(db);
   const ev = claim.rows[0];
@@ -168,28 +179,41 @@ async function handle(
 
 /**
  * Reprocesa eventos pendientes (received/failed) de las últimas 48 h con backoff exponencial por intentos
- * (2^attempts minutos, tope 6 h) y máximo `maxAttempts`. Devuelve conteos.
+ * (2^attempts minutos, tope 6 h) y máximo `maxAttempts`, más los atorados en `processing` (función muerta)
+ * de más de `staleProcessingMs`. Devuelve conteos.
  */
 export async function retryPendingMercadoPagoEvents(
   db: Database,
-  opts: { limit?: number; maxAttempts?: number; deps?: MpProcessDeps } = {},
+  opts: {
+    limit?: number;
+    maxAttempts?: number;
+    deps?: MpProcessDeps;
+    staleProcessingMs?: number;
+  } = {},
 ): Promise<{ scanned: number; processed: number; ignored: number; failed: number }> {
   const limit = Math.min(opts.limit ?? 50, 50);
   const maxAttempts = opts.maxAttempts ?? 8;
+  const staleSecs = (opts.staleProcessingMs ?? MP_STALE_PROCESSING_MS) / 1000;
   const rows = await sql<{ id: string }>`
     select id from webhook_events
     where provider = ${MP_PROVIDER}
-      and status in ('received','failed')
       and received_at > now() - interval '48 hours'
       and attempts < ${maxAttempts}
-      and (last_attempt_at is null
-           or last_attempt_at < now() - least(interval '6 hours', make_interval(mins => power(2, attempts)::int)))
+      and (
+        (status in ('received','failed')
+          and (last_attempt_at is null
+               or last_attempt_at < now() - least(interval '6 hours', make_interval(mins => power(2, attempts)::int))))
+        or (status = 'processing'
+          and coalesce(last_attempt_at, received_at) < now() - make_interval(secs => ${staleSecs}))
+      )
     order by received_at
     limit ${limit}
   `.execute(db);
   const counts = { scanned: rows.rows.length, processed: 0, ignored: 0, failed: 0 };
   for (const r of rows.rows) {
-    const res = await processMercadoPagoEvent(db, r.id, opts.deps);
+    const res = await processMercadoPagoEvent(db, r.id, opts.deps, {
+      staleProcessingMs: opts.staleProcessingMs,
+    });
     counts[res.status]++;
   }
   return counts;
