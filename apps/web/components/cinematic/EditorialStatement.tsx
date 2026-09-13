@@ -34,7 +34,7 @@ export function EditorialStatement() {
         </div>
         <p className="cin-statement">
           <ScrollWords
-            text="Horneamos poco y todos los días. Laminamos la masa a mano, usamos mantequilla de verdad y solo metemos al horno lo que ya está pedido. Por eso tu pan llega como tiene que llegar: recién hecho."
+            text="Horneamos poco y para cada fecha. Laminamos la masa a mano, usamos mantequilla de verdad y solo metemos al horno lo que ya está pedido. Por eso tu pan llega como tiene que llegar: recién hecho."
             accent={["recién", "hecho."]}
           />
         </p>
