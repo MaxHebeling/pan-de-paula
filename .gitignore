@@ -13,7 +13,6 @@ test-results/
 !.env.example
 .vercel/
 *.tsbuildinfo
-packages/db/src/generated/
 apps/*/public/uploads/
 backups/*.dump
 backups/*.sql
