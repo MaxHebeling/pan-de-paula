@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isCronAuthorized } from "@pdp/integrations";
 import { db, sql, callFn } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +8,8 @@ const JOB = "stock-alerts";
 const STALE_MINUTES = 10;
 
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const header = req.headers.get("authorization") ?? "";
-  return header === `Bearer ${secret}`;
+  // Comparación de tiempo constante y secreto de 16+ caracteres (misma regla que el resto de crons)
+  return isCronAuthorized(req.headers.get("authorization"), process.env.CRON_SECRET);
 }
 
 /**

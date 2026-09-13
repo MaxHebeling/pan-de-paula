@@ -69,6 +69,17 @@ export async function migrate(
       }
       if (!a) pending++;
     }
+    const maxApplied = [...applied.keys()].sort().at(-1);
+    const outOfOrder = files.filter(
+      (f) => !applied.has(f.version) && maxApplied && f.version < maxApplied,
+    );
+    if (outOfOrder.length) {
+      log(
+        `⚠ ${outOfOrder.length} migración(es) con número menor a la última aplicada (${maxApplied}) se aplicarán ahora: ${outOfOrder
+          .map((f) => f.name)
+          .join(", ")}. Asegúrate de que no dependan de cambios posteriores.`,
+      );
+    }
     if (opts.statusOnly) {
       for (const f of files) log(`${applied.has(f.version) ? "✔" : "·"} ${f.name}`);
       log(`${pending} pendiente(s)`);

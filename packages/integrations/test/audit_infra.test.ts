@@ -243,7 +243,6 @@ describe("Email: XSS y robustez", () => {
       soldAt: new Date("2026-09-12T18:00:00Z"),
       payments: [{ method: `cash${XSS}`, amountCents: 3000 }],
       customerName: `Ana ${XSS}`,
-      // eslint-disable-next-line no-script-url
       logoUrl: "javascript:alert(1)",
       siteUrl: "data:text/html,evil",
     });
@@ -259,7 +258,6 @@ describe("Email: XSS y robustez", () => {
       ...base,
       fulfillmentType: "delivery",
       deliveryAddress: `Calle ${XSS}`,
-      // eslint-disable-next-line no-script-url
       statusUrl: "javascript:alert(2)",
       payUrl: "vbscript:msgbox",
       paymentStatus: "pending",

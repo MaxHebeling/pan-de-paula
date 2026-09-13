@@ -10,3 +10,4 @@ export * from "./inventory.ts";
 export * from "./validation.ts";
 export * from "./ids.ts";
 export * from "./text.ts";
+export * from "./redact.ts";

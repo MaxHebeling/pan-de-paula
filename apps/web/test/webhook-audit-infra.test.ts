@@ -471,6 +471,29 @@ const msg = (mid: string, message: Record<string, unknown>, sender = "9001") => 
 });
 
 describe("webhook Instagram (auditoría)", () => {
+  it("regresión: un mensaje `failed` lo reintenta el cron (backoff) y no se contesta dos veces", async () => {
+    const igLib = await import("@/lib/webhooks/instagram");
+    send.mockRejectedValueOnce(new Error("Meta 503"));
+    await igRoute.POST(deliver([msg("r1", { text: "a qué hora abren" })]));
+    expect((await events())[0]).toMatchObject({ status: "failed" });
+    // Dentro del backoff no se reintenta
+    let res = await igLib.retryPendingInstagramEvents(db, { siteUrl: "https://elpandepaula.mx" });
+    expect(res.scanned).toBe(0);
+    await sql`update webhook_events set last_attempt_at = now() - interval '3 minutes'`.execute(db);
+    res = await igLib.retryPendingInstagramEvents(db, { siteUrl: "https://elpandepaula.mx" });
+    expect(res).toMatchObject({ scanned: 1, processed: 1 });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(await count("instagram_messages", "direction = 'out'")).toBe(1);
+    // Otra pasada o reentrega de Meta: no contesta de nuevo
+    await sql`update webhook_events set status = 'failed', last_attempt_at = now() - interval '1 hour'`.execute(
+      db,
+    );
+    res = await igLib.retryPendingInstagramEvents(db, { siteUrl: "https://elpandepaula.mx" });
+    expect(res).toMatchObject({ scanned: 1, processed: 1 });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(await count("instagram_messages", "direction = 'out'")).toBe(1);
+  });
+
   it("adjunto sin texto: se guarda con attachments, no se responde, evento processed", async () => {
     const r = await igRoute.POST(
       deliver([

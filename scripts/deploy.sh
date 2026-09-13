@@ -42,7 +42,22 @@ echo "  web:   $WEB_URL"
 echo "  admin: $ADMIN_URL"
 
 echo "▶ [$ENV] 6/6 Smoke tests"
-bash scripts/smoke.sh "$WEB_URL" "$ADMIN_URL"
+# Producción: contra los dominios estables (lo que ven los clientes); las URLs de deployment pueden tener
+# Deployment Protection (401). Staging: URLs del deployment con bypass si VERCEL_AUTOMATION_BYPASS_SECRET existe.
+SMOKE_WEB="$WEB_URL"; SMOKE_ADMIN="$ADMIN_URL"
+if [ "$ENV" = "production" ]; then
+  SMOKE_WEB="${NEXT_PUBLIC_SITE_URL%/}"; SMOKE_ADMIN="${NEXT_PUBLIC_ADMIN_URL%/}"
+  # El alias del dominio estable se actualiza al terminar el deploy: esperar a que sirva el commit nuevo
+  for i in $(seq 1 20); do
+    V=$(curl -s --max-time 10 "$SMOKE_WEB/api/health" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
+    [ "$V" = "$SHA" ] && break
+    sleep 6
+  done
+fi
+bash scripts/smoke.sh "$SMOKE_WEB" "$SMOKE_ADMIN"
+if [ "${SKIP_SMOKE_E2E:-0}" != "1" ]; then
+  bash scripts/smoke-e2e.sh "$SMOKE_WEB" "$SMOKE_ADMIN"
+fi
 
 TAG="deploy-$ENV-$(date -u +%Y%m%d-%H%M%S)-$SHA"
 git tag -a "$TAG" -m "Deploy $ENV $SHA web=$WEB_URL admin=$ADMIN_URL"

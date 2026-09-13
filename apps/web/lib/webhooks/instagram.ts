@@ -98,6 +98,21 @@ export async function processInstagramEvent(
 
     const { conversationId, previous } = await storeIncoming(db, ev);
 
+    // Guarda de idempotencia (reintentos del cron o reentregas de Meta): si ya existe una respuesta automática
+    // posterior a este mensaje entrante, no se vuelve a contestar.
+    if (ev.mid) {
+      const answered = await sql<{ ok: boolean }>`
+        select exists (
+          select 1 from instagram_messages o
+          join instagram_messages i on i.conversation_id = o.conversation_id and i.external_mid = ${ev.mid} and i.direction = 'in'
+          where o.conversation_id = ${conversationId} and o.direction = 'out' and o.auto_reply and o.created_at >= i.created_at
+        ) as ok`.execute(db);
+      if (answered.rows[0]?.ok) {
+        await finish(db, eventId, "processed");
+        return { status: "processed", eventId, reason: "ya respondido" };
+      }
+    }
+
     const flags = await loadFeatureFlags(db, ["instagram_bot", "instagram_ai_replies"]);
     if (!flags.instagram_bot || !ev.text?.trim()) {
       await finish(db, eventId, "processed");
@@ -213,4 +228,47 @@ async function upsertLead(db: Database, conversationId: string, igUserId: string
     insert into leads(source, source_ref, handle, interest, product_id, link_sent, status)
     values ('instagram', ${conversationId}, ${igUserId}, ${reply.leadInterest ?? reply.intent}, ${reply.productId ?? null}::uuid, ${reply.link ?? null}, 'new')
   `.execute(db);
+}
+
+/**
+ * Reintenta mensajes de Instagram `failed` (o huérfanos en `received`/`processing`) de las últimas 24 h — la ventana en la
+ * que Meta permite responder — con backoff exponencial (2^intentos min, tope 2 h) y máximo `maxAttempts`.
+ * Idempotente: la guarda "ya respondido" evita contestar dos veces.
+ */
+export async function retryPendingInstagramEvents(
+  db: Database,
+  opts: { siteUrl: string; limit?: number; maxAttempts?: number; deps?: IgDeps } = { siteUrl: "" },
+): Promise<{ scanned: number; processed: number; ignored: number; failed: number }> {
+  const limit = Math.min(opts.limit ?? 30, 50);
+  const maxAttempts = opts.maxAttempts ?? 5;
+  const staleSecs = IG_STALE_PROCESSING_MS / 1000;
+  const rows = await sql<{
+    id: string;
+    payload: IgIncomingMessage;
+    signature_valid: boolean | null;
+  }>`
+    select id, payload, signature_valid from webhook_events
+    where provider = ${META_PROVIDER}
+      and received_at > now() - interval '24 hours'
+      and attempts < ${maxAttempts}
+      and (
+        (status = 'failed'
+          and (last_attempt_at is null
+               or last_attempt_at < now() - least(interval '2 hours', make_interval(mins => power(2, attempts)::int))))
+        or (status in ('received','processing')
+          and coalesce(last_attempt_at, received_at) < now() - make_interval(secs => ${staleSecs}))
+      )
+    order by received_at
+    limit ${limit}
+  `.execute(db);
+  const counts = { scanned: rows.rows.length, processed: 0, ignored: 0, failed: 0 };
+  for (const r of rows.rows) {
+    const res = await processInstagramEvent(db, r.payload, {
+      siteUrl: opts.siteUrl,
+      signatureValid: r.signature_valid,
+      deps: opts.deps,
+    });
+    counts[res.status]++;
+  }
+  return counts;
 }
