@@ -1,6 +1,6 @@
 # Auditoría 360° — Integraciones, webhooks, jobs, emails, importador, base de datos, build/CI, health y smoke
 
-> Rama `audit/infra` (rebasada sobre `main` 576df36, que ya incluye 0080 + `_post_migrate.sql` + `check-grants.sh`).
+> Rama `audit/infra` (rebasada sobre `main` 138d448, que ya incluye 0080 + `_post_migrate.sql` + `check-grants.sh` y la auditoría de catálogo 0014/0041).
 > Fecha: 2026-09-12. Todo se ejecutó **en local** (Postgres 17, `pdp_audit_infra_dev` con seed + demo, bases de test
 > `pdp_test_audit_infra` y `_web`, servidores `next start` en 3115/3116). **Nada se ejecutó contra staging ni producción.**
 > Criterio: PASS solo con evidencia ejecutada; BLOCKED cuando exige credenciales reales (se verificó con fetch
@@ -27,7 +27,7 @@
 | Cron (admin)       | `sessions-purge` `0 9 * * *` · `stock-alerts` `0 */2 * * *` · `customer-events` `30 14 * * *`                                                                                                                     | `apps/admin/vercel.json`, `apps/admin/app/api/cron/*`                                         |
 | Health             | `/api/health` (liveness) y `/api/ready` (`dbHealth`) en ambas apps                                                                                                                                                | `apps/*/app/api/{health,ready}`, `packages/db/src/index.ts`                                   |
 | Importador         | CSV/XLSX → 6 entidades, dry-run/apply/strict, `import_batches`/`import_rows`, reportes `.md`, 7 mapeos de ejemplo                                                                                                 | `packages/db/scripts/import-sheets.ts`, `packages/db/scripts/import/**`, `packages/db/import` |
-| DB                 | 19 migraciones (17 publicadas + 0015 + 0080), `_post_migrate.sql`, migrate/seed/seed-demo/reset/codegen                                                                                                           | `packages/db/migrations`, `packages/db/scripts`                                               |
+| DB                 | 21 migraciones (18 publicadas en `RELEASED` + 0014, 0015 y 0041 pendientes), `_post_migrate.sql`, migrate/seed/seed-demo/reset/codegen                                                                            | `packages/db/migrations`, `packages/db/scripts`                                               |
 | Scripts operativos | `deploy`, `rollback`, `backup`, `restore-drill`, `smoke`, `smoke-e2e` (nuevo), `check-env`, `check-secrets`, `check-migrations`, `check-grants`, `release-migrations`, `vercel-setup`, `db-integrity.sql` (nuevo) | `scripts/`                                                                                    |
 | CI                 | Postgres 17, install congelado, secretos, migraciones, grants (nuevo), check-env (nuevo), formato, lint, typecheck, tests, audit, build, E2E                                                                      | `.github/workflows/ci.yml`                                                                    |
 | Smoke              | `@smoke` web (11) y admin (7), solo lectura                                                                                                                                                                       | `apps/*/e2e/smoke.spec.ts`, `pnpm smoke:e2e`                                                  |
@@ -179,13 +179,13 @@ Archivos de test nuevos: `IA` = `packages/integrations/test/audit_infra.test.ts`
 
 ### 2.8 Health y smoke
 
-| Caso                                                   | Estado  | Evidencia                                                                      |
-| ------------------------------------------------------ | ------- | ------------------------------------------------------------------------------ |
-| `/api/health` 200 en ambas apps (también con DB caída) | PASS    | V                                                                              |
-| `/api/ready` 200 con DB arriba (`migrations: 19`)      | PASS    | V                                                                              |
-| `/api/ready` 503 JSON con DB caída                     | PASS¹   | V: `{"ok":false,…,"error":"ECONNREFUSED"}` (antes `"error":""`)                |
-| Smoke E2E web (11) y admin (7, con login)              | PASS    | V: `pnpm smoke:e2e -- http://localhost:3115 http://localhost:3116` → 18 passed |
-| Smoke contra staging/producción                        | BLOCKED | Correr `pnpm smoke:e2e -- <urls>` tras el próximo deploy                       |
+| Caso                                                                        | Estado  | Evidencia                                                                      |
+| --------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `/api/health` 200 en ambas apps (también con DB caída)                      | PASS    | V                                                                              |
+| `/api/ready` 200 con DB arriba (`migrations: 19`; 21 tras el último rebase) | PASS    | V                                                                              |
+| `/api/ready` 503 JSON con DB caída                                          | PASS¹   | V: `{"ok":false,…,"error":"ECONNREFUSED"}` (antes `"error":""`)                |
+| Smoke E2E web (11) y admin (7, con login)                                   | PASS    | V: `pnpm smoke:e2e -- http://localhost:3115 http://localhost:3116` → 18 passed |
+| Smoke contra staging/producción                                             | BLOCKED | Correr `pnpm smoke:e2e -- <urls>` tras el próximo deploy                       |
 
 ---
 
@@ -267,7 +267,7 @@ No se encontró ningún P0 nuevo (el P0 de privilegios en Supabase ya lo había 
 | `apps/web/e2e/smoke.spec.ts`                     |    11 | `@smoke` web, solo lectura                                                                                                                              |
 | `apps/admin/e2e/smoke.spec.ts`                   |     7 | `@smoke` admin, solo lectura (login si hay credenciales)                                                                                                |
 
-Totales tras la auditoría: `@pdp/integrations` 108 (antes 79) · `@pdp/db` 131 (antes 105 + 3 de `main`) · `@pdp/web` 33 (antes 16) · smoke E2E 18. `pnpm typecheck`, `pnpm lint`, `pnpm format:check` y `pnpm build` en verde.
+Totales tras la auditoría (sobre `main` 138d448): `@pdp/integrations` 109 (79 al empezar + 1 de `main`) · `@pdp/db` 146 (105 al empezar + 18 de `main`) · `@pdp/web` 33 (antes 16) · smoke E2E 18. `pnpm typecheck`, `pnpm lint`, `pnpm format:check` y `pnpm build` en verde.
 
 Scripts nuevos: `scripts/db-integrity.sql` (solo lectura; cómo interpretarlo en su encabezado y en `MONITORING.md` §3), `scripts/smoke-e2e.sh` (`pnpm smoke:e2e -- <web> <admin>`, sección en `DEPLOYMENT.md`).
 
@@ -293,7 +293,7 @@ Scripts nuevos: `scripts/db-integrity.sql` (solo lectura; cómo interpretarlo en
 
 ## 7. Riesgos residuales
 
-1. **0015 corre fuera de orden en producción** (después de 0080). Es aditiva e idempotente y se probó en ambos órdenes (base nueva: 0015 → 0080; base con 0080 ya aplicada, como producción: 0080 → 0015, `check-grants` limpio y funciones nuevas no ejecutables por anon), pero `migrate.ts` no tiene guarda para esto (P3-5). Tras desplegarla: `release-migrations.sh`.
+1. **0014, 0015 y 0041 correrán fuera de orden en producción** (después de 0080). En la base dev se aplicaron 0014/0041 después de 0015/0080 sin problemas y `check-grants` quedó limpio. Es aditiva e idempotente y se probó en ambos órdenes (base nueva: 0015 → 0080; base con 0080 ya aplicada, como producción: 0080 → 0015, `check-grants` limpio y funciones nuevas no ejecutables por anon), pero `migrate.ts` no tiene guarda para esto (P3-5). Tras desplegarla: `release-migrations.sh`.
 2. **Alertas de conciliación dependen de que alguien lea `notifications`**: no hay aviso por email/WhatsApp todavía (acción externa de `MONITORING.md`).
 3. **Eventos de Instagram `failed` no se reintentan** (P2-8): un cliente puede quedar sin respuesta automática; queda visible en `webhook_events` y en la bandeja del admin.
 4. **Sentry puede enviar tokens** en `query_string`/`extra` (P2-5) en cuanto se cargue el DSN. Corregirlo antes de activar Sentry en producción: aplicar `redact()` de `@pdp/integrations` a `extra`, `contexts`, breadcrumbs y parámetros de la URL en `apps/*/lib/sentry-options.ts`.
