@@ -2,9 +2,11 @@
  * Sesiones de staff basadas en cookie httpOnly + tabla staff_sessions.
  * El token en claro solo vive en la cookie; en la base se guarda su sha256.
  */
-import { sql, type Database } from "@pdp/db";
+import { sql, type Database, type DB, type Transaction } from "@pdp/db";
+import { hash } from "@node-rs/argon2";
 import { hashToken, newToken } from "./tokens.ts";
 import { verifyPassword } from "./password.ts";
+import { normalizeIp } from "./ip.ts";
 
 export const SESSION_COOKIE = "pdp_session";
 export const SESSION_TTL_DAYS = 14;
@@ -29,16 +31,30 @@ export type LoginResult =
   | { ok: true; token: string; session: StaffSession }
   | { ok: false; reason: "invalid_credentials" | "locked" | "inactive" | "rate_limited" };
 
+const DUMMY_HASH_PROMISE: { v?: Promise<string> } = {};
+/** Hash de relleno para igualar el tiempo de respuesta cuando el correo no existe (evita enumerar por tiempo). */
+function dummyHash(): Promise<string> {
+  DUMMY_HASH_PROMISE.v ??= hash("no-existe-" + newToken(8), {
+    memoryCost: 19_456,
+    timeCost: 2,
+    parallelism: 1,
+  });
+  return DUMMY_HASH_PROMISE.v;
+}
+
 export async function login(
   db: Database,
   input: { email: string; password: string; ip?: string | null; userAgent?: string | null },
 ): Promise<LoginResult> {
   const email = input.email.trim().toLowerCase();
+  // La IP viene de cabeceras: si no es una IP válida se descarta (nunca se castea texto arbitrario a inet).
+  const ip = normalizeIp(input.ip);
+  const userAgent = input.userAgent ? input.userAgent.slice(0, 512) : null;
   // Rate limit por IP
-  if (input.ip) {
+  if (ip) {
     const r = await sql<{
       n: number;
-    }>`select count(*)::int as n from login_attempts where ip = ${input.ip}::inet and success = false and created_at > now() - interval '15 minutes'`.execute(
+    }>`select count(*)::int as n from login_attempts where ip = ${ip}::inet and success = false and created_at > now() - interval '15 minutes'`.execute(
       db,
     );
     if ((r.rows[0]?.n ?? 0) >= IP_ATTEMPT_LIMIT) return { ok: false, reason: "rate_limited" };
@@ -57,30 +73,44 @@ export async function login(
      from staff_users where email = ${email} and deleted_at is null`.execute(db);
   const user = u.rows[0];
   const record = (success: boolean) =>
-    sql`insert into login_attempts(email, ip, success) values (${email}, ${input.ip ?? null}::inet, ${success})`.execute(
+    sql`insert into login_attempts(email, ip, success) values (${email}, ${ip}::inet, ${success})`.execute(
       db,
     );
 
   if (!user) {
+    // Mismo costo y misma respuesta que una cuenta real: verifica contra un hash de relleno y
+    // "bloquea" el correo inexistente tras el mismo número de fallos (no se puede enumerar por bloqueo).
+    await verifyPassword(await dummyHash(), input.password);
     await record(false);
-    return { ok: false, reason: "invalid_credentials" };
+    const f = await sql<{
+      n: number;
+    }>`select count(*)::int as n from login_attempts where email = ${email} and success = false and created_at > now() - (${LOCK_MINUTES} || ' minutes')::interval`.execute(
+      db,
+    );
+    return {
+      ok: false,
+      reason: (f.rows[0]?.n ?? 0) >= MAX_FAILED_LOGINS ? "locked" : "invalid_credentials",
+    };
   }
-  if (!user.is_active) {
-    await record(false);
-    return { ok: false, reason: "inactive" };
-  }
-  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+  const lockActive = !!user.locked_until && new Date(user.locked_until) > new Date();
+  if (lockActive) {
     await record(false);
     return { ok: false, reason: "locked" };
   }
   const okPw = await verifyPassword(user.password_hash, input.password);
   if (!okPw) {
     await record(false);
-    const failed = user.failed_logins + 1;
+    // Si el bloqueo anterior ya venció, el contador arranca de nuevo (si no, un solo fallo re-bloquea 15 min).
+    const failed = (user.locked_until ? 0 : user.failed_logins) + 1;
     await sql`update staff_users set failed_logins = ${failed},
               locked_until = case when ${failed} >= ${MAX_FAILED_LOGINS} then now() + (${LOCK_MINUTES} || ' minutes')::interval else null end
               where id = ${user.id}`.execute(db);
     return { ok: false, reason: failed >= MAX_FAILED_LOGINS ? "locked" : "invalid_credentials" };
+  }
+  if (!user.is_active) {
+    // Solo quien conoce la contraseña se entera de que la cuenta está desactivada.
+    await record(false);
+    return { ok: false, reason: "inactive" };
   }
   await record(true);
   await sql`update staff_users set failed_logins = 0, locked_until = null, last_login_at = now() where id = ${user.id}`.execute(
@@ -91,11 +121,11 @@ export async function login(
   const s = await sql<{
     id: string;
   }>`insert into staff_sessions(staff_id, token_hash, user_agent, ip, expires_at)
-      values (${user.id}, ${hashToken(token)}, ${input.userAgent ?? null}, ${input.ip ?? null}::inet, ${expiresAt}) returning id`.execute(
+      values (${user.id}, ${hashToken(token)}, ${userAgent}, ${ip}::inet, ${expiresAt}) returning id`.execute(
     db,
   );
   const permissions = await loadPermissions(db, user.role_key);
-  await sql`insert into audit_logs(staff_id, action, entity, entity_id, ip) values (${user.id}, 'LOGIN', 'staff_users', ${user.id}, ${input.ip ?? null}::inet)`.execute(
+  await sql`insert into audit_logs(staff_id, action, entity, entity_id, ip) values (${user.id}, 'LOGIN', 'staff_users', ${user.id}, ${ip}::inet)`.execute(
     db,
   );
   return {
@@ -123,7 +153,11 @@ export async function loadPermissions(db: Database, roleKey: string): Promise<Se
   return new Set(r.rows.map((x) => x.permission_key));
 }
 
-/** Resuelve la sesión desde el token de cookie. Renueva last_seen (throttled) y desliza expiración. */
+/**
+ * Resuelve la sesión desde el token de cookie. Renueva last_seen (throttled) y desliza la expiración,
+ * pero NUNCA más allá de SESSION_TTL_DAYS desde el login (vida máxima absoluta, alineada con la cookie):
+ * un token robado no se mantiene vivo indefinidamente por usarlo cada pocos días.
+ */
 export async function resolveSession(
   db: Database,
   token: string | undefined | null,
@@ -142,13 +176,14 @@ export async function resolveSession(
     is_active: boolean;
   }>`select s.id as session_id, s.expires_at, s.last_seen_at, u.id, u.email, u.full_name, u.role_key, u.must_change_password, u.is_active
      from staff_sessions s join staff_users u on u.id = s.staff_id
-     where s.token_hash = ${th} and s.revoked_at is null and s.expires_at > now() and u.deleted_at is null`.execute(
+     where s.token_hash = ${th} and s.revoked_at is null and s.expires_at > now()
+       and s.created_at > now() - (${SESSION_TTL_DAYS} || ' days')::interval and u.deleted_at is null`.execute(
     db,
   );
   const row = r.rows[0];
   if (!row || !row.is_active) return null;
   if (Date.now() - new Date(row.last_seen_at).getTime() > 5 * 60_000) {
-    await sql`update staff_sessions set last_seen_at = now(), expires_at = greatest(expires_at, now() + interval '7 days') where id = ${row.session_id}`.execute(
+    await sql`update staff_sessions set last_seen_at = now(), expires_at = least(greatest(expires_at, now() + interval '7 days'), created_at + (${SESSION_TTL_DAYS} || ' days')::interval) where id = ${row.session_id}`.execute(
       db,
     );
   }
@@ -174,10 +209,18 @@ export async function logout(db: Database, token: string | undefined | null): Pr
   );
 }
 
-export async function revokeAllSessions(db: Database, staffId: string): Promise<void> {
-  await sql`update staff_sessions set revoked_at = now() where staff_id = ${staffId} and revoked_at is null`.execute(
-    db,
-  );
+/** Revoca todas las sesiones del usuario; `exceptSessionId` conserva la sesión actual (p. ej. al cambiar contraseña). */
+export async function revokeAllSessions(
+  db: Database | Transaction<DB>,
+  staffId: string,
+  exceptSessionId?: string,
+): Promise<number> {
+  const r = await sql<{
+    n: number;
+  }>`with u as (update staff_sessions set revoked_at = now()
+      where staff_id = ${staffId} and revoked_at is null and (${exceptSessionId ?? null}::uuid is null or id <> ${exceptSessionId ?? null}::uuid)
+      returning 1) select count(*)::int as n from u`.execute(db);
+  return r.rows[0]?.n ?? 0;
 }
 
 export async function purgeExpiredSessions(db: Database): Promise<number> {

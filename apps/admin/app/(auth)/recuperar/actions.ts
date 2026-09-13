@@ -1,9 +1,9 @@
 "use server";
-import { headers } from "next/headers";
 import { z } from "zod";
 import { createPasswordReset } from "@pdp/auth";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { db, sql } from "@/lib/db";
+import { clientIp } from "@/lib/auth";
 import type { ActionState } from "@/lib/action-state";
 
 const schema = z.object({ email: z.string().trim().toLowerCase().email() });
@@ -18,8 +18,7 @@ const GENERIC_OK =
 export async function requestReset(_prev: ActionState, form: FormData): Promise<ActionState> {
   const parsed = schema.safeParse({ email: form.get("email") });
   if (!parsed.success) return { error: "Escribe un correo válido." };
-  const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || h.get("x-real-ip") || null;
+  const ip = await clientIp();
   try {
     if (ip) {
       const r = await sql<{ n: number }>`
@@ -54,10 +53,15 @@ export async function requestReset(_prev: ActionState, form: FormData): Promise<
             "[recuperar] no se pudo enviar el correo de restablecimiento",
             r.error ?? r.skipped,
           );
-      } else {
-        // Sin proveedor de email configurado: el enlace queda en el log del servidor para que un admin lo comparta.
+      } else if ((process.env.APP_ENV ?? "development") !== "production") {
+        // Desarrollo/staging sin proveedor de email: el enlace queda en el log local para probar el flujo.
         console.info(
           `[recuperar] EMAIL NO CONFIGURADO. Enlace de restablecimiento para ${parsed.data.email}: ${url}`,
+        );
+      } else {
+        // Producción: nunca se escribe un token vivo en los logs (los lee cualquiera con acceso a Vercel/Sentry).
+        console.warn(
+          "[recuperar] EMAIL NO CONFIGURADO: solicitud de restablecimiento sin enviar. Un administrador puede generar el enlace en /usuarios.",
         );
       }
     }

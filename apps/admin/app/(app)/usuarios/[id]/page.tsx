@@ -13,6 +13,8 @@ export const dynamic = "force-dynamic";
 export default async function UserPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession("staff.write");
   const { id } = await params;
+  // Un id que no es UUID no puede existir: 404 en vez de un error 500 de Postgres.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const [u, roles, sessions] = await Promise.all([
     db()
       .selectFrom("staff_users as u")

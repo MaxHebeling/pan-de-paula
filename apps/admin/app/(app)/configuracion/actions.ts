@@ -251,9 +251,15 @@ export async function deleteWindow(id: string): Promise<void> {
 }
 
 // ── Calendario ───────────────────────────────────────────────────────────────
+/** "AAAA-MM-DD" que existe en el calendario (2026-02-30 no): evita que Postgres rechace el cast con su mensaje crudo. */
+const realDate = zDate.refine((v) => {
+  const d = new Date(v + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}, "Fecha inexistente");
+
 const exceptionSchema = z
   .object({
-    date: zDate,
+    date: realDate,
     is_closed: z.boolean(),
     no_orders: z.boolean(),
     opens_at: zTime,
@@ -324,6 +330,8 @@ const pickupSchema = z.object({
     .trim()
     .url("URL de mapa inválida")
     .max(500)
+    // Se publica como enlace en el sitio: solo http(s) (nada de javascript:, data:, etc.)
+    .refine((v) => /^https?:\/\//i.test(v), "El enlace de mapa debe empezar con https://")
     .nullable()
     .or(z.literal("").transform(() => null)),
   is_default: z.boolean(),

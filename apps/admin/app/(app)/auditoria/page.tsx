@@ -25,12 +25,24 @@ const ENTITY_LABEL: Record<string, string> = {
   recipe_items: "Líneas de receta",
   staff_users: "Usuarios",
   business_settings: "Negocio",
+  business_hours: "Horarios",
+  pickup_points: "Puntos de retiro",
+  costing_settings: "Fórmulas de costeo",
   feature_flags: "Funciones",
   ordering_windows: "Ventanas de pedido",
   calendar_exceptions: "Calendario",
   orders: "Pedidos",
   customers: "Clientes",
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** "AAAA-MM-DD" real (rechaza 2026-13-45); vacío si no es válida. */
+function validDate(v: string | undefined): string {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+  const d = new Date(v + "T00:00:00Z");
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? "" : v;
+}
 
 type Search = {
   entidad?: string;
@@ -58,13 +70,14 @@ type Row = {
 export default async function AuditPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requireSession("audit.read");
   const sp = await searchParams;
-  const entidad = sp.entidad ?? "";
-  const usuario = sp.usuario ?? "";
-  const accion = sp.accion ?? "";
-  const desde = sp.desde ?? "";
-  const hasta = sp.hasta ?? "";
-  const q = (sp.q ?? "").trim();
-  const page = Math.max(1, Number(sp.pagina) || 1);
+  // Filtros saneados: lo que no encaja se ignora (nunca llega a un cast ::uuid/::date que tumbe la página).
+  const entidad = (sp.entidad ?? "").slice(0, 64);
+  const usuario = UUID_RE.test(sp.usuario ?? "") ? sp.usuario! : "";
+  const accion = (sp.accion ?? "").slice(0, 64);
+  const desde = validDate(sp.desde);
+  const hasta = validDate(sp.hasta);
+  const q = (sp.q ?? "").trim().slice(0, 200);
+  const page = Math.min(100_000, Math.max(1, Math.floor(Number(sp.pagina)) || 1));
   const offset = (page - 1) * PAGE;
 
   const [entities, staff, actions, res, total] = await Promise.all([
