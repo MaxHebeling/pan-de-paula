@@ -1,5 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { createDb, sql } from "@pdp/db";
+import { hashPassword } from "@pdp/auth";
 
 /**
  * Auditoría OPERACIÓN (POS, caja, pedidos, producción, inventario, notificaciones).
@@ -149,7 +150,20 @@ const ULTIMO = "Audit Último E2E";
 let panId: string;
 let ultimoId: string;
 
+/** Crea (o reactiva) los usuarios de rol que usa la suite, para que corra en CI y en bases recién sembradas. */
+async function ensureStaff(user: { email: string; password: string }, role: string, name: string) {
+  const hash = await hashPassword(user.password);
+  await sql`insert into staff_users(email, full_name, password_hash, role_key, is_active, must_change_password)
+            values (${user.email}, ${name}, ${hash}, ${role}, true, false)
+            on conflict (email) do update set password_hash = excluded.password_hash, role_key = excluded.role_key,
+              is_active = true, must_change_password = false, failed_logins = 0, locked_until = null, deleted_at = null`.execute(
+    db,
+  );
+}
+
 test.beforeAll(async () => {
+  await ensureStaff(CASHIER, "cashier", "Cajera Auditoría");
+  await ensureStaff(PRODUCTION, "production", "Producción Auditoría");
   panId = await ensureProduct(PAN, "audit-pan-e2e", 4000, 100);
   ultimoId = await ensureProduct(ULTIMO, "audit-ultimo-e2e", 3000, 1);
   await sql`update business_settings set allow_negative_stock = true`.execute(db);
