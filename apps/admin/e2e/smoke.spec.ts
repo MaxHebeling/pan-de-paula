@@ -50,7 +50,11 @@ test.describe("@smoke admin", () => {
   });
 
   test("los crons rechazan peticiones sin secreto (401)", async ({ request }) => {
-    for (const path of ["/api/cron/sessions-purge", "/api/cron/stock-alerts", "/api/cron/customer-events"]) {
+    for (const path of [
+      "/api/cron/sessions-purge",
+      "/api/cron/stock-alerts",
+      "/api/cron/customer-events",
+    ]) {
       const r = await request.get(path);
       expect(r.status(), path).toBe(401);
     }
@@ -64,7 +68,9 @@ test.describe("@smoke admin", () => {
     expect(h["x-powered-by"]).toBeUndefined();
   });
 
-  test("login con credenciales E2E y dashboard carga (solo si hay credenciales)", async ({ page }) => {
+  test("login con credenciales E2E y dashboard carga (solo si hay credenciales)", async ({
+    page,
+  }) => {
     test.skip(!EMAIL || !PASSWORD, "sin E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD: solo páginas públicas");
     await page.goto("/login");
     await page.waitForLoadState("domcontentloaded");

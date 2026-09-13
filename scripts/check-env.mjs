@@ -66,10 +66,26 @@ if (remote) {
 
 // Integraciones a medias (error en cualquier entorno: el código las trata como configuradas y falla en runtime)
 const pairs = [
-  ["MERCADOPAGO_ACCESS_TOKEN", ["MERCADOPAGO_WEBHOOK_SECRET"], "sin secreto el webhook responde 500 y ningún pago se concilia"],
-  ["MERCADOPAGO_WEBHOOK_SECRET", ["MERCADOPAGO_ACCESS_TOKEN"], "las notificaciones no se pueden consultar (GET /v1/payments) y quedan failed"],
-  ["INSTAGRAM_PAGE_ACCESS_TOKEN", ["META_APP_SECRET", "META_VERIFY_TOKEN"], "el webhook de Instagram no puede verificarse ni firmarse"],
-  ["RESEND_API_KEY", ["EMAIL_FROM"], "sendEmail se considera no configurado y omite todos los correos"],
+  [
+    "MERCADOPAGO_ACCESS_TOKEN",
+    ["MERCADOPAGO_WEBHOOK_SECRET"],
+    "sin secreto el webhook responde 500 y ningún pago se concilia",
+  ],
+  [
+    "MERCADOPAGO_WEBHOOK_SECRET",
+    ["MERCADOPAGO_ACCESS_TOKEN"],
+    "las notificaciones no se pueden consultar (GET /v1/payments) y quedan failed",
+  ],
+  [
+    "INSTAGRAM_PAGE_ACCESS_TOKEN",
+    ["META_APP_SECRET", "META_VERIFY_TOKEN"],
+    "el webhook de Instagram no puede verificarse ni firmarse",
+  ],
+  [
+    "RESEND_API_KEY",
+    ["EMAIL_FROM"],
+    "sendEmail se considera no configurado y omite todos los correos",
+  ],
 ];
 for (const [ifSet, needs, why] of pairs) {
   if (!set(ifSet)) continue;

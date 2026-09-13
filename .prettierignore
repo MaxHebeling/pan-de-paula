@@ -5,3 +5,4 @@ coverage
 pnpm-lock.yaml
 packages/db/src/generated
 packages/db/migrations/*.sql
+scripts/*.sql

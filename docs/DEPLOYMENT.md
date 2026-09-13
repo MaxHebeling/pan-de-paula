@@ -110,10 +110,10 @@ pnpm smoke:e2e -- https://elpandepaula.mx https://admin.elpandepaula.mx
 E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... pnpm smoke:e2e -- <web-url> <admin-url>
 ```
 
-| App   | Comprueba                                                                                                                                  |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| App   | Comprueba                                                                                                                                                                  |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | web   | `/api/health`, `/api/ready` (migraciones > 0), home, `/menu`, un producto del menú, `/unete`, páginas informativas, manifest, robots, sitemap, cabeceras de seguridad, 404 |
-| admin | `/api/health`, `/api/ready`, `/login`, redirección de rutas privadas, crons responden 401 sin secreto, cabeceras (`noindex`), login + dashboard si hay credenciales |
+| admin | `/api/health`, `/api/ready`, `/login`, redirección de rutas privadas, crons responden 401 sin secreto, cabeceras (`noindex`), login + dashboard si hay credenciales        |
 
 Detalles: usa `E2E_WEB_URL` / `E2E_BASE_URL` (los mismos que los E2E normales), `E2E_NO_SERVER=1` para no levantar
 `pnpm start`, proyecto `desktop` por defecto (`SMOKE_PROJECT=mobile` para el móvil). Requiere Chromium de Playwright

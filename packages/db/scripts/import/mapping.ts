@@ -77,13 +77,13 @@ export function checkColumns(
   handler: EntityHandler,
 ): string[] {
   const warnings: string[] = [];
-  const headers = new Map(table.headers.map((h) => [h.toLowerCase(), h]));
+  const headers = new Map(table.headers.map((h) => [normHeader(h), h]));
   for (const [field, spec] of Object.entries(mapping.columns)) {
     if (!handler.fields[field])
       warnings.push(
         `El campo "${field}" no existe para ${handler.entity}; se ignora. Campos válidos: ${Object.keys(handler.fields).join(", ")}`,
       );
-    if (!headers.has(spec.from.toLowerCase()))
+    if (!headers.has(normHeader(spec.from)))
       throw new ImportError(
         `La columna "${spec.from}" (campo ${field}) no está en el archivo. Encabezados: ${table.headers.join(" | ")}`,
       );
@@ -99,21 +99,36 @@ export function checkColumns(
       mapping.items.unit_price,
       mapping.items.unit_cost,
     ]) {
-      if (h && !headers.has(h.toLowerCase()))
+      if (h && !headers.has(normHeader(h)))
         throw new ImportError(`La columna de ítems "${h}" no está en el archivo`);
     }
   }
   if (mapping.items?.mode === "wide" && Array.isArray(mapping.items.product_columns)) {
     for (const h of mapping.items.product_columns)
-      if (!headers.has(h.toLowerCase()))
+      if (!headers.has(normHeader(h)))
         throw new ImportError(`La columna de producto "${h}" no está en el archivo`);
   }
   return warnings;
 }
 
-/** Busca el encabezado real ignorando mayúsculas/espacios. */
+/**
+ * Forma canónica de un encabezado: sin acentos, minúsculas, espacios colapsados. Las hojas reales mezclan
+ * "Teléfono"/"Telefono"/"TELÉFONO " y el mapeo no debe romperse por eso (la ñ se conserva: "Año" ≠ "Ano").
+ */
+export function normHeader(h: string): string {
+  return h
+    .normalize("NFD")
+    .replace(/(?!\u0303)[\u0300-\u036f]/g, "")
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Busca el encabezado real ignorando mayúsculas, acentos y espacios. */
 export function headerKey(table: ParsedTable, name: string): string {
-  const h = table.headers.find((x) => x.toLowerCase() === name.trim().toLowerCase());
+  const n = normHeader(name);
+  const h = table.headers.find((x) => normHeader(x) === n);
   return h ?? name;
 }
 

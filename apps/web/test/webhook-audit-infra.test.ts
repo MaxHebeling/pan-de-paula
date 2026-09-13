@@ -53,19 +53,29 @@ afterAll(async () => {
 beforeEach(async () => {
   fetchPayment.mockReset();
   send.mockReset();
-  send.mockImplementation(async () => ({ messageId: "out-" + Math.random().toString(36).slice(2) }));
+  send.mockImplementation(async () => ({
+    messageId: "out-" + Math.random().toString(36).slice(2),
+  }));
   await sql`truncate table refunds, payments, sales, order_status_history, order_items, orders, inventory_movements, inventory_levels,
     production_batches, loyalty_transactions, customers, product_prices, products, webhook_events, job_runs, notifications, domain_events,
-    audit_logs, staff_users, leads, instagram_messages, instagram_conversations restart identity cascade`.execute(db);
+    audit_logs, staff_users, leads, instagram_messages, instagram_conversations restart identity cascade`.execute(
+    db,
+  );
   await sql`update feature_flags set enabled = true where key = 'instagram_bot'`.execute(db);
-  await sql`update feature_flags set enabled = false where key = 'instagram_ai_replies'`.execute(db);
+  await sql`update feature_flags set enabled = false where key = 'instagram_ai_replies'`.execute(
+    db,
+  );
   const staff = (
-    await sql<{ id: string }>`insert into staff_users(email, full_name, password_hash, role_key) values ('t@pdp.local','T','x','owner') returning id`.execute(
+    await sql<{
+      id: string;
+    }>`insert into staff_users(email, full_name, password_hash, role_key) values ('t@pdp.local','T','x','owner') returning id`.execute(
       db,
     )
   ).rows[0]!.id;
   product = (
-    await sql<{ id: string }>`insert into products(name, slug, track_stock) values ('Concha', ${"concha-" + Date.now()}, true) returning id`.execute(
+    await sql<{
+      id: string;
+    }>`insert into products(name, slug, track_stock) values ('Concha', ${"concha-" + Date.now()}, true) returning id`.execute(
       db,
     )
   ).rows[0]!.id;
@@ -124,7 +134,12 @@ function notification(
   });
 }
 
-function payment(id: string, orderId: string | null, status = "approved", amountCents = 12000): MpPayment {
+function payment(
+  id: string,
+  orderId: string | null,
+  status = "approved",
+  amountCents = 12000,
+): MpPayment {
   return {
     id,
     status,
@@ -140,13 +155,17 @@ function payment(id: string, orderId: string | null, status = "approved", amount
 
 const count = async (table: string, where = "true") =>
   (
-    await sql<{ n: number }>`select count(*)::int as n from ${sql.raw(table)} where ${sql.raw(where)}`.execute(db)
+    await sql<{
+      n: number;
+    }>`select count(*)::int as n from ${sql.raw(table)} where ${sql.raw(where)}`.execute(db)
   ).rows[0]!.n;
 const events = async () =>
   (
-    await sql<{ status: string; attempts: number; last_error: string | null }>`select status, attempts, last_error from webhook_events order by received_at`.execute(
-      db,
-    )
+    await sql<{
+      status: string;
+      attempts: number;
+      last_error: string | null;
+    }>`select status, attempts, last_error from webhook_events order by received_at`.execute(db)
   ).rows;
 
 // ── Mercado Pago ────────────────────────────────────────────────────────────
@@ -181,7 +200,10 @@ describe("webhook Mercado Pago (auditoría)", () => {
     const sig = signed.headers.get("x-signature")!;
     const tampered = new Request(signed.url, {
       method: "POST",
-      headers: { ...Object.fromEntries(signed.headers), "x-signature": sig.replace(/ts=\d+/, "ts=1700000000") },
+      headers: {
+        ...Object.fromEntries(signed.headers),
+        "x-signature": sig.replace(/ts=\d+/, "ts=1700000000"),
+      },
       body: JSON.stringify({ type: "payment", action: "payment.updated", data: { id: "2002" } }),
     });
     expect((await mpRoute.POST(tampered)).status).toBe(401);
@@ -199,7 +221,10 @@ describe("webhook Mercado Pago (auditoría)", () => {
       await new Promise((r) => setTimeout(r, 150));
       return payment("2003", orderId);
     });
-    const [a, b] = await Promise.all([mpRoute.POST(notification("2003")), mpRoute.POST(notification("2003"))]);
+    const [a, b] = await Promise.all([
+      mpRoute.POST(notification("2003")),
+      mpRoute.POST(notification("2003")),
+    ]);
     expect([a.status, b.status]).toEqual([200, 200]);
     const bodies = [await a.json(), await b.json()];
     expect(bodies.some((x) => x.status === "processed")).toBe(true);
@@ -215,10 +240,16 @@ describe("webhook Mercado Pago (auditoría)", () => {
     fetchPayment.mockResolvedValue(payment("2004", orderId));
     // Simula una función que murió tras el claim: evento en processing sin procesar
     await mpRoute.POST(notification("2004"));
-    await sql`update webhook_events set status = 'processing', processed_at = null, last_attempt_at = now()`.execute(db);
-    await sql`truncate sales, payments, refunds, inventory_movements restart identity cascade`.execute(db);
+    await sql`update webhook_events set status = 'processing', processed_at = null, last_attempt_at = now()`.execute(
+      db,
+    );
+    await sql`truncate sales, payments, refunds, inventory_movements restart identity cascade`.execute(
+      db,
+    );
     await callFn(db, "rebuild_inventory_levels", []);
-    await sql`update orders set paid_cents = 0, payment_status = 'pending', status = 'new'`.execute(db);
+    await sql`update orders set paid_cents = 0, payment_status = 'pending', status = 'new'`.execute(
+      db,
+    );
 
     // reciente → duplicado (otro proceso lo está atendiendo)
     const r1 = await mpRoute.POST(notification("2004"));
@@ -228,14 +259,18 @@ describe("webhook Mercado Pago (auditoría)", () => {
     expect(out.scanned).toBe(0);
 
     // viejo → el cron lo retoma y concreta la venta una sola vez
-    await sql`update webhook_events set last_attempt_at = now() - interval '11 minutes'`.execute(db);
+    await sql`update webhook_events set last_attempt_at = now() - interval '11 minutes'`.execute(
+      db,
+    );
     out = await mpLib.retryPendingMercadoPagoEvents(db, { limit: 50 });
     expect(out).toMatchObject({ scanned: 1, processed: 1 });
     expect(await count("sales")).toBe(1);
     expect((await events())[0]).toMatchObject({ status: "processed", attempts: 2 });
 
     // y si vuelve a quedar huérfano, la reentrega directa de MP también lo retoma
-    await sql`update webhook_events set status = 'processing', last_attempt_at = now() - interval '11 minutes'`.execute(db);
+    await sql`update webhook_events set status = 'processing', last_attempt_at = now() - interval '11 minutes'`.execute(
+      db,
+    );
     const r2 = await mpRoute.POST(notification("2004"));
     expect(await r2.json()).toMatchObject({ ok: true, status: "processed" });
     expect(await count("sales")).toBe(1); // idempotente en SQL
@@ -248,10 +283,15 @@ describe("webhook Mercado Pago (auditoría)", () => {
     expect(await r.json()).toMatchObject({ ok: true, status: "processed" });
     expect(await count("sales")).toBe(0);
     const o = (
-      await sql<{ payment_status: string; paid_cents: number }>`select payment_status, paid_cents from orders where id = ${orderId}`.execute(db)
+      await sql<{
+        payment_status: string;
+        paid_cents: number;
+      }>`select payment_status, paid_cents from orders where id = ${orderId}`.execute(db)
     ).rows[0]!;
     expect(o).toEqual({ payment_status: "partial", paid_cents: 5000 });
-    expect(await count("notifications", "kind = 'payment_mismatch' and severity = 'error'")).toBe(1);
+    expect(await count("notifications", "kind = 'payment_mismatch' and severity = 'error'")).toBe(
+      1,
+    );
   });
 
   it("monto MAYOR al pedido → venta por el total del pedido y alerta para reembolsar la diferencia", async () => {
@@ -260,9 +300,14 @@ describe("webhook Mercado Pago (auditoría)", () => {
     const r = await mpRoute.POST(notification("2006"));
     expect(r.status).toBe(200);
     expect(await count("sales")).toBe(1);
-    const p = (await sql<{ amount_cents: number }>`select amount_cents from payments`.execute(db)).rows[0]!;
+    const p = (await sql<{ amount_cents: number }>`select amount_cents from payments`.execute(db))
+      .rows[0]!;
     expect(p.amount_cents).toBe(12000);
-    const n = (await sql<{ body: string }>`select body from notifications where kind = 'payment_mismatch'`.execute(db)).rows[0]!;
+    const n = (
+      await sql<{
+        body: string;
+      }>`select body from notifications where kind = 'payment_mismatch'`.execute(db)
+    ).rows[0]!;
     expect(n.body).toMatch(/\$150\.00.*Reembolsar la diferencia/);
   });
 
@@ -296,13 +341,20 @@ describe("webhook Mercado Pago (auditoría)", () => {
     const orderId = await webOrder();
     fetchPayment.mockRejectedValue(new Error("MP 500"));
     await mpRoute.POST(notification("2009"));
-    await sql`update webhook_events set attempts = 8, last_attempt_at = now() - interval '1 day'`.execute(db);
+    await sql`update webhook_events set attempts = 8, last_attempt_at = now() - interval '1 day'`.execute(
+      db,
+    );
     expect((await mpLib.retryPendingMercadoPagoEvents(db, {})).scanned).toBe(0);
-    await sql`update webhook_events set attempts = 3, received_at = now() - interval '49 hours', last_attempt_at = now() - interval '1 day'`.execute(db);
+    await sql`update webhook_events set attempts = 3, received_at = now() - interval '49 hours', last_attempt_at = now() - interval '1 day'`.execute(
+      db,
+    );
     expect((await mpLib.retryPendingMercadoPagoEvents(db, {})).scanned).toBe(0);
     await sql`update webhook_events set received_at = now() - interval '1 hour'`.execute(db);
     fetchPayment.mockResolvedValue(payment("2009", orderId));
-    expect(await mpLib.retryPendingMercadoPagoEvents(db, {})).toMatchObject({ scanned: 1, processed: 1 });
+    expect(await mpLib.retryPendingMercadoPagoEvents(db, {})).toMatchObject({
+      scanned: 1,
+      processed: 1,
+    });
     expect((await events())[0]).toMatchObject({ status: "processed", attempts: 4 });
   });
 
@@ -310,7 +362,15 @@ describe("webhook Mercado Pago (auditoría)", () => {
     const r1 = await mpRoute.POST(
       new Request("https://elpandepaula.mx/api/webhooks/mercadopago", {
         method: "POST",
-        headers: { "x-request-id": "r", "x-signature": signMercadoPagoWebhook({ dataId: null, xRequestId: "r", ts: "1", secret: SECRET }) },
+        headers: {
+          "x-request-id": "r",
+          "x-signature": signMercadoPagoWebhook({
+            dataId: null,
+            xRequestId: "r",
+            ts: "1",
+            secret: SECRET,
+          }),
+        },
         body: "no-json",
       }),
     );
@@ -320,13 +380,24 @@ describe("webhook Mercado Pago (auditoría)", () => {
     const r2 = await mpRoute.POST(
       new Request(url, {
         method: "POST",
-        headers: { "x-request-id": "r2", "x-signature": signMercadoPagoWebhook({ dataId: "ABC-1", xRequestId: "r2", ts: "1", secret: SECRET }) },
+        headers: {
+          "x-request-id": "r2",
+          "x-signature": signMercadoPagoWebhook({
+            dataId: "ABC-1",
+            xRequestId: "r2",
+            ts: "1",
+            secret: SECRET,
+          }),
+        },
         body: "{}",
       }),
     );
     expect(await r2.json()).toMatchObject({ ok: true, status: "ignored" });
     expect(fetchPayment).not.toHaveBeenCalled();
-    expect((await events())[0]).toMatchObject({ status: "ignored", last_error: "data.id inválido" });
+    expect((await events())[0]).toMatchObject({
+      status: "ignored",
+      last_error: "data.id inválido",
+    });
   });
 });
 
@@ -341,7 +412,12 @@ describe("runJob (auditoría)", () => {
     const good = await runJob(db, "audit-job", async () => ({ ok: 1 }));
     expect(good.status).toBe("succeeded");
     const runs = (
-      await sql<{ status: string; error: string | null }>`select status, error from job_runs where job_name = 'audit-job' order by started_at`.execute(db)
+      await sql<{
+        status: string;
+        error: string | null;
+      }>`select status, error from job_runs where job_name = 'audit-job' order by started_at`.execute(
+        db,
+      )
     ).rows;
     expect(runs).toEqual([
       { status: "failed", error: "explotó" },
@@ -351,23 +427,41 @@ describe("runJob (auditoría)", () => {
 
   it("un lock huérfano (running > 15 min) no bloquea la siguiente corrida y queda marcado failed", async () => {
     const { runJob } = await import("@pdp/integrations");
-    await sql`insert into job_runs(job_name, status, lock_key, started_at) values ('audit-stale', 'running', 'audit-stale', now() - interval '20 minutes')`.execute(db);
+    await sql`insert into job_runs(job_name, status, lock_key, started_at) values ('audit-stale', 'running', 'audit-stale', now() - interval '20 minutes')`.execute(
+      db,
+    );
     const out = await runJob(db, "audit-stale", async () => "ran");
     expect(out.status).toBe("succeeded");
     const runs = (
-      await sql<{ status: string; error: string | null }>`select status, error from job_runs where job_name = 'audit-stale' order by started_at`.execute(db)
+      await sql<{
+        status: string;
+        error: string | null;
+      }>`select status, error from job_runs where job_name = 'audit-stale' order by started_at`.execute(
+        db,
+      )
     ).rows;
-    expect(runs[0]).toMatchObject({ status: "failed", error: expect.stringMatching(/lock expirado/) });
+    expect(runs[0]).toMatchObject({
+      status: "failed",
+      error: expect.stringMatching(/lock expirado/),
+    });
     expect(runs[1]).toMatchObject({ status: "succeeded" });
   });
 });
 
 // ── Instagram ───────────────────────────────────────────────────────────────
 function deliver(messaging: unknown[], opts: { secret?: string | null } = {}) {
-  const raw = JSON.stringify({ object: "instagram", entry: [{ id: "17841400000000000", time: Date.now(), messaging }] });
+  const raw = JSON.stringify({
+    object: "instagram",
+    entry: [{ id: "17841400000000000", time: Date.now(), messaging }],
+  });
   const headers = new Headers({ "content-type": "application/json" });
-  if (opts.secret !== null) headers.set("x-hub-signature-256", signMetaPayload(raw, opts.secret ?? APP_SECRET));
-  return new Request("https://elpandepaula.mx/api/webhooks/instagram", { method: "POST", headers, body: raw });
+  if (opts.secret !== null)
+    headers.set("x-hub-signature-256", signMetaPayload(raw, opts.secret ?? APP_SECRET));
+  return new Request("https://elpandepaula.mx/api/webhooks/instagram", {
+    method: "POST",
+    headers,
+    body: raw,
+  });
 }
 const msg = (mid: string, message: Record<string, unknown>, sender = "9001") => ({
   sender: { id: sender },
@@ -379,12 +473,20 @@ const msg = (mid: string, message: Record<string, unknown>, sender = "9001") => 
 describe("webhook Instagram (auditoría)", () => {
   it("adjunto sin texto: se guarda con attachments, no se responde, evento processed", async () => {
     const r = await igRoute.POST(
-      deliver([msg("a1", { attachments: [{ type: "image", payload: { url: "https://cdn/x.jpg" } }] })]),
+      deliver([
+        msg("a1", { attachments: [{ type: "image", payload: { url: "https://cdn/x.jpg" } }] }),
+      ]),
     );
-    expect(await r.json()).toMatchObject({ ok: true, results: [{ status: "processed", reason: "sin texto" }] });
+    expect(await r.json()).toMatchObject({
+      ok: true,
+      results: [{ status: "processed", reason: "sin texto" }],
+    });
     expect(send).not.toHaveBeenCalled();
     const m = (
-      await sql<{ text: string | null; attachments: unknown }>`select text, attachments from instagram_messages where external_mid = 'a1'`.execute(db)
+      await sql<{
+        text: string | null;
+        attachments: unknown;
+      }>`select text, attachments from instagram_messages where external_mid = 'a1'`.execute(db)
     ).rows[0]!;
     expect(m.text).toBeNull();
     expect(m.attachments).toEqual([{ type: "image", url: "https://cdn/x.jpg" }]);
@@ -394,7 +496,12 @@ describe("webhook Instagram (auditoría)", () => {
   it("texto vacío o solo espacios: sin respuesta; emoji y texto larguísimo: respuesta ≤ 1000 bytes con enlace", async () => {
     await igRoute.POST(deliver([msg("b1", { text: "   " })]));
     expect(send).not.toHaveBeenCalled();
-    await igRoute.POST(deliver([msg("b2", { text: "🥐🥐🥐" }), msg("b3", { text: "quiero " + "conchas ".repeat(600) })]));
+    await igRoute.POST(
+      deliver([
+        msg("b2", { text: "🥐🥐🥐" }),
+        msg("b3", { text: "quiero " + "conchas ".repeat(600) }),
+      ]),
+    );
     expect(send).toHaveBeenCalledTimes(2);
     for (const call of send.mock.calls) {
       expect(Buffer.byteLength(call[0].text, "utf8")).toBeLessThanOrEqual(1000);
@@ -404,13 +511,18 @@ describe("webhook Instagram (auditoría)", () => {
   });
 
   it("IA activada sin ANTHROPIC_API_KEY → responde por reglas (ai=false) sin fallar", async () => {
-    await sql`update feature_flags set enabled = true where key = 'instagram_ai_replies'`.execute(db);
+    await sql`update feature_flags set enabled = true where key = 'instagram_ai_replies'`.execute(
+      db,
+    );
     const r = await igRoute.POST(deliver([msg("c1", { text: "hola, precio de la concha" })]));
     expect(await r.json()).toMatchObject({ ok: true, results: [{ status: "processed" }] });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]![0].text).toMatch(/\$30/);
     const out = (
-      await sql<{ auto_reply: boolean; intent: string | null }>`select auto_reply, intent from instagram_messages where direction = 'out'`.execute(db)
+      await sql<{
+        auto_reply: boolean;
+        intent: string | null;
+      }>`select auto_reply, intent from instagram_messages where direction = 'out'`.execute(db)
     ).rows[0]!;
     expect(out).toMatchObject({ auto_reply: true, intent: "price" });
   });
@@ -422,7 +534,9 @@ describe("webhook Instagram (auditoría)", () => {
     await sql`update webhook_events set status = 'processing', last_attempt_at = now()`.execute(db);
     let r = await igRoute.POST(deliver([msg("d1", { text: "hola" })]));
     expect(await r.json()).toMatchObject({ results: [{ status: "ignored", reason: "duplicate" }] });
-    await sql`update webhook_events set last_attempt_at = now() - interval '11 minutes'`.execute(db);
+    await sql`update webhook_events set last_attempt_at = now() - interval '11 minutes'`.execute(
+      db,
+    );
     r = await igRoute.POST(deliver([msg("d1", { text: "hola" })]));
     expect(await r.json()).toMatchObject({ results: [{ status: "processed" }] });
     expect(send).toHaveBeenCalledTimes(2);

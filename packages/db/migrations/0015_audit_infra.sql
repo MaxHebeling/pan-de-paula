@@ -8,11 +8,8 @@
 --     Cubre a los crons que no usan runJob() (customer-events no liberaba locks huérfanos: un proceso muerto lo
 --     dejaba en 409 para siempre).
 --  3) Índice para que webhooks-retry recupere eventos atorados en 'processing'.
---  4) Privilegios: EXECUTE de funciones nunca a PUBLIC/anon/authenticated. Causa raíz: 0009 usó
---     `alter default privileges IN SCHEMA public revoke execute … from public`, pero los privilegios por defecto
---     por esquema se SUMAN a los globales y no pueden quitar el EXECUTE que PUBLIC recibe por omisión
---     (doc de ALTER DEFAULT PRIVILEGES). Toda función creada después de 0009 (0010–0070 y las de pg_trgm) nació
---     ejecutable por PUBLIC. Aquí se corrige lo existente y el valor por defecto global del rol que migra.
+--  4) Privilegio por defecto global de EXECUTE (lo existente ya lo cierran 0080 y _post_migrate.sql): los defaults
+--     IN SCHEMA de 0009/0080 no pueden quitar el EXECUTE por omisión de PUBLIC en funciones nuevas.
 
 -- ── 1) Alertas de conciliación + apply_mercadopago_payment ──────────────────
 create or replace function notify_payment_issue(p_order orders, p_kind text, p_title text, p_body text, p_payload jsonb)
@@ -160,11 +157,19 @@ create trigger trg_job_runs_stale_lock before insert on job_runs for each row ex
 -- Sobre received_at (existe desde 0007): esta migración corre antes de 0060 en bases nuevas y después en las existentes.
 create index if not exists webhook_events_processing_idx on webhook_events(provider, received_at) where status = 'processing';
 
--- ── 4) Privilegios de funciones (al final: cubre también las creadas arriba) ──
-revoke usage on schema public from anon, authenticated;
-revoke execute on all routines in schema public from public, anon, authenticated;
-grant execute on all routines in schema public to pdp_app;
--- Global (sin IN SCHEMA): es el único nivel que quita el EXECUTE por omisión de PUBLIC para funciones nuevas.
-alter default privileges revoke execute on routines from public;
-alter default privileges in schema public revoke execute on routines from public, anon, authenticated;
-alter default privileges in schema public grant execute on routines to pdp_app;
+-- ── 4) Privilegio por defecto GLOBAL de EXECUTE (complementa 0080 y _post_migrate.sql) ──
+-- 0080 fija defaults IN SCHEMA public; esos se suman a los globales y no pueden quitar el EXECUTE que PUBLIC (y por
+-- herencia anon/authenticated) recibe por omisión en cada función nueva. Sin esto, toda función queda expuesta desde
+-- que su migración hace commit hasta que corre _post_migrate, y cualquier función creada fuera de `pnpm db:migrate`
+-- (SQL Editor) queda expuesta hasta el siguiente deploy. Solo el nivel global (sin IN SCHEMA) lo corrige.
+alter default privileges revoke execute on functions from public;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'postgres') and current_user <> 'postgres' then
+    begin
+      execute 'alter default privileges for role postgres revoke execute on functions from public';
+    exception when insufficient_privilege then
+      raise notice 'sin permiso para alterar defaults globales de postgres; se omite';
+    end;
+  end if;
+end $$;

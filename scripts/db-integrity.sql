@@ -155,24 +155,32 @@ from job_runs group by job_name order by job_name;
 
 \echo
 \echo '========================================================================'
-\echo ' 9. Seguridad: RLS y privilegios  [resumen: todos en 0]'
-\echo '    tablas_sin_rls / tablas_sin_policy → 0009_security no se aplicó completo.'
-\echo '    funciones_publicas → EXECUTE concedido a PUBLIC/anon/authenticated (0015 lo revoca; si reaparece, una migración creó funciones con otro rol).'
+\echo ' 9. Seguridad: RLS y privilegios  [resumen: los contadores "expuestos" y "sin" en 0]'
+\echo '    Equivalente a scripts/check-grants.sh. vistas_expuestas es crítico: las vistas corren con permisos del dueño y NO aplican RLS.'
+\echo '    Acción si algo ≠ 0: pnpm db:migrate (ejecuta _post_migrate.sql) y volver a correr este bloque.'
+\echo '    fn_extension_expuestas / anon_usage_schema: informativos (en Supabase pueden ser de supabase_admin).'
 \echo '========================================================================'
+with roles as (select rolname as rol from pg_roles where rolname in ('anon','authenticated') union all select 'public')
 select
-  (select count(*) from pg_tables where schemaname = 'public' and not rowsecurity) as tablas_sin_rls,
+  (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r','p') and not c.relrowsecurity) as tablas_sin_rls,
   (select count(*) from pg_tables t where schemaname = 'public'
      and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = t.tablename and p.policyname = 'pdp_app_all')) as tablas_sin_policy,
-  (select count(*) from information_schema.role_table_grants where table_schema = 'public' and grantee in ('anon','authenticated','PUBLIC')) as grants_tabla_publicos,
-  (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and (has_function_privilege('public', p.oid, 'execute')
-        or (exists (select 1 from pg_roles where rolname = 'anon') and has_function_privilege('anon', p.oid, 'execute'))
-        or (exists (select 1 from pg_roles where rolname = 'authenticated') and has_function_privilege('authenticated', p.oid, 'execute')))) as funciones_publicas,
+  (select count(distinct c.oid) from pg_class c join pg_namespace n on n.oid = c.relnamespace, roles
+     where n.nspname = 'public' and c.relkind in ('r','p','f') and has_table_privilege(roles.rol, c.oid, 'select,insert,update,delete')) as tablas_expuestas,
+  (select count(distinct c.oid) from pg_class c join pg_namespace n on n.oid = c.relnamespace, roles
+     where n.nspname = 'public' and c.relkind in ('v','m') and has_table_privilege(roles.rol, c.oid, 'select,insert,update,delete')) as vistas_expuestas,
+  (select count(distinct c.oid) from pg_class c join pg_namespace n on n.oid = c.relnamespace, roles
+     where n.nspname = 'public' and c.relkind = 'S' and has_sequence_privilege(roles.rol, c.oid, 'usage,select,update')) as secuencias_expuestas,
+  (select count(distinct p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace, roles
+     where n.nspname = 'public' and has_function_privilege(roles.rol, p.oid, 'execute')
+       and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) as funciones_expuestas,
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and exists (select 1 from pg_roles where rolname = 'pdp_app') and not has_function_privilege('pdp_app', p.oid, 'execute')) as funciones_sin_pdp_app,
-  (select coalesce(bool_or(has_schema_privilege(r.rolname, 'public', 'usage')), false)::int from pg_roles r where r.rolname in ('anon','authenticated')) as anon_usage_schema;
+  (select count(distinct p.oid) from pg_proc p join pg_namespace n on n.oid = p.pronamespace, roles
+     where n.nspname = 'public' and has_function_privilege(roles.rol, p.oid, 'execute')
+       and exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')) as fn_extension_expuestas,
+  (select count(*) from roles where roles.rol <> 'public' and has_schema_privilege(roles.rol, 'public', 'usage')) as anon_usage_schema;
 
-\echo
 \echo '========================================================================'
 \echo ' 10. Migraciones: aplicadas vs esperadas  [comparar con `ls packages/db/migrations | wc -l` y con RELEASED]'
 \echo '========================================================================'

@@ -65,7 +65,14 @@ test.describe("@smoke web", () => {
   });
 
   test("páginas informativas responden 200", async ({ request }) => {
-    for (const path of ["/club", "/horarios", "/ubicacion", "/nosotros", "/privacidad", "/terminos"]) {
+    for (const path of [
+      "/club",
+      "/horarios",
+      "/ubicacion",
+      "/nosotros",
+      "/privacidad",
+      "/terminos",
+    ]) {
       const r = await request.get(path);
       expect(r.status(), path).toBe(200);
     }

@@ -5,7 +5,7 @@
  */
 import { sql } from "kysely";
 import { callFn } from "../../../src/index.ts";
-import { headerKey } from "../mapping.ts";
+import { headerKey, normHeader } from "../mapping.ts";
 import { normalizeName } from "../normalize.ts";
 import { toMoneyCents, toQty, toText } from "../transforms.ts";
 import {
@@ -37,6 +37,14 @@ function paymentMethod(raw: string | null): string {
   if (!s) return "cash";
   for (const [re, m] of METHODS) if (re.test(s)) return m;
   return "other";
+}
+
+/** Celda por nombre de encabezado ignorando mayúsculas, acentos y espacios (las claves de `raw` son las de la hoja). */
+function rawCell(raw: Record<string, string>, header: string): string {
+  if (raw[header] !== undefined) return raw[header]!;
+  const n = normHeader(header);
+  const k = Object.keys(raw).find((x) => normHeader(x) === n);
+  return k === undefined ? "" : (raw[k] ?? "");
 }
 
 type Item = {
@@ -95,32 +103,25 @@ export const orders: EntityHandler = {
         products.find((p) => normalizeName(p.name) === n || p.slug === n.replace(/ /g, "-")) ?? null
       );
     };
-    const usedHeaders = new Set(
-      Object.values(ctx.mapping.columns).map((c) => c.from.toLowerCase()),
-    );
+    const usedHeaders = new Set(Object.values(ctx.mapping.columns).map((c) => normHeader(c.from)));
     const opts = ctx.mapping.options ?? {};
 
     // 1) Construir grupos (pedidos)
     const groups: Group[] = [];
     if (items.mode === "wide") {
       const allHeaders = rows[0] ? Object.keys(rows[0].raw) : [];
-      const exclude = new Set((items.exclude ?? []).map((h) => h.toLowerCase()));
+      const exclude = new Set((items.exclude ?? []).map((h) => normHeader(h)));
       const productHeaders =
         items.product_columns === "auto"
-          ? allHeaders.filter(
-              (h) => !usedHeaders.has(h.toLowerCase()) && !exclude.has(h.toLowerCase()),
-            )
+          ? allHeaders.filter((h) => !usedHeaders.has(normHeader(h)) && !exclude.has(normHeader(h)))
           : items.product_columns;
       for (const mr of rows) {
         const g: Group = { rows: [mr], items: [], errors: [...mr.errors] };
         for (const h of productHeaders) {
-          const rawCell =
-            mr.raw[h] ??
-            mr.raw[Object.keys(mr.raw).find((k) => k.toLowerCase() === h.toLowerCase()) ?? ""] ??
-            "";
+          const cell = rawCell(mr.raw, h);
           let qty: number | null = null;
           try {
-            qty = toQty(rawCell, opts);
+            qty = toQty(cell, opts);
           } catch (e) {
             g.errors.push(`${h}: ${(e as Error).message}`);
             continue;
@@ -150,14 +151,14 @@ export const orders: EntityHandler = {
         }
         g.rows.push(mr);
         g.errors.push(...mr.errors.map((e) => `fila ${mr.rowNumber}: ${e}`));
-        const pName = toText(mr.raw[items.product] ?? "");
+        const pName = toText(rawCell(mr.raw, items.product));
         let qty: number | null = null;
         let price: number | null = null;
         let cost: number | null = null;
         try {
-          qty = toQty(mr.raw[items.qty] ?? "", opts);
-          if (items.unit_price) price = toMoneyCents(mr.raw[items.unit_price] ?? "", opts);
-          if (items.unit_cost) cost = toMoneyCents(mr.raw[items.unit_cost] ?? "", opts);
+          qty = toQty(rawCell(mr.raw, items.qty), opts);
+          if (items.unit_price) price = toMoneyCents(rawCell(mr.raw, items.unit_price), opts);
+          if (items.unit_cost) cost = toMoneyCents(rawCell(mr.raw, items.unit_cost), opts);
         } catch (e) {
           g.errors.push(`fila ${mr.rowNumber}: ${(e as Error).message}`);
           continue;

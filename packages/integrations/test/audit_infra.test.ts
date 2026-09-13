@@ -1,3 +1,4 @@
+// secret-scan: fixtures (tokens con formato real pero inventados, para probar la redacción del logger)
 /**
  * Auditoría de infraestructura (docs/audit/infra.md): casos límite de los adaptadores sin tocar la red.
  * - fetchWithResilience: timeout, reintentos solo idempotentes, circuit breaker (abre con 5xx/red, NO con 4xx, cierra tras cooldown)
@@ -282,7 +283,9 @@ describe("Email: XSS y robustez", () => {
       fetchMock.mockRejectedValueOnce(new Error("ECONNRESET"));
       r = await sendEmail({ to: "c@d.mx", subject: "s", html: "<p>x</p>" });
       expect(r).toMatchObject({ sent: false, error: "ECONNRESET" });
-      fetchMock.mockResolvedValue(res(429, JSON.stringify({ name: "rate_limit", message: "slow" })));
+      fetchMock.mockResolvedValue(
+        res(429, JSON.stringify({ name: "rate_limit", message: "slow" })),
+      );
       r = await sendEmail({ to: "c@d.mx", subject: "s", html: "<p>x</p>", idempotencyKey: "k" });
       expect(r).toMatchObject({ sent: false, error: "rate_limit: slow" });
       expect(fetchMock).toHaveBeenCalledTimes(1 + 1 + 3);
@@ -444,7 +447,9 @@ describe("Instagram: payloads límite", () => {
     const draft = buildRuleReply("precio de la concha", ctx);
 
     it("respuesta fuera de formato (sin bloques de texto) → null y se usa la regla", async () => {
-      aiCreate.mockResolvedValue({ content: [{ type: "tool_use", id: "x", name: "n", input: {} }] });
+      aiCreate.mockResolvedValue({
+        content: [{ type: "tool_use", id: "x", name: "n", input: {} }],
+      });
       expect(await buildAiReply("precio", ctx, draft, { apiKey: "k" })).toBeNull();
       const full = await buildBotReply({ text: "precio", context: ctx, siteUrl: ctx.siteUrl });
       expect(full.ai).toBe(false);
@@ -452,7 +457,9 @@ describe("Instagram: payloads límite", () => {
     });
 
     it("texto sin enlace → se agrega el enlace del borrador; texto larguísimo se recorta", async () => {
-      aiCreate.mockResolvedValue({ content: [{ type: "text", text: "¡Claro! " + "x".repeat(3000) }] });
+      aiCreate.mockResolvedValue({
+        content: [{ type: "text", text: "¡Claro! " + "x".repeat(3000) }],
+      });
       const r = await buildAiReply("precio", ctx, draft, { apiKey: "k" });
       expect(r?.ai).toBe(true);
       expect(Buffer.byteLength(r!.text, "utf8")).toBeLessThanOrEqual(1000);
@@ -474,7 +481,9 @@ describe("Instagram: payloads límite", () => {
     });
 
     it("la IA nunca recibe más de 6 mensajes de historial ni entradas > 2000 chars", async () => {
-      aiCreate.mockResolvedValue({ content: [{ type: "text", text: "ok https://elpandepaula.mx/menu" }] });
+      aiCreate.mockResolvedValue({
+        content: [{ type: "text", text: "ok https://elpandepaula.mx/menu" }],
+      });
       const history = Array.from({ length: 20 }, (_, i) => ({
         role: (i % 2 ? "assistant" : "user") as "user" | "assistant",
         content: `m${i}`,
