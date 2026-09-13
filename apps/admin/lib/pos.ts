@@ -114,11 +114,24 @@ export type RegisterSummary = {
   difference_cents: number | null;
 };
 
+/**
+ * Resumen de la sesión. En una sesión CERRADA el efectivo esperado es el congelado al cierre
+ * (register_sessions.expected_cash_cents): una anulación posterior no debe alterar un corte ya firmado
+ * ni dejar "esperado" y "diferencia" incoherentes en pantalla.
+ */
 export async function getRegisterSummary(sessionId: string): Promise<RegisterSummary | null> {
   const r = await sql<{
     s: RegisterSummary | null;
-  }>`select register_session_summary(${sessionId}::uuid) as s`.execute(db());
-  return r.rows[0]?.s ?? null;
+    frozen: number | null;
+  }>`select register_session_summary(${sessionId}::uuid) as s,
+            (select expected_cash_cents from register_sessions where id = ${sessionId}::uuid and status = 'closed') as frozen`.execute(
+    db(),
+  );
+  const row = r.rows[0];
+  if (!row?.s) return null;
+  return row.frozen === null || row.frozen === undefined
+    ? row.s
+    : { ...row.s, expected_cash_cents: row.frozen };
 }
 
 // ── Configuración del POS para el cliente ───────────────────────────────────

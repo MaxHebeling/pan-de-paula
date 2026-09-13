@@ -110,6 +110,9 @@ export async function createCountAction(_prev: FormState, form: FormData): Promi
       callFn<string>(trx, "create_stock_count", [notes || null]),
     );
   } catch (e) {
+    // Índice único parcial (0013): dos conteos creados a la vez → 23505
+    if ((e as { code?: string }).code === "23505")
+      return { error: "Ya hay un conteo abierto; aplícalo o descártalo antes de iniciar otro" };
     return fail(e, "create_stock_count");
   }
   redirect(`/inventario?tab=conteo&conteo=${id}&paso=capturar`);

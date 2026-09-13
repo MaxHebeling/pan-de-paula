@@ -20,6 +20,8 @@ const KIND_LABELS: Record<string, string> = {
   low_stock: "Stock bajo",
   out_of_stock: "Agotado",
   ingredient_low: "Insumo crítico",
+  register_difference: "Diferencia de caja",
+  new_vip: "Nuevo VIP",
   birthday: "Cumpleaños",
 };
 const SEVERITY_TONE: Record<string, "green" | "amber" | "red" | "blue" | "gray"> = {
@@ -41,6 +43,8 @@ function entityHref(entity: string | null, entityId: string | null): string | nu
       return `/inventario?tab=insumos`;
     case "customer":
       return `/clientes/${entityId}`;
+    case "register_session":
+      return `/caja/${entityId}`;
     default:
       return null;
   }
@@ -174,7 +178,9 @@ export default async function NotificacionesPage({
                                 ? "insumos"
                                 : n.entity === "customer"
                                   ? "cliente"
-                                  : "detalle"}
+                                  : n.entity === "register_session"
+                                    ? "corte"
+                                    : "detalle"}
                         </Link>
                       </>
                     )}
