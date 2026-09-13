@@ -12,10 +12,20 @@
   --ease-in: cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-/* ── A · Hero: secuencia de entrada ≈ 1.3 s (marca → titular → subtítulo → CTA → estado → arte) ── */
-@keyframes hero-rise {
+/* ── A · Portada: secuencia de entrada ≈ 1.5 s sin loader ─────────────────────────────────────────────
+   fondo (ya pintado) → imagen (scale 1.08→1, sin opacidad: es el LCP) → título por líneas (máscara, sin
+   opacidad) → descripción → CTA → datos → navegación. Profundidad ±6 px al puntero en lib/motion/hero.ts. */
+@keyframes hero-img-in {
   from {
-    transform: translateY(18px);
+    transform: scale(1.08);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes hero-line-up {
+  from {
+    transform: translate3d(0, 0.32em, 0);
   }
   to {
     transform: none;
@@ -24,56 +34,171 @@
 @keyframes hero-fade-up {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translate3d(0, 14px, 0);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-@keyframes hero-art-in {
+@keyframes hero-nav-in {
   from {
     opacity: 0;
-    transform: scale(1.06);
+    transform: translate3d(0, -8px, 0);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-.hero-line {
-  display: block;
+html[data-motion="on"] .cin-hero-img {
+  animation: hero-img-in 1.6s var(--ease-premium) both;
 }
 html[data-motion="on"] .hero-eyebrow {
-  animation: hero-fade-up 0.7s var(--ease-out) both;
+  animation: hero-fade-up 0.7s var(--ease-reveal) 0.1s both;
 }
-/* El h1 es el LCP: sube sin tocar la opacidad. */
-html[data-motion="on"] .hero-line {
-  animation: hero-rise 0.9s var(--ease-out) both;
-}
-html[data-motion="on"] .hero-line:nth-child(2) {
-  animation-delay: 0.1s;
+/* El h1 es el LCP (la foto a pantalla completa Chrome la trata como fondo): cada línea sube escalonada,
+   siempre pintada, sin opacidad ni máscara, para que el LCP ocurra en el primer paint. */
+html[data-motion="on"] .cin-hero-title .line-in {
+  animation: hero-line-up 0.95s var(--ease-reveal) calc(0.18s + var(--l, 0) * 0.12s) both;
 }
 html[data-motion="on"] .hero-sub {
-  animation: hero-fade-up 0.8s var(--ease-out) 0.35s both;
+  animation: hero-fade-up 0.8s var(--ease-reveal) 0.55s both;
 }
 html[data-motion="on"] .hero-cta {
-  animation: hero-fade-up 0.8s var(--ease-out) 0.5s both;
+  animation: hero-fade-up 0.8s var(--ease-reveal) 0.68s both;
 }
 html[data-motion="on"] .hero-status {
-  animation: hero-fade-up 0.8s var(--ease-out) 0.7s both;
+  animation: hero-fade-up 0.8s var(--ease-reveal) 0.82s both;
 }
-html[data-motion="on"] .hero-art-enter {
-  animation: hero-art-in 1.1s var(--ease-out) 0.15s both;
+/* Navegación al final (logo y carrito nunca se ocultan) */
+html[data-motion="on"] body:has([data-hero]) .header-nav-enter {
+  animation: hero-nav-in 0.6s var(--ease-reveal) 0.9s both;
 }
 [data-depth] {
   will-change: transform;
 }
-.status-dot {
-  box-shadow: 0 0 0 4px rgba(47, 107, 95, 0.16);
+
+/* Primera transición vinculada al scroll (desktop, navegadores con scroll-driven animations):
+   la portada queda fija 85svh; la imagen se acerca, el título sube y se desvanece, y aparece
+   "Hecho a mano. / Horneado para ti.". Sin soporte, móvil, sin JS o con reduced motion: portada normal. */
+@keyframes hero-scroll-zoom {
+  to {
+    transform: scale(1.14);
+  }
 }
-.status-dot-closed {
-  box-shadow: 0 0 0 4px rgba(201, 138, 62, 0.18);
+@keyframes hero-scroll-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -16vh, 0);
+  }
+}
+@keyframes hero-scroll-fade {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -5vh, 0);
+  }
+}
+@keyframes hero-scroll-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8vh, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes hero-veil {
+  to {
+    opacity: 1;
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (min-width: 1024px) and (min-height: 620px) {
+    html[data-motion="on"] .cin-hero-pin {
+      height: 185svh;
+      view-timeline: --hero block;
+    }
+    html[data-motion="on"] .cin-hero {
+      position: sticky;
+      top: 0;
+      height: 100svh;
+      min-height: 0;
+    }
+    html[data-motion="on"] .cin-hero-zoom {
+      animation: hero-scroll-zoom linear both;
+      animation-timeline: --hero;
+      animation-range: contain 0% contain 100%;
+    }
+    html[data-motion="on"] .cin-hero-scrollout {
+      animation: hero-scroll-out linear both;
+      animation-timeline: --hero;
+      animation-range: contain 0% contain 42%;
+    }
+    html[data-motion="on"] .cin-hero-body,
+    html[data-motion="on"] .cin-hero-meta,
+    html[data-motion="on"] .cin-hero-top {
+      animation: hero-scroll-fade linear both;
+      animation-timeline: --hero;
+      animation-range: contain 0% contain 30%;
+    }
+    html[data-motion="on"] .cin-hero-veil {
+      animation: hero-veil linear both;
+      animation-timeline: --hero;
+      animation-range: contain 15% contain 55%;
+    }
+    html[data-motion="on"] .cin-hero-after {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-inline: var(--gutter);
+      font-family: var(--font-display);
+      font-size: clamp(3.5rem, 8.5vw, 8.5rem);
+      line-height: 0.95;
+      letter-spacing: -0.045em;
+      text-align: center;
+      pointer-events: none;
+    }
+    html[data-motion="on"] .cin-hero-after span {
+      display: block;
+      animation: hero-scroll-in linear both;
+      animation-timeline: --hero;
+      animation-range: contain 34% contain 62%;
+    }
+    html[data-motion="on"] .cin-hero-after span + span {
+      font-style: italic;
+      color: var(--color-cream-on-dark);
+      animation-range: contain 58% contain 90%;
+    }
+  }
+}
+
+/* Barra de progreso de lectura: 2 px, sin JS */
+@keyframes cin-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+@supports (animation-timeline: scroll()) {
+  html[data-motion="on"] .cin-progress {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 60;
+    display: block;
+    height: 2px;
+    background: var(--color-crust);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    pointer-events: none;
+    animation: cin-progress linear both;
+    animation-timeline: scroll(root block);
+  }
 }
 
 /* ── B · Revelados al hacer scroll (IntersectionObserver: lib/motion/scrollReveal.ts) ── */
@@ -88,7 +213,7 @@ html[data-motion="on"] [data-reveal="scale"].reveal-wait {
   transform: scale(1.04);
 }
 html[data-motion="on"] [data-reveal="card"].reveal-wait {
-  transform: rotate(2deg) scale(0.96);
+  transform: rotate(2deg) scale(0.95);
 }
 html[data-motion="on"] [data-reveal="left"].reveal-wait {
   transform: translateX(-22px);
@@ -186,7 +311,7 @@ html[data-motion="on"] .reveal-in .word {
     box-shadow: var(--shadow-lift);
   }
   .card-hover:hover .card-img {
-    scale: 1.03;
+    scale: 1.04;
   }
   .card-hover:hover .card-cta {
     transform: translateY(-1px);
@@ -247,7 +372,7 @@ html[data-motion="on"] .check-in {
 }
 @media (hover: hover) {
   .btn:hover .btn-icon {
-    transform: translateX(3px);
+    transform: translateX(4px);
   }
 }
 [data-magnetic] {
@@ -323,29 +448,47 @@ html[data-motion="on"] .qty-pop {
   animation: qty-pop 0.25s var(--ease-out);
 }
 
-/* ── Categorías: carrusel con snap (botones en desktop, swipe en móvil) ──
-   Snap "proximity" + scroll-padding igual al padding lateral: con "mandatory" el navegador reajustaba la fila
-   al cargar (scroll programático) y Chrome dejaba de reportar candidatos de LCP en toda la página. */
-.rail {
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
+/* ── Home · manifiesto: las palabras se "encienden" (opacidad 0 → 1; nunca un valor intermedio en reposo, que bajaría el contraste) al avanzar el scroll ──
+   Solo con scroll-driven animations; sin soporte el texto se ve completo desde el principio. */
+@keyframes cin-word-lit {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.rail::-webkit-scrollbar {
-  display: none;
-}
-.rail > li {
-  scroll-snap-align: start;
-}
-.rail-card .card-img {
-  transition: scale 0.8s var(--ease-out);
-}
-@media (hover: hover) and (pointer: fine) {
-  .rail-card:hover .card-img {
-    scale: 1.05;
+@supports (animation-timeline: view()) {
+  html[data-motion="on"] .cin-statement {
+    view-timeline: --statement block;
+  }
+  html[data-motion="on"] .cin-statement .cin-word {
+    animation: cin-word-lit linear both;
+    animation-timeline: --statement;
+    animation-range: cover calc(12% + var(--p, 0) * 38%) cover calc(20% + var(--p, 0) * 38%);
   }
 }
 
-/* ── Del horno a tu mesa: imagen fija con zoom sutil, textos que cambian con el scroll ── */
+/* ── Home · marquee editorial lento (decorativo) ── */
+@keyframes cin-marquee {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+html[data-motion="on"] .cin-marquee-track {
+  animation: cin-marquee 70s linear infinite;
+}
+
+/* ── Home · categorías y productos: la imagen de la fila entra con scale 1.06→1 al revelarse ── */
+html[data-motion="on"] .reveal-wait .cin-reveal-media {
+  transform: scale(1.06);
+}
+html[data-motion="on"] .reveal-in .cin-reveal-media {
+  transform: none;
+  transition: transform 1.2s var(--ease-premium) var(--reveal-delay, 0ms);
+}
+
+/* ── Del horno a tu mesa: capa fija con crossfade + zoom sutil; los pasos se atenúan fuera de foco ── */
 .story-art-layer {
   position: absolute;
   inset: 0;
@@ -373,47 +516,69 @@ html[data-motion="on"] .qty-pop {
   }
 }
 
-/* ── Cómo pedir: la línea se dibuja 01 → 02 → 03 y los pasos se encienden en secuencia ── */
-.steps-line {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
+/* ── Cómo pedir: la línea se dibuja con el scroll (scroll-driven) o al revelarse (IntersectionObserver) ── */
+@keyframes cin-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
 }
-.steps-vline {
-  transform-origin: top;
+@keyframes cin-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: none;
+  }
 }
-.step-num {
-  transition:
-    background-color 0.45s var(--ease-out),
-    color 0.45s var(--ease-out),
-    transform 0.45s var(--ease-out),
-    box-shadow 0.45s var(--ease-out);
+@keyframes cin-num-on {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.25em, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-html[data-motion="on"] .reveal-wait .steps-line {
-  stroke-dashoffset: 1;
+@supports (animation-timeline: view()) {
+  html[data-motion="on"] .cin-timeline {
+    view-timeline: --steps block;
+  }
+  html[data-motion="on"] .cin-timeline-fill {
+    animation: cin-draw-y linear both;
+    animation-timeline: --steps;
+    animation-range: entry 70% cover 65%;
+  }
+  html[data-motion="on"] .cin-timeline-num {
+    animation: cin-num-on linear both;
+    animation-timeline: view();
+    animation-range: entry 90% cover 40%;
+  }
+  @media (min-width: 768px) {
+    html[data-motion="on"] .cin-timeline-fill {
+      animation-name: cin-draw-x;
+    }
+    html[data-motion="on"] .cin-timeline-num {
+      animation-timeline: --steps;
+      animation-range: entry calc(70% + var(--i, 0) * 12%) cover calc(35% + var(--i, 0) * 12%);
+    }
+  }
 }
-html[data-motion="on"] .reveal-in .steps-line {
-  transition: stroke-dashoffset 1.6s var(--ease-out) 0.25s;
-}
-html[data-motion="on"] .reveal-wait .steps-vline {
-  transform: scaleY(0);
-}
-html[data-motion="on"] .reveal-in .steps-vline {
-  transition: transform 1.6s var(--ease-out) 0.25s;
-}
-html[data-motion="on"] .reveal-wait .step-num {
-  background-color: var(--color-paper);
-  color: var(--color-ink);
-  transform: scale(0.9);
-}
-html[data-motion="on"] .reveal-in .step-num {
-  transition-delay: calc(0.2s + var(--i, 0) * 0.65s);
-}
-
-/* ── Próximas fechas: la más próxima destaca sin animación ── */
-.date-featured {
-  box-shadow:
-    0 0 0 2px var(--color-sage),
-    var(--shadow-soft);
+@supports not (animation-timeline: view()) {
+  html[data-motion="on"] .reveal-wait .cin-timeline-fill {
+    transform: scaleY(0);
+  }
+  html[data-motion="on"] .reveal-in .cin-timeline-fill {
+    transition: transform 1.6s var(--ease-premium) 0.2s;
+  }
+  @media (min-width: 768px) {
+    html[data-motion="on"] .reveal-wait .cin-timeline-fill {
+      transform: scaleX(0);
+    }
+  }
 }
 
 /* ── Tarjeta del club en /mi-tarjeta: entra con rotate 1.5°→0 y scale .97→1 (sin opacidad: puede ser LCP) ── */
@@ -471,16 +636,18 @@ html.lenis body {
   }
   .card-hover,
   .card-hover .card-img,
-  .rail-card .card-img,
   .story-art-layer,
   .story-step,
-  .step-num,
+  .cin-btn,
+  .cin-arrow,
+  .cin-cat-link,
+  .cin-cat-name,
+  .cin-cat-layer,
+  .cin-showcase-img,
+  .cin-story-bars i,
   .site-header,
   .btn,
   [data-magnetic] {
     transition: none !important;
-  }
-  .rail {
-    scroll-behavior: auto;
   }
 }

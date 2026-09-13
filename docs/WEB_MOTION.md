@@ -12,8 +12,8 @@
    `prefers-reduced-motion`**. Sin JS el atributo no existe; con reduced motion vale `"reduced"`. En ambos casos el
    sitio se ve completo y estático.
 2. **Solo `transform` y `opacity`.** Sin animaciones de layout. CLS = 0.
-3. **El LCP nunca parte de `opacity: 0`.** El `h1` del hero solo se desplaza (`translateY`); la tarjeta de
-   `/mi-tarjeta` solo rota/escala.
+3. **El LCP nunca parte de `opacity: 0` ni queda recortado.** La foto de la portada solo escala y cada línea del
+   `h1` solo se desplaza (`translateY`, sin máscara); la tarjeta de `/mi-tarjeta` solo rota/escala.
 4. **Nada en la ruta crítica.** Cero librerías de animación en el bundle inicial. Lenis se carga con `import()`
    tras `requestIdleCallback`, solo en desktop con puntero fino y sin reduced motion. GSAP, Motion y Three.js se
    evaluaron y **no se usan**: todo se resuelve con CSS, IntersectionObserver y WAAPI (`element.animate`).
@@ -24,7 +24,7 @@
 
 | Nivel | Dónde                                   | Qué                                                                                                 |
 | ----- | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| A     | Hero del home                           | Secuencia de entrada ≈1.3 s en CSS puro + profundidad de 7 px siguiendo el puntero (desktop).       |
+| A     | Portada del home                        | Entrada ≈1.5 s en CSS, profundidad ±6 px (desktop) y portada fija 85svh ligada al scroll (desktop). |
 | B     | Secciones del home, footer              | Revelado al hacer scroll (IntersectionObserver) con stagger ligero; títulos clave por palabras.     |
 | C     | Cards, botones, carrito, categorías     | Hover/tap, tilt ≤ 1.5°, "Agregar" (nudge + punto que vuela al carrito), cajón con entrada/salida.   |
 | D     | Menú, producto, checkout, pedido, club… | Casi estático: transición de página de 320 ms y microinteracciones de botón. Sin parallax ni Lenis. |
@@ -46,7 +46,11 @@ apps/web/lib/motion/
   pageTransition.tsx <PageTransition/> aplica .page-enter solo en navegaciones en cliente
 apps/web/lib/a11y/focusTrap.ts   trapFocus() para el cajón del carrito
 apps/web/app/motion.css          todas las reglas de movimiento (importado desde globals.css)
+apps/web/app/cinematic.css       composición estática del home (layout, tipografía, hover/foco); sin animaciones
 apps/web/components/Reveal.tsx   envoltorio server-side que solo marca data-reveal / --reveal-delay
+apps/web/components/cinematic/   home: CinematicHero, EditorialStatement, Marquee, ProductShowcase, CategoryExperience,
+                                 StickyStory, Timeline, NextDate, VisitUs, ClubSection, CinematicCTA, ScrollProgress,
+                                 Button (PRIMARY/SECONDARY/TEXT LINK), SectionHeading, TextReveal, Plate, photos.ts
 ```
 
 ### Cómo funciona el revelado (B)
@@ -58,11 +62,53 @@ Lo que ya se ve nunca parpadea, y si el bundle no cargara nada quedaría oculto.
 `.reveal-text` y `.word` se animan en cascada desde el CSS. `--reveal-delay` (o `data-reveal-group="80"` en el
 contenedor) escalona.
 
-### Hero (A)
+### Portada (A)
 
-`components/Hero.tsx`: `.hero-eyebrow → .hero-line (h1) → .hero-sub → .hero-cta → .hero-status → .hero-art-enter`
-con `animation-delay` escalonados (0 → 0.7 s) y `both`. El `h1` usa `hero-rise` (solo transform). Las capas
-`[data-depth]` van en elementos distintos a los animados para no pisar el `transform` de la animación.
+`components/cinematic/CinematicHero.tsx`. Capas y quién mueve cada una (nunca dos `transform` en el mismo elemento):
+`.cin-hero-media[data-depth]` → puntero (`lib/motion/hero.ts`, ±6 px) · `.cin-hero-zoom` → scroll · `img.cin-hero-img` →
+entrada. Secuencia: imagen (scale 1.08→1) → `.line-in` escalonadas (0.18 s + 0.12 s por línea, solo transform) →
+`.hero-sub` → `.hero-cta` → `.hero-status` → navegación de la cabecera (`.header-nav-enter`, 0.9 s; logo y carrito
+nunca se ocultan). Total ≈1.5 s, sin loader.
+
+Transición ligada al scroll (solo `min-width: 1024px`, `min-height: 620px` y navegadores con
+`animation-timeline: view()`): `.cin-hero-pin` mide 185svh y la portada queda `sticky`; con `view-timeline: --hero`
+la imagen escala a 1.14, el titular sube y se desvanece, aparece un velo y después "Hecho a mano." / "Horneado para
+ti." (`.cin-hero-after`, decorativo). Sin soporte, en móvil, sin JS o con reduced motion la portada mide 100svh y
+queda quieta.
+
+Imagen: `getImageProps` con art direction — panorámica desde 640 px y `hero-pastries-square.webp` (recorte cuadrado de
+la misma foto) en móvil. La foto ya no cubre todo el viewport en móvil: Chrome descarta como LCP las imágenes que
+ocupan la pantalla completa y entonces el LCP pasa al `h1`.
+
+Cabecera: en el home (`body:has([data-hero])`) y solo con JS (`html[data-motion]`) es transparente con texto claro
+mientras la portada está detrás; `HeaderShell` fija `data-scrolled` cuando termina `[data-hero-pin]`. Antes de
+hidratar no lleva el atributo; sin JS mantiene su fondo. Con el menú móvil abierto vuelve a ser sólida.
+
+### Resto del home
+
+| Sección                | Componente            | Movimiento                                                                                      |
+| ---------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
+| Manifiesto             | `EditorialStatement`  | Palabras con opacidad 0→1 ligada al scroll (`--p` = posición en el párrafo); fotos con parallax |
+| Marquee                | `Marquee`             | Traslación lineal 70 s, decorativo (`aria-hidden`)                                              |
+| Productos estrella     | `ProductShowcase`     | Revelado + parallax 0.05 en la foto; swipe nativo en móvil; "Agregar" con la secuencia de (C)   |
+| Categorías             | `CategoryExperience`  | Hover/foco cambia la capa del panel (crossfade 320 ms) solo con CSS `:has`; filas atenuadas     |
+| Del horno a tu mesa    | `StickyStory`         | `ProcessSteps` marca `.is-active`; capa con crossfade y barras 01–04 (`:has`)                   |
+| Catálogo               | `ProductCard`         | Intensidad baja: imagen 1→1.04, CTA con micro movimiento                                        |
+| Cómo pedir             | `Timeline`            | Línea `scaleX`/`scaleY` con `view-timeline`; sin soporte, transición al revelarse               |
+| Próxima fecha / estado | `NextDate`, `VisitUs` | Solo revelado de sección; el punto de estado no pulsa                                           |
+| Club                   | `ClubSection`         | Tarjeta con `data-reveal="card"` (rotate 2°→0, scale .95→1)                                     |
+| Progreso               | `ScrollProgress`      | Barra de 2 px con `animation-timeline: scroll(root)`                                            |
+
+Precios, textos legales, inputs, errores y botones de compra no se animan. Evaluado y descartado: cursor
+personalizado (no aporta a una tienda de pan y complica el foco) y GSAP/ScrollTrigger (CSS scroll-driven +
+IntersectionObserver alcanzan; 0 KB añadidos).
+
+### Tokens
+
+En `app/globals.css`: curvas `--ease-premium`, `--ease-reveal`, `--ease-hover`, `--ease-page` (en `@theme`) y en
+`:root` contenedores (`--container-wide`, `--gutter`), ritmo (`--space-section`, `--space-block`), escala
+(`--text-hero`, `--text-statement`, `--text-h2`, `--text-h3`, `--text-index`), radios (`--radius-media`,
+`--radius-panel`) y tiempos (`--dur-micro` 240 ms, `--dur-hover` 320 ms, `--dur-reveal` 800 ms, `--dur-hero` 1200 ms).
 
 ### Carrito (C)
 
@@ -73,13 +119,6 @@ eliminación en dos tiempos (fade 180 ms + colapso de altura con WAAPI contenido
 
 `AddToCart`: `cart.add(product, qty, { open: false })` → `nudgeCard()` → `flyToCart()` (un solo `span.fly-dot`,
 WAAPI, 420 ms) → `cart.open()`. Con reduced motion o sin destino visible se abre de inmediato.
-
-### Storytelling y "Cómo pedir"
-
-- `components/Process.tsx` + `ProcessSteps.tsx`: en desktop la imagen es `sticky` y un IntersectionObserver de
-  banda central marca `.is-active` en paso y capa; el CSS hace el crossfade/zoom. Móvil: lista vertical.
-- `components/HowToOrder.tsx`: SVG con `pathLength=1` y `stroke-dashoffset` (desktop) / `scaleY` (móvil); los
-  números se encienden con `--i`. Sin JS: línea dibujada y todo visible.
 
 ### Cabecera y transición de página
 
@@ -96,6 +135,11 @@ Lighthouse móvil (Lantern, `next build` + `next start` local, misma máquina, m
 | `/`                               | 87–90 / 3.7–4.0 s / 19–42 ms / 0 | **92** / 3.3 s / 2 ms / 0        |
 | `/menu`                           | 90 / 3.6 s / 18 ms / 0           | **92** / 3.3 s / 1 ms / 0        |
 | `/producto/croissant-mantequilla` | 90 / 3.6 s / 18 ms / 0           | **93** / 3.2 s / 1 ms / 0        |
+
+Home cinematográfico (`feat/cinematic-home-v2`, mismo método, `next start -p 3120`, 2 corridas): antes 88–89 /
+3.8–3.9 s / 20–30 ms / 0 · después **88** / 3.9–4.0 s / 20–30 ms / 0; a11y, BP y SEO 100; desktop 100 (LCP 0.8 s).
+JS inicial igual (12 peticiones, 269.9 → 268.9 KB); CSS 13.3 → 16.7 KB. El LCP simulado lo limita el JS del framework
+(~269 KB descargado antes del LCP), no la portada.
 
 Accesibilidad, Best Practices y SEO: 100 en las tres rutas, antes y después. (En producción con CDN y HTTP/2
 los valores absolutos son mejores; lo relevante es la comparación en igualdad de condiciones.)
@@ -133,11 +177,11 @@ Dónde colocar las fotos, sin tocar código:
 | "Del horno a tu mesa" · 03 Empacamos    | `apps/web/public/story/03-empacamos.jpg`                 | 4:5, 1200×1500              |
 | "Del horno a tu mesa" · 04 Tú disfrutas | `apps/web/public/story/04-disfrutas.jpg`                 | 4:5, 1200×1500              |
 | Producto (cards, galería, carrito)      | `product_images` desde el admin (Supabase Storage)       | 4:3 para cards, 1:1 galería |
-| Categorías (carrusel del home)          | `categories.image_url` desde el admin (hoy no se usa: la | 4:5, 900×1125               |
-|                                         | tarjeta usa `ProductArt`; al haber fotos, `CategoryRail` |                             |
-|                                         | debe pintar `c.imageUrl` con `next/image` fill)          |                             |
+| Categorías (panel del home)             | `categories.image_url` desde el admin (ya se pinta; sin  | 4:5, 900×1125               |
+|                                         | ella usa `components/cinematic/photos.ts` o un plato)    |                             |
+| Productos estrella sin foto             | `product_images` del producto (manda sobre photos.ts)    | 5:4 horizontal, 1600×1280   |
 
-`lib/storyPhotos.ts` detecta los archivos de `public/story` en cada petición y `Process.tsx` pinta `next/image`
+`lib/storyPhotos.ts` detecta los archivos de `public/story` en cada petición y `components/cinematic/StickyStory.tsx` pinta `next/image`
 con dimensiones fijas (sin CLS). Los textos alternativos ya están escritos ahí.
 
 ## Pruebas

@@ -21,7 +21,7 @@ export function MobileNav({ links }: { links: Array<{ href: string; label: strin
     <div className="md:hidden">
       <button
         type="button"
-        className="tap inline-flex items-center justify-center rounded-full text-ink hover:bg-cream-2"
+        className="header-on-dark tap inline-flex items-center justify-center rounded-full text-ink hover:bg-cream-2"
         aria-expanded={open}
         aria-controls={open ? "mobile-menu" : undefined}
         aria-label={open ? "Cerrar menú" : "Abrir menú"}
