@@ -304,3 +304,5 @@ cd apps/admin && E2E_BASE_URL=http://localhost:3110 pnpm exec playwright test e2
 ```
 
 Nota: `login_attempts` acumula fallos de `::1` entre corridas seguidas del E2E. Si aparece «Demasiados intentos», `delete from login_attempts` en la base local.
+
+Nota 2: las sondas manuales de configuración de §2 modifican datos globales (costeo, horarios). Durante la auditoría dejaron `default_waste_bps=200` y eso hizo fallar `catalog.spec`/`catalog-sheet.spec`, que asumen merma 0. Tras restaurar los valores del seed, el E2E completo quedó en 18/18. El `.env` del worktree apunta `DATABASE_URL` a la base aislada `pdp_dev_audit_auth` (no se versiona), que conserva usuarios y puntos de retiro de prueba.
