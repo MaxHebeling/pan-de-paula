@@ -246,10 +246,15 @@ describe("pedidos web + Mercado Pago", () => {
   });
 
   it("producción sugerida suma pedidos comprometidos para la fecha", async () => {
-    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    // "Mañana" en la zona horaria del negocio (no en UTC): a las 12:00 locales para no cruzar de día.
+    const tz = await sql<{ date: string; ts: string }>`
+      select ((now() at time zone bs.timezone)::date + 1)::text as date,
+             ((((now() at time zone bs.timezone)::date + 1)::text || ' 12:00')::timestamp at time zone bs.timezone)::text as ts
+      from business_settings bs where bs.id = 1`.execute(db);
+    const tomorrow = tz.rows[0]!.ts;
     await webOrder({ scheduled_for: tomorrow });
     await webOrder({ scheduled_for: tomorrow, items: [{ product_id: product, qty: 6 }] });
-    const date = tomorrow.slice(0, 10);
+    const date = tz.rows[0]!.date;
     const r = await sql<{
       committed_qty: string;
       suggested_qty: string;
