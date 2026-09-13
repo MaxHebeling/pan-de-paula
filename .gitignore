@@ -21,3 +21,4 @@ backups/*.sql
 # Reportes generados por el importador (uno por batch); se conservan en import_batches/import_rows
 packages/db/import/reports/*.md
 .secrets.*.local
+.deploys-*.log
