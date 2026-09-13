@@ -266,7 +266,15 @@ export async function sendOrderConfirmationEmail(
   order: OrderView,
   business: Business,
 ): Promise<void> {
-  if (!order.customerEmail || !isEmailConfigured()) return;
+  if (!order.customerEmail) return;
+  if (!isEmailConfigured()) {
+    // Sin proveedor de correo: queda constancia como intento fallido (receipts.status solo admite queued|sent|failed) y el flujo sigue.
+    await sql`insert into receipts(order_id, channel, destination, status, error)
+              values (${order.id}, 'email', ${order.customerEmail}, 'failed', 'Correo no configurado (RESEND_API_KEY / EMAIL_FROM): no se intentó el envío')`
+      .execute(db())
+      .catch((err) => console.error("[orders] no se pudo registrar el comprobante omitido", err));
+    return;
+  }
   const when = order.scheduledFor ? dateMX(order.scheduledFor, business.timezone) : "por confirmar";
   const hours = hourRange(order.windowFrom, order.windowTo);
   const rows = order.items

@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { resolveTier, tierProgress } from "@pdp/domain";
 import { Logo } from "@/components/Logo";
 import { CopyLinkButton, SaveQrButton } from "@/components/QrCard";
-import { decodeToken, findCustomer } from "@/lib/customers";
+import { findCustomerByQrToken } from "@/lib/customers";
 import { money } from "@/lib/format";
 import { getProgram, listActiveRewards, listTiers, loyaltyEnabled } from "@/lib/loyalty";
 import { cardUrl, qrDataUrl } from "@/lib/qr";
@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Mi tarjeta", robots: { index: false,
 export default async function CardPage({ params, searchParams }: Props) {
   const { token } = await params;
   const sp = await searchParams;
-  const customer = await findCustomer(decodeToken(token));
+  const customer = await findCustomerByQrToken(token);
   if (!customer) notFound();
   const [business, program, tiers, rewards] = await Promise.all([
     getBusiness(),

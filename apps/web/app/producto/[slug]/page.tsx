@@ -16,12 +16,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const p = await getProductBySlug(slug);
   if (!p) return { title: "Producto no encontrado" };
-  return {
+  const meta: Metadata = {
     title: p.name,
     description: p.shortDescription ?? p.description ?? `${p.name} artesanal de El Pan de Paula.`,
     alternates: { canonical: `/producto/${p.slug}` },
-    openGraph: p.primaryImageUrl ? { images: [{ url: p.primaryImageUrl }] } : undefined,
   };
+  // Solo se sobrescribe openGraph cuando hay foto del producto: la clave presente (aunque sea undefined)
+  // anula el openGraph heredado del layout y la imagen por defecto (opengraph-image), dejando la página sin
+  // og:title/og:image al compartirla. openGraph no se fusiona en profundidad: se repiten type/locale/siteName.
+  if (p.primaryImageUrl) {
+    meta.openGraph = {
+      type: "website",
+      locale: "es_MX",
+      siteName: "El Pan de Paula",
+      images: [{ url: p.primaryImageUrl, alt: p.name }],
+    };
+  }
+  return meta;
 }
 
 export default async function ProductPage({ params }: Props) {

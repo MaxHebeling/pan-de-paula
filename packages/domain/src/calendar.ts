@@ -152,7 +152,11 @@ export function isOpenNow(
   if (ex?.isClosed) return { open: false, reason: ex.note ?? "Cerrado por hoy" };
   const h = hours.find((x) => x.weekday === now.weekday);
   if (!h || !h.isOpen || !h.opensAt || !h.closesAt) return { open: false, reason: "Cerrado hoy" };
-  const open = now.time >= h.opensAt && now.time < h.closesAt;
+  // Cierre "después de medianoche" (p. ej. 20:00–02:00) o a las 00:00: el tramo tras la medianoche también cuenta.
+  const overnight = h.closesAt <= h.opensAt;
+  const open = overnight
+    ? now.time >= h.opensAt || now.time < h.closesAt
+    : now.time >= h.opensAt && now.time < h.closesAt;
   return {
     open,
     opensAt: h.opensAt,
