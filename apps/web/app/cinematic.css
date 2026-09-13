@@ -36,6 +36,11 @@
   background: currentColor;
   opacity: 0.55;
 }
+@media (max-width: 359px) {
+  .cin-index::before {
+    display: none;
+  }
+}
 .cin-index-num {
   font-variant-numeric: tabular-nums;
   color: var(--color-ink-2);
@@ -184,24 +189,41 @@
 }
 
 /* ── Cabecera sobre la portada (solo home, solo con JS para que sin JS siempre sea sólida) ── */
-html[data-motion] body:has([data-hero]) .site-header:not([data-scrolled="true"]) {
+html[data-motion]
+  body:has([data-hero])
+  .site-header:not([data-scrolled="true"]):not(:has(#mobile-menu)) {
   border-color: transparent;
   background-color: transparent;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-html[data-motion] body:has([data-hero]) .site-header:not([data-scrolled="true"]) .header-on-dark {
+html[data-motion]
+  body:has([data-hero])
+  .site-header:not([data-scrolled="true"]):not(:has(#mobile-menu))
+  .header-on-dark {
   color: #fffdf9;
 }
 html[data-motion]
   body:has([data-hero])
-  .site-header:not([data-scrolled="true"])
+  .site-header:not([data-scrolled="true"]):not(:has(#mobile-menu))
   .header-on-dark:hover {
   background-color: rgba(255, 253, 249, 0.12);
 }
-html[data-motion] body:has([data-hero]) .site-header:not([data-scrolled="true"]) :focus-visible {
+html[data-motion]
+  body:has([data-hero])
+  .site-header:not([data-scrolled="true"]):not(:has(#mobile-menu))
+  :focus-visible {
   outline-color: var(--color-gold-soft);
+}
+
+/* Con el menú móvil abierto la cabecera vuelve a ser sólida (reglas de arriba) y el panel es opaco */
+body:has([data-hero]) .site-header:has(#mobile-menu) {
+  border-color: var(--color-line);
+  background-color: var(--color-paper);
+}
+body:has([data-hero]) #mobile-menu {
+  background-color: var(--color-paper);
 }
 
 /* En el home la cabecera y el pie usan el mismo ancho editorial que las secciones */

@@ -24,7 +24,7 @@ export function Header() {
       <div className="container-x relative flex h-16 items-center justify-between gap-3 sm:h-[72px]">
         <Link href="/" className="flex items-center gap-3" aria-label="El Pan de Paula, inicio">
           <Logo size={44} priority />
-          <span className="header-on-dark hidden font-display text-lg leading-none text-ink sm:block">
+          <span className="header-on-dark hidden font-display text-lg leading-none whitespace-nowrap text-ink sm:block md:hidden lg:block">
             El Pan de Paula
           </span>
         </Link>
@@ -40,7 +40,10 @@ export function Header() {
           </ul>
         </nav>
         <div className="flex items-center gap-1">
-          <Link href="/menu" className="header-nav-enter btn btn-sage hidden px-4 sm:inline-flex">
+          <Link
+            href="/menu"
+            className="header-nav-enter btn btn-sage hidden px-4 whitespace-nowrap sm:inline-flex"
+          >
             Pedir ahora
           </Link>
           <CartButton />
