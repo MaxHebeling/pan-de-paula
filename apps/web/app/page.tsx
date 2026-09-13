@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { WEEKDAY_LABELS, formatLocalDate } from "@pdp/domain";
 import { CategoryRail } from "@/components/CategoryRail";
 import { ClubCard } from "@/components/ClubCard";
+import { EditorialShowcase } from "@/components/EditorialShowcase";
 import { Hero } from "@/components/Hero";
 import { HowToOrder } from "@/components/HowToOrder";
 import { Process } from "@/components/Process";
@@ -43,6 +44,8 @@ export default async function HomePage() {
   return (
     <>
       <Hero status={status} />
+
+      <EditorialShowcase />
 
       {/* Favoritos de la casa */}
       {featured.length > 0 && (
