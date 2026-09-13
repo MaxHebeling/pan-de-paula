@@ -245,11 +245,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
 
   const canWrite = hasPermission(session, "orders.write");
   const canRefund = hasPermission(session, "pos.refund");
+  const balance = o.total_cents - o.paid_cents;
+  // "Pagado" solo se alcanza registrando el pago (el servidor también lo exige): no se ofrece mientras haya saldo.
   const transitions = (ORDER_TRANSITIONS[o.status] ?? []).filter(
-    (s) => s !== "cancelled" && s !== "refunded",
+    (s) => s !== "cancelled" && s !== "refunded" && !(s === "paid" && balance > 0),
   );
   const canCancel = canTransition(o.status, "cancelled") && !o.sale_id;
-  const balance = o.total_cents - o.paid_cents;
   const canPay = canWrite && balance > 0 && !["cancelled", "refunded"].includes(o.status);
   const wa = whatsappNumber(o.customer_phone);
   const waHref = wa ? `https://wa.me/${wa}?text=${encodeURIComponent(waMessage(o))}` : null;
@@ -824,10 +825,10 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
                     </PendingButton>
                   </ActionForm>
                 ))}
-                {transitions.includes("paid") && balance > 0 && (
+                {canTransition(o.status, "paid") && balance > 0 && (
                   <p className="text-xs text-muted">
-                    Marcar como pagado no registra dinero: usa “Registrar pago manual” para cobrar y
-                    descontar inventario.
+                    Para marcarlo como pagado usa “Registrar pago manual”: así se cobra, se registra
+                    la venta y se descuenta inventario.
                   </p>
                 )}
               </div>

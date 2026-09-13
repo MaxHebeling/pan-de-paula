@@ -29,6 +29,26 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<ApiR
     // fetch solo rechaza por red/CORS/abort: nunca por códigos HTTP.
     throw new NetworkError((e as Error).message);
   }
+  // Sesión expirada: el proxy redirige a /login y fetch sigue la redirección → 200 con HTML. Sin esto el POS
+  // tomaba el HTML como éxito (pantalla de venta rota) y la cola offline daba por sincronizada una venta
+  // que nunca llegó al servidor (se perdía).
+  if (res.redirected && new URL(res.url, "http://x").pathname.startsWith("/login")) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Sesión expirada: vuelve a iniciar sesión (la venta no se registró)",
+      code: "UNAUTHENTICATED",
+    };
+  }
+  const isJson = (res.headers.get("content-type") ?? "").includes("application/json");
+  if (res.ok && !isJson) {
+    return {
+      ok: false,
+      status: 502,
+      error: "Respuesta inesperada del servidor",
+      code: "BAD_RESPONSE",
+    };
+  }
   let body: unknown = null;
   const text = await res.text();
   if (text) {

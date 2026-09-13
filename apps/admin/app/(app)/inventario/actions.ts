@@ -110,6 +110,9 @@ export async function createCountAction(_prev: FormState, form: FormData): Promi
       callFn<string>(trx, "create_stock_count", [notes || null]),
     );
   } catch (e) {
+    // Índice único parcial (0013): dos conteos creados a la vez → 23505
+    if ((e as { code?: string }).code === "23505")
+      return { error: "Ya hay un conteo abierto; aplícalo o descártalo antes de iniciar otro" };
     return fail(e, "create_stock_count");
   }
   redirect(`/inventario?tab=conteo&conteo=${id}&paso=capturar`);
@@ -133,8 +136,22 @@ export async function saveCountItemsAction(_prev: FormState, form: FormData): Pr
   }
   try {
     await withStaff(db(), session.staff.id, async (trx) => {
+      const prev = await sql<{ product_id: string; counted_qty: string }>`
+        select product_id, counted_qty::text from stock_count_items where stock_count_id = ${countId}::uuid`.execute(
+        trx,
+      );
+      const before = new Map(prev.rows.map((r) => [r.product_id, Number(r.counted_qty)]));
       for (const it of items) {
         await callFn(trx, "set_stock_count_item", [countId, it.product_id, it.counted, it.note]);
+        // Lo recién contado se compara contra el stock AL MOMENTO de capturarlo: si hubo ventas/producción desde que
+        // se creó el conteo, el esperado congelado producía correcciones falsas (contado 47 con 3 vendidos → −3).
+        // Los renglones no tocados conservan su esperado (contado = esperado → sin corrección).
+        if (before.get(it.product_id) !== it.counted) {
+          await sql`update stock_count_items set expected_qty = coalesce((select on_hand from inventory_levels where product_id = ${it.product_id}::uuid), 0)
+                    where stock_count_id = ${countId}::uuid and product_id = ${it.product_id}::uuid`.execute(
+            trx,
+          );
+        }
       }
     });
   } catch (e) {

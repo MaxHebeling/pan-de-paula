@@ -9,6 +9,7 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_TONE,
   OPEN_ORDER_STATUSES,
+  containsPattern,
   type OrderStatus,
 } from "@pdp/domain";
 import { fmtDate } from "@/lib/format";
@@ -94,7 +95,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
        and (${canal}::text is null or o.channel::text = ${canal}::text)
        and (${pago}::text is null or o.payment_status::text = ${pago}::text)
        and (${entrega}::date is null or (o.scheduled_for at time zone (select timezone from business_settings where id = 1))::date = ${entrega}::date)
-       and (${q} = '' or o.folio ilike '%' || ${q} || '%' or o.customer_name ilike '%' || ${q} || '%'
+       and (${q} = '' or o.folio ilike ${containsPattern(q)} or o.customer_name ilike ${containsPattern(q)}
             or regexp_replace(coalesce(o.customer_phone,''), '[^0-9]', '', 'g') like '%' || regexp_replace(${q}, '[^0-9]', '', 'g') || '%' and regexp_replace(${q}, '[^0-9]', '', 'g') <> '')
      order by case when ${vista} in ('hoy','proximos') then o.scheduled_for end asc nulls last, o.placed_at desc
      limit ${limit + 1} offset ${(page - 1) * limit}`.execute(db());

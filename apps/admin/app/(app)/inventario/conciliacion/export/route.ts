@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { csvCell } from "@pdp/domain";
 import { getSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 
@@ -32,7 +33,6 @@ export async function GET(req: NextRequest) {
     "otros",
     "cierre",
   ];
-  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   const lines = [
     header.join(","),
     ...rows.rows.map((r) =>
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         r.other!,
         r.closing!,
       ]
-        .map(esc)
+        .map((v) => csvCell(v))
         .join(","),
     ),
   ];

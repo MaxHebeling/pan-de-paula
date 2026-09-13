@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { containsPattern } from "@pdp/domain";
 import { isEmailConfigured, isMercadoPagoConfigured } from "@pdp/integrations";
 import type { StaffSession } from "@pdp/auth";
 import { getSession, hasPermission } from "./auth";
@@ -114,11 +115,24 @@ export type RegisterSummary = {
   difference_cents: number | null;
 };
 
+/**
+ * Resumen de la sesión. En una sesión CERRADA el efectivo esperado es el congelado al cierre
+ * (register_sessions.expected_cash_cents): una anulación posterior no debe alterar un corte ya firmado
+ * ni dejar "esperado" y "diferencia" incoherentes en pantalla.
+ */
 export async function getRegisterSummary(sessionId: string): Promise<RegisterSummary | null> {
   const r = await sql<{
     s: RegisterSummary | null;
-  }>`select register_session_summary(${sessionId}::uuid) as s`.execute(db());
-  return r.rows[0]?.s ?? null;
+    frozen: number | null;
+  }>`select register_session_summary(${sessionId}::uuid) as s,
+            (select expected_cash_cents from register_sessions where id = ${sessionId}::uuid and status = 'closed') as frozen`.execute(
+    db(),
+  );
+  const row = r.rows[0];
+  if (!row?.s) return null;
+  return row.frozen === null || row.frozen === undefined
+    ? row.s
+    : { ...row.s, expected_cash_cents: row.frozen };
 }
 
 // ── Configuración del POS para el cliente ───────────────────────────────────
@@ -264,7 +278,7 @@ export async function searchCustomers(query: string, limit = 8): Promise<PosCust
   );
   if (exact.rows.length) return exact.rows.map(toCustomer);
   const digits = q.replace(/[^0-9]/g, "");
-  const like = `%${q.replace(/[%_]/g, "")}%`;
+  const like = containsPattern(q);
   const fuzzy = await sql<CustomerRow>`
     select ${CUSTOMER_COLS} from customers c left join loyalty_tiers t on t.key = c.tier_key
     where c.deleted_at is null and c.merged_into_id is null

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { newIdempotencyKey, toCents } from "@pdp/domain";
 import { requireSession } from "@/lib/auth";
-import { db, callFn, withStaff, dbErrorMessage } from "@/lib/db";
+import { db, sql, callFn, withStaff, dbErrorMessage } from "@/lib/db";
 
 export type ActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -23,6 +23,22 @@ export async function voidSaleAction(_prev: ActionState, form: FormData): Promis
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   try {
+    const guard = await sql<{ channel: string; mp: boolean }>`
+      select s.channel::text as channel,
+             exists (select 1 from payments p where p.order_id = s.order_id and p.provider = 'mercadopago'
+                     and p.status in ('paid','partially_refunded')) as mp
+      from sales s where s.id = ${parsed.data.sale_id}::uuid`.execute(db());
+    const g = guard.rows[0];
+    if (!g) return { error: "Venta no encontrada" };
+    // Anular solo marca los pagos como cancelados en el sistema: no devuelve dinero cobrado por Mercado Pago
+    // ni aplica a ventas web/WhatsApp (se atienden con reembolso desde el pedido).
+    if (g.channel !== "pos")
+      return { error: "Solo se anulan ventas del POS; usa reembolso en el pedido" };
+    if (g.mp)
+      return {
+        error:
+          "La venta tiene un cobro de Mercado Pago: regístralo como reembolso, no como anulación",
+      };
     await withStaff(db(), s.staff.id, (trx) =>
       callFn(trx, "void_sale", [parsed.data.sale_id, parsed.data.reason]),
     );
