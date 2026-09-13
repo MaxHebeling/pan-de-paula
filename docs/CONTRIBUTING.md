@@ -5,6 +5,7 @@
 - **NO TEST → NO MERGE → NO DEPLOY.** Todo cambio de lógica trae test (unit en `@pdp/domain`, integración en `@pdp/db`, E2E en `apps/*/e2e`).
 - **Dinero en centavos enteros.** Nunca floats. Los precios y costos se calculan en el servidor (SQL), el cliente solo previsualiza.
 - **Lógica crítica en SQL transaccional.** Venta/pago/inventario/puntos/reembolso/producción/merma/caja usan las funciones de `0008_transactions.sql` (o nuevas en el mismo estilo). Nunca reimplementes esa lógica en TypeScript.
+- **Tipos de base versionados:** tras cualquier migración corre `pnpm db:migrate && pnpm db:codegen` y commitea `packages/db/src/generated/db.ts`. Vercel compila desde un checkout limpio y CI falla si el archivo no coincide con el esquema.
 - **Migraciones inmutables y aditivas**, numeradas dentro del rango reservado del módulo (ver `packages/db/migrations/README.md`). Tras migrar: `pnpm db:codegen`.
 - **Validación en servidor** con zod (`@pdp/domain` exporta esquemas compartidos). Nunca confíes en el cliente.
 - **Permisos**: toda página/acción del admin llama `requireSession("<permiso>")`; toda mutación corre dentro de `withStaff(db, staffId, trx => …)` para auditoría.

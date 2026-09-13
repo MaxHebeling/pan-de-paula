@@ -80,9 +80,26 @@ test.describe("@smoke admin", () => {
       )
         violations.push(m.text());
     });
+    // El evento del navegador captura también las violaciones silenciosas (p. ej. una prueba de eval atrapada)
+    await page.addInitScript(() => {
+      const w = window as unknown as { __cspViolations: string[] };
+      w.__cspViolations = [];
+      document.addEventListener("securitypolicyviolation", (e) =>
+        w.__cspViolations.push(
+          `${e.violatedDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}`,
+        ),
+      );
+    });
+    const collect = async () =>
+      violations.push(
+        ...(await page.evaluate(
+          () => (window as unknown as { __cspViolations?: string[] }).__cspViolations ?? [],
+        )),
+      );
     await page.goto("/login");
     await page.waitForLoadState("load");
     await expect(page.locator("#email")).toBeVisible();
+    await collect();
     expect(violations).toEqual([]);
   });
 

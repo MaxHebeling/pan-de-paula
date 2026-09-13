@@ -1,6 +1,10 @@
 /** Esquemas zod compartidos entre apps (validación en servidor siempre). */
 import { z } from "zod";
 
+// Zod v4 prueba `Function("")` para compilar validadores (JIT). Bajo la Content-Security-Policy (sin 'unsafe-eval')
+// esa prueba genera una violación en cada carga del navegador; en modo jitless valida igual, sin eval.
+z.config({ jitless: true });
+
 /**
  * Normaliza un teléfono capturado a la forma canónica que se guarda y se compara:
  * números mexicanos ("+52 664 123 4567", "52 664…", "+521…", "01 664…") → 10 dígitos;

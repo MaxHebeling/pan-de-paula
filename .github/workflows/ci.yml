@@ -57,6 +57,12 @@ jobs:
           pnpm db:migrate
           pnpm db:codegen
           pnpm db:seed
+      - name: Tipos de base versionados al día (los builds de Vercel parten de un checkout limpio)
+        run: |
+          if ! git diff --exit-code -- packages/db/src/generated; then
+            echo "::error::packages/db/src/generated/db.ts no coincide con las migraciones. Corre 'pnpm db:migrate && pnpm db:codegen' y commitea el resultado."
+            exit 1
+          fi
       - name: Verificar privilegios (anon/authenticated sin acceso a tablas, vistas, secuencias ni funciones)
         run: bash scripts/check-grants.sh "$DATABASE_URL"
       - name: Variables de entorno de CI coherentes

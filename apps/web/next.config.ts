@@ -45,6 +45,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@pdp/db", "@pdp/domain", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
   images: {
+    qualities: [60, 75],
     formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
   },
