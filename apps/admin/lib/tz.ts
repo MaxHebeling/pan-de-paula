@@ -9,8 +9,11 @@ export function zonedToUtc(local: string, timeZone: string): Date {
     if (Number.isNaN(d.getTime())) throw new Error(`Fecha inválida: ${local}`);
     return d; // ya trae zona (ISO completo)
   }
-  const [, y, mo, d, h, mi, s] = m.map(Number) as unknown as number[];
-  const asUtc = Date.UTC(y!, mo! - 1, d!, h!, mi!, s ?? 0);
+  // Sin segundos (valor normal de <input type="datetime-local">) el grupo 6 es undefined: Number(undefined)
+  // es NaN, no 0, y toda la fecha quedaba inválida ("Invalid time value" al crear cualquier promoción).
+  const [y, mo, d, h, mi] = m.slice(1, 6).map(Number) as [number, number, number, number, number];
+  const s = m[6] === undefined ? 0 : Number(m[6]);
+  const asUtc = Date.UTC(y, mo - 1, d, h, mi, s);
   // Offset de la zona en ese instante aproximado (dos pasadas para cubrir cambios de horario).
   const offset1 = tzOffsetMs(asUtc, timeZone);
   const guess = asUtc - offset1;

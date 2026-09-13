@@ -9,9 +9,45 @@ export function assertCents(v: unknown, label = "monto"): asserts v is Cents {
   }
 }
 
-/** Convierte "45.50" | 45.5 → 4550. Redondeo half-up a centavos. */
+/**
+ * Interpreta un monto capturado por una persona. Acepta punto o coma como separador decimal
+ * ("45.50", "45,50"), separadores de miles ("1,234.56", "1.234,50") y símbolos ("$ 45.50").
+ * Lanza si no hay dígitos o la forma es ambigua/inválida ("45.5.5", "abc").
+ */
+export function parseAmount(raw: string): number {
+  let t = raw.trim().replace(/[^0-9.,-]/g, "");
+  if (!/\d/.test(t)) throw new TypeError(`Monto inválido: ${raw}`);
+  const hasDot = t.includes(".");
+  const hasComma = t.includes(",");
+  if (hasDot && hasComma) {
+    // El separador que aparece al final es el decimal; el otro es de miles.
+    const decimal = t.lastIndexOf(".") > t.lastIndexOf(",") ? "." : ",";
+    const thousands = decimal === "." ? "," : ".";
+    t = t.split(thousands).join("");
+    if (decimal === ",") t = t.replace(",", ".");
+  } else if (hasComma) {
+    const parts = t.split(",");
+    // "45,5" / "45,50" → decimal; "1,234" / "1,234,567" → miles.
+    if (parts.length === 2 && parts[1]!.length > 0 && parts[1]!.length <= 2)
+      t = `${parts[0]}.${parts[1]}`;
+    else if (parts.slice(1).every((x) => x.length === 3)) t = parts.join("");
+    else throw new TypeError(`Monto inválido: ${raw}`);
+  } else if (hasDot) {
+    const parts = t.split(".");
+    // "1.234.567" → miles; "45.5.5" → inválido.
+    if (parts.length > 2) {
+      if (parts.slice(1).every((x) => x.length === 3)) t = parts.join("");
+      else throw new TypeError(`Monto inválido: ${raw}`);
+    }
+  }
+  const n = Number(t);
+  if (!Number.isFinite(n)) throw new TypeError(`Monto inválido: ${raw}`);
+  return n;
+}
+
+/** Convierte "45.50" | "45,50" | 45.5 → 4550. Redondeo half-up a centavos. */
 export function toCents(amount: string | number): Cents {
-  const n = typeof amount === "string" ? Number(amount.replace(/[^0-9.-]/g, "")) : amount;
+  const n = typeof amount === "string" ? parseAmount(amount) : amount;
   if (!Number.isFinite(n)) throw new TypeError(`Monto inválido: ${amount}`);
   return Math.round(n * 100 + Number.EPSILON * Math.sign(n));
 }

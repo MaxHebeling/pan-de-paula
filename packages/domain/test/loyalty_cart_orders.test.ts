@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { pointsForPurchase, resolveTier, tierProgress, isBirthdayToday } from "../src/loyalty.ts";
 import { cartTotals, changeDue, quickTenderOptions } from "../src/cart.ts";
 import { canTransition, ORDER_TRANSITIONS, ORDER_STATUSES } from "../src/orders.ts";
-import { webCheckoutSchema, customerRegistrationSchema } from "../src/validation.ts";
+import {
+  webCheckoutSchema,
+  customerRegistrationSchema,
+  phoneMX,
+  canonicalPhone,
+} from "../src/validation.ts";
 import { slugify, normalizePhone, isCustomerCode } from "../src/ids.ts";
 import { expectedClosing } from "../src/inventory.ts";
 
@@ -128,6 +133,32 @@ describe("validación", () => {
         idempotency_key: "x",
       }).success,
     ).toBe(false);
+  });
+  it("teléfono canónico: +52 / 52 / +521 / espacios → 10 dígitos; internacional conserva E.164", () => {
+    for (const raw of [
+      "6641234567",
+      "664 123 4567",
+      "(664) 123-4567",
+      "+52 664 123 4567",
+      "52 664 123 4567",
+      "+52 1 664 123 4567",
+      "01 664 123 4567",
+    ]) {
+      const r = phoneMX.safeParse(raw);
+      expect(r.success, raw).toBe(true);
+      if (r.success) expect(r.data, raw).toBe("6641234567");
+    }
+    expect(canonicalPhone("+1 (619) 555-0100")).toBe("+16195550100");
+    expect(phoneMX.safeParse("123").success).toBe(false);
+    expect(phoneMX.safeParse("66412345678901234").success).toBe(false);
+    const reg = customerRegistrationSchema.safeParse({
+      full_name: "Ana",
+      phone: "+52 664 123 4567",
+      email: "ANA@MAIL.COM",
+    });
+    expect(reg.success).toBe(true);
+    if (reg.success)
+      expect([reg.data.phone, reg.data.email]).toEqual(["6641234567", "ana@mail.com"]);
   });
   it("registro de cliente requiere teléfono o email", () => {
     expect(customerRegistrationSchema.safeParse({ full_name: "Ana López" }).success).toBe(false);

@@ -35,7 +35,7 @@ export default async function ProductEditPage({
     .executeTakeFirst();
   if (!p) notFound();
 
-  const [categories, parents, images, variants, stats, hasSales] = await Promise.all([
+  const [categories, parents, images, variants, stats, hasSales, updatedAt] = await Promise.all([
     db()
       .selectFrom("categories")
       .select(["id", "name"])
@@ -82,6 +82,7 @@ export default async function ProductEditPage({
              product_cost_cents(${id}) as cost, (select on_hand from inventory_levels where product_id = ${id}) as on_hand,
              exists(select 1 from recipes where product_id = ${id}) as has_recipe`.execute(db()),
     sql<{ h: boolean }>`select product_has_sales(${id}) as h`.execute(db()),
+    sql<{ u: string }>`select updated_at::text as u from products where id = ${id}`.execute(db()),
   ]);
   const st = stats.rows[0]!;
   const sold = hasSales.rows[0]?.h ?? false;
@@ -207,6 +208,7 @@ export default async function ProductEditPage({
               <ProductForm
                 action={updateProduct.bind(null, p.id)}
                 initial={initial}
+                expectedUpdatedAt={updatedAt.rows[0]?.u ?? null}
                 categories={categories}
                 parents={parents}
                 mode="edit"

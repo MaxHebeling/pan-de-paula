@@ -101,8 +101,9 @@ export function IngredientPriceCell({
   const units = PURCHASE_UNITS[baseUnit];
 
   const preview = useMemo(() => {
-    const p = Number(price);
-    const q = Number(qty);
+    // Los teclados es-MX escriben coma decimal: "45,50" debe valer lo mismo que "45.50".
+    const p = Number(price.replace(",", "."));
+    const q = Number(qty.replace(",", "."));
     if (!price || !qty || !Number.isFinite(p) || !Number.isFinite(q) || p < 0 || q <= 0)
       return null;
     const uc = unitCostFor(toCents(p), q, unit, baseUnit);
@@ -130,8 +131,8 @@ export function IngredientPriceCell({
     }
     startTransition(async () => {
       const r = await action(ingredientId, {
-        price_cents: toCents(Number(price)),
-        qty: Number(qty),
+        price_cents: toCents(Number(price.replace(",", "."))),
+        qty: Number(qty.replace(",", ".")),
         unit,
       });
       if (r.error) {
@@ -261,7 +262,7 @@ export function IngredientPriceCell({
               line={{
                 key: "uc",
                 label: `Costo por ${per}`,
-                expr: `${fmtCents(toCents(Number(price)))} ÷ ${formatQty(preview.baseQty, baseUnit)}`,
+                expr: `${fmtCents(toCents(Number(price.replace(",", "."))))} ÷ ${formatQty(preview.baseQty, baseUnit)}`,
                 result: `${formatUnitCost(preview.unitCost)}/${baseUnit}`,
                 note:
                   currentUnitCost !== null

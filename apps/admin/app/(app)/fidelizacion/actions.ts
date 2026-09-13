@@ -4,9 +4,18 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { db, sql, callFn, withStaff, dbErrorMessage } from "@/lib/db";
 import { bool, cents, num, optStr, str, type ActionState } from "@/lib/action-state";
+import { zonedToUtc } from "@/lib/tz";
 
 const uuid = z.string().uuid();
 const path = "/fidelizacion";
+const dateRx = /^\d{4}-\d{2}-\d{2}$/;
+
+async function businessTz(): Promise<string> {
+  const r = await sql<{
+    timezone: string;
+  }>`select timezone from business_settings where id = 1`.execute(db());
+  return r.rows[0]?.timezone ?? "America/Tijuana";
+}
 
 const programSchema = z.object({
   is_active: z.boolean(),
@@ -139,10 +148,16 @@ const rewardSchema = z
     product_id: uuid.optional(),
     min_tier_key: z.string().trim().max(30).optional(),
     is_active: z.boolean(),
-    starts_at: z.string().optional(),
-    ends_at: z.string().optional(),
+    starts_at: z.string().regex(dateRx, "Fecha de inicio inválida").optional(),
+    ends_at: z.string().regex(dateRx, "Fecha de fin inválida").optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.starts_at && v.ends_at && v.ends_at < v.starts_at)
+      ctx.addIssue({
+        code: "custom",
+        message: "La vigencia termina antes de empezar",
+        path: ["ends_at"],
+      });
     if (v.kind === "discount_pct" && !v.value_bps)
       ctx.addIssue({ code: "custom", message: "Indica el porcentaje", path: ["value_bps"] });
     if (v.kind === "discount_amount" && !v.value_cents)
@@ -173,17 +188,21 @@ export async function upsertRewardAction(_prev: ActionState, fd: FormData): Prom
   const valueBps = r.kind === "discount_pct" ? r.value_bps! : null;
   const valueCents = r.kind === "discount_amount" ? r.value_cents! : null;
   const productId = r.kind === "free_product" ? r.product_id! : null;
+  // Días completos en la zona del negocio (antes: texto sin zona → en UTC corría 7–8 h).
+  const tz = await businessTz();
+  const startsAt = r.starts_at ? zonedToUtc(`${r.starts_at}T00:00:00`, tz).toISOString() : null;
+  const endsAt = r.ends_at ? zonedToUtc(`${r.ends_at}T23:59:59`, tz).toISOString() : null;
   try {
     await withStaff(db(), s.staff.id, async (trx) => {
       if (r.id) {
         await sql`update rewards set name = ${r.name}, description = ${r.description ?? null}, kind = ${r.kind}::reward_kind, points_cost = ${r.points_cost},
                   value_bps = ${valueBps}, value_cents = ${valueCents}, product_id = ${productId}, min_tier_key = ${r.min_tier_key ?? null},
-                  is_active = ${r.is_active}, starts_at = ${r.starts_at ?? null}, ends_at = ${r.ends_at ?? null} where id = ${r.id}`.execute(
+                  is_active = ${r.is_active}, starts_at = ${startsAt}, ends_at = ${endsAt} where id = ${r.id}`.execute(
           trx,
         );
       } else {
         await sql`insert into rewards(name, description, kind, points_cost, value_bps, value_cents, product_id, min_tier_key, is_active, starts_at, ends_at)
-                  values (${r.name}, ${r.description ?? null}, ${r.kind}::reward_kind, ${r.points_cost}, ${valueBps}, ${valueCents}, ${productId}, ${r.min_tier_key ?? null}, ${r.is_active}, ${r.starts_at ?? null}, ${r.ends_at ?? null})`.execute(
+                  values (${r.name}, ${r.description ?? null}, ${r.kind}::reward_kind, ${r.points_cost}, ${valueBps}, ${valueCents}, ${productId}, ${r.min_tier_key ?? null}, ${r.is_active}, ${startsAt}, ${endsAt})`.execute(
           trx,
         );
       }

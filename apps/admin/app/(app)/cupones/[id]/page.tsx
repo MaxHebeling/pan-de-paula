@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession, hasPermission } from "@/lib/auth";
+import { db, sql } from "@/lib/db";
 import { PageHeader, Card, Stat, Table, Badge, Money, LinkButton, Alert } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { getCoupon, couponRedemptions, COUPON_KIND_LABELS, COUPON_STATUS } from "@/lib/coupons";
@@ -32,6 +33,12 @@ export default async function CouponPage({
   const sp = await searchParams;
   const c = await getCoupon(id);
   if (!c) notFound();
+  const tz =
+    (
+      await sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(
+        db(),
+      )
+    ).rows[0]?.timezone ?? "America/Tijuana";
   const [uses, products, tiers] = await Promise.all([
     couponRedemptions(id),
     activeProducts(),
@@ -113,6 +120,7 @@ export default async function CouponPage({
                 coupon={c}
                 products={products}
                 tiers={tiers}
+                timeZone={tz}
               />
             </Card>
           ) : (

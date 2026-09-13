@@ -66,6 +66,7 @@ export function ProductForm({
   parents,
   mode,
   submitLabel,
+  expectedUpdatedAt,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   initial?: ProductFormValues;
@@ -73,6 +74,8 @@ export function ProductForm({
   parents: Array<{ id: string; name: string }>;
   mode: "create" | "edit";
   submitLabel: string;
+  /** updated_at (texto exacto de Postgres) que vio el formulario; detecta ediciones concurrentes. */
+  expectedUpdatedAt?: string | null;
 }) {
   const [name, setName] = useState(initial.name);
   const [slug, setSlug] = useState(initial.slug);
@@ -81,6 +84,9 @@ export function ProductForm({
 
   return (
     <ActionForm action={action} className="flex flex-col gap-5">
+      {expectedUpdatedAt && (
+        <input type="hidden" name="expected_updated_at" value={expectedUpdatedAt} readOnly />
+      )}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">Básicos</h3>
         <FormGrid>

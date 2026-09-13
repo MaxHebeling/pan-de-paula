@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, sql, withStaff, callFn } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -110,13 +111,17 @@ export async function createPromotion(
   return { ok: `Promoción "${parsed.data.label}" creada.` };
 }
 
+/** Termina (o cancela si aún no inicia) una promoción. Si falla, el motivo llega a la página por ?error=. */
 export async function endPromotion(productId: string, priceId: string): Promise<void> {
   const s = await requireSession("catalog.write");
   if (!zId.safeParse(productId).success || !zId.safeParse(priceId).success) return;
+  let error: string | null = null;
   try {
     await withStaff(db(), s.staff.id, (trx) => callFn(trx, "end_promotion", [priceId]));
   } catch (e) {
-    console.error("[admin:precios.end_promotion]", (e as Error).message);
+    error = failure("precios.end_promotion", e).error ?? "No se pudo terminar la promoción";
   }
   revalidate(productId);
+  if (error) redirect(`/precios/${productId}?error=${encodeURIComponent(error)}`);
+  redirect(`/precios/${productId}?ok=promo-terminada`);
 }

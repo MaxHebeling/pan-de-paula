@@ -2,18 +2,29 @@ import type { ActionState } from "@/lib/action-state";
 import type { CouponRow } from "@/lib/coupons";
 import { ActionForm } from "./action-form";
 
-const toDateInput = (d: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
+/** La fecha se guardó como instante (00:00 / 23:59:59 locales): se muestra en la zona del negocio, no en UTC. */
+const toDateInput = (d: Date | null, tz: string) =>
+  d
+    ? new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(d))
+    : "";
 
 export function CouponForm({
   action,
   coupon,
   products,
   tiers,
+  timeZone = "America/Tijuana",
 }: {
   action: (prev: ActionState, fd: FormData) => Promise<ActionState>;
   coupon?: CouponRow;
   products: Array<{ id: string; name: string }>;
   tiers: Array<{ key: string; name: string }>;
+  timeZone?: string;
 }) {
   const ch = coupon?.channels ?? ["all"];
   return (
@@ -29,7 +40,7 @@ export function CouponForm({
             name="code"
             className="input font-mono uppercase"
             required
-            pattern="[A-Za-z0-9_-]{3,40}"
+            pattern="[A-Za-z0-9_\-]{3,40}"
             defaultValue={coupon?.code ?? ""}
             placeholder="BIENVENIDA10"
           />
@@ -121,7 +132,7 @@ export function CouponForm({
             name="starts_at"
             type="date"
             className="input"
-            defaultValue={toDateInput(coupon?.starts_at ?? null)}
+            defaultValue={toDateInput(coupon?.starts_at ?? null, timeZone)}
           />
         </div>
         <div>
@@ -133,7 +144,7 @@ export function CouponForm({
             name="ends_at"
             type="date"
             className="input"
-            defaultValue={toDateInput(coupon?.ends_at ?? null)}
+            defaultValue={toDateInput(coupon?.ends_at ?? null, timeZone)}
           />
         </div>
         <div>

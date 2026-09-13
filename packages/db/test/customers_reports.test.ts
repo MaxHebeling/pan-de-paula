@@ -138,7 +138,17 @@ describe("merge_customers", () => {
 
   it("rechaza fusionar consigo mismo y detecta duplicados por teléfono, email y nombre", async () => {
     const a = await createCustomer(db, "María Fernanda Ruiz", "6641112233");
-    const b = await createCustomer(db, "Maria Fernanda Ruíz", "+526641112233");
+    // Desde 0014 register_customer ya reutiliza al cliente aunque el teléfono venga con +52; el duplicado
+    // "histórico" (creado antes de esa normalización) se inserta directo para probar la detección.
+    const b = {
+      customer_id: (
+        await sql<{
+          id: string;
+        }>`insert into customers(full_name, phone) values ('Maria Fernanda Ruíz', '+526641112233') returning id`.execute(
+          db,
+        )
+      ).rows[0]!.id,
+    };
     const c = await createCustomer(db, "Pedro Pérez", "6645556677");
     await sql`update customers set email = 'p@x.com' where id = ${a.customer_id}`.execute(db);
     await expect(

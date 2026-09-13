@@ -5,7 +5,7 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { loadBreakdown } from "@/lib/costing";
 import { fmtDate, pct } from "@/lib/format";
-import { PageHeader, Card, Badge, Money, Stat, Table, LinkButton } from "@/components/ui";
+import { PageHeader, Card, Badge, Money, Stat, Table, LinkButton, Alert } from "@/components/ui";
 import { ActionForm, ConfirmButton, SubmitButton } from "@/components/catalog/action-form";
 import { FormGrid, MoneyInput, Select, TextInput } from "@/components/catalog/fields";
 import { RegularPriceForm } from "@/components/catalog/price-live-form";
@@ -34,12 +34,15 @@ type PriceRow = {
 
 export default async function ProductPricesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ productId: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const session = await requireSession("catalog.read");
   const canWrite = hasPermission(session, "catalog.write");
   const { productId } = await params;
+  const sp = await searchParams;
   const product = await db()
     .selectFrom("products")
     .select(["id", "name", "variant_label", "parent_id", "is_active"])
@@ -96,6 +99,16 @@ export default async function ProductPricesPage({
           </>
         }
       />
+      {sp.error && (
+        <div className="mb-4">
+          <Alert tone="red">{sp.error.slice(0, 300)}</Alert>
+        </div>
+      )}
+      {sp.ok === "promo-terminada" && (
+        <div className="mb-4">
+          <Alert tone="green">Promoción terminada. El precio regular vuelve a estar vigente.</Alert>
+        </div>
+      )}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
           label="Vigente POS"

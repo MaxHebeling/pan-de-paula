@@ -146,15 +146,17 @@ export async function updateIngredient(
       .executeTakeFirst();
     if (!current) return { error: "Ingrediente no encontrado" };
     if (current.base_unit !== parsed.data.base_unit) {
-      const used = await db()
-        .selectFrom("ingredient_prices")
-        .select(sql<number>`count(*)::int`.as("n"))
-        .where("ingredient_id", "=", id)
-        .executeTakeFirst();
-      if ((used?.n ?? 0) > 0)
+      // Precios (contenido en unidad base) y líneas de receta (qty en unidad base) quedarían mal
+      // interpretados: 500 g pasarían a ser 500 pz. Se bloquea si existe cualquiera de los dos.
+      const used = await sql<{ prices: number; recipes: number }>`
+        select (select count(*) from ingredient_prices where ingredient_id = ${id})::int as prices,
+               (select count(*) from recipe_items where ingredient_id = ${id})::int as recipes`.execute(
+        db(),
+      );
+      const u = used.rows[0]!;
+      if (u.prices > 0 || u.recipes > 0)
         return {
-          error:
-            "No se puede cambiar la unidad base: ya tiene precios o recetas registrados en la unidad actual.",
+          error: `No se puede cambiar la unidad base: ya tiene ${u.prices} precio(s) y ${u.recipes} receta(s) registrados en ${current.base_unit}. Crea un ingrediente nuevo con la otra unidad.`,
         };
     }
     await withStaff(db(), s.staff.id, (trx) =>

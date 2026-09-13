@@ -146,15 +146,32 @@ export async function updateProduct(
   if (!parsed.success) return { error: zodMessage(parsed.error) };
   if (parsed.data.parent_id === id)
     return { error: "Un producto no puede ser variante de sí mismo" };
+  // Bloqueo optimista: el formulario trae el updated_at que vio al cargar. Si otra pestaña guardó
+  // después, no se pisa su cambio en silencio: se pide recargar.
+  const expected = str(form, "expected_updated_at") ?? null;
   try {
-    await withStaff(db(), s.staff.id, (trx) =>
-      trx
+    const r = await withStaff(db(), s.staff.id, async (trx) => {
+      const current = await sql<{ updated_at: string }>`
+        select updated_at::text as updated_at from products where id = ${id} and deleted_at is null for update`.execute(
+        trx,
+      );
+      const row = current.rows[0];
+      if (!row) return "missing" as const;
+      if (expected && row.updated_at !== expected) return "stale" as const;
+      await trx
         .updateTable("products")
         .set(parsed.data)
         .where("id", "=", id)
         .where("deleted_at", "is", null)
-        .execute(),
-    );
+        .execute();
+      return "ok" as const;
+    });
+    if (r === "missing") return { error: "El producto ya no existe." };
+    if (r === "stale")
+      return {
+        error:
+          "Alguien más guardó este producto mientras lo editabas (otra pestaña o usuario). Recarga la página para ver los cambios y vuelve a aplicar los tuyos.",
+      };
   } catch (e) {
     return failure("productos.update", e);
   }
