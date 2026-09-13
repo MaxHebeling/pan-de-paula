@@ -1,6 +1,6 @@
 # Auditoría 360° — OPERACIÓN: POS, caja, pedidos, producción, inventario y notificaciones
 
-- **Rama:** `audit/ops` (rebasada sobre `main` 138d448) · **Fecha:** 2026-09-12
+- **Rama:** `audit/ops` (rebasada sobre `main` 647f98d) · **Fecha:** 2026-09-12
 - **Entorno:** worktree `pan-de-paula-wt/audit-ops`, base dev propia `pdp_audit_ops_dev` (seed + demo: 16 productos,
   374 ventas, 40 clientes), base de test `pdp_test_audit_ops`, `next dev` en `:3111`, Chromium (Playwright).
 - **Usuarios de prueba:** `admin@elpandepaula.local` (super_admin), `cajera@audit.local` (cashier),
@@ -15,7 +15,7 @@
 | Bugs encontrados y corregidos                    | **14** (P1: 6 · P2: 6 · P3: 2)                                                       |
 | Hallazgos documentados sin corregir              | 9 (P2: 3 · P3: 6)                                                                    |
 | Tests nuevos                                     | 33 SQL (`audit_ops.test.ts`) · 17 E2E (`audit-ops.spec.ts`) · 3 unit (`api.test.ts`) |
-| Suites finales                                   | db 156/156 · domain 37/37 · admin 11/11 · E2E del área 24/24 (+18 skipped mobile)    |
+| Suites finales                                   | db 179/179 · domain 37/37 · admin 11/11 · E2E del área 24/24 (+18 skipped mobile)    |
 | typecheck / lint / format / build / check-grants | verde (1 warning preexistente en `postcss.config.mjs`)                               |
 | **Health score del área**                        | **84 / 100** (antes de la auditoría: ~62)                                            |
 
@@ -275,7 +275,7 @@ Evidencia: **S** = `packages/db/test/audit_ops.test.ts` (SQL real), **E** = `app
   sesión expirada, validación de API).
 - `apps/admin/components/pos/api.test.ts` — **3** unitarios del cliente HTTP del POS.
 - Migración `packages/db/migrations/0013_audit_ops.sql` (solo `create or replace` de funciones de 0006/0008 + índice
-  parcial). **Pre-requisito en producción:** `select count(*) from stock_counts where status = 'open'` ≤ 1. Se aplica
+  parcial; 0014_audit_catalog y 0015_audit_infra de `main` no redefinen esas funciones). **Pre-requisito en producción:** `select count(*) from stock_counts where status = 'open'` ≤ 1. Se aplica
   después de 0080 (el runner aplica pendientes sin exigir orden) y `_post_migrate.sql` re-otorga privilegios.
 
 ## 8. Riesgos residuales
