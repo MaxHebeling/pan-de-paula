@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { cache } from "react";
 import type { ProcessStepKey } from "@/components/ProcessArt";
-import type { StoryPhoto } from "@/components/Process";
+import type { StoryPhoto } from "@/components/cinematic/StickyStory";
 
 /**
  * Fotografías reales de "Del horno a tu mesa". Mientras no existan se usa el arte SVG (ProcessArt).
