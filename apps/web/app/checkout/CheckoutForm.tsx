@@ -255,7 +255,7 @@ export function CheckoutForm({
                 {pickupPoints.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
-                    {p.address ? ` · ${p.address}` : ""}
+                    {p.address && p.address !== "Dirección por configurar" ? ` · ${p.address}` : ""}
                   </option>
                 ))}
               </select>

@@ -249,6 +249,107 @@ describe("checkout web · validaciones del servidor", () => {
   });
 });
 
+describe("checkout web · modalidades", () => {
+  it("retiro: respeta el punto elegido; uno inexistente o inactivo cae al punto por defecto", async () => {
+    const def = (
+      await sql<{ id: string }>`select id from pickup_points where is_default`.execute(db)
+    ).rows[0]!.id;
+    const second = (
+      await sql<{
+        id: string;
+      }>`insert into pickup_points(name, address, is_default) values ('Sucursal Norte', 'Av. 2', false) returning id`.execute(
+        db,
+      )
+    ).rows[0]!.id;
+    const inactive = (
+      await sql<{
+        id: string;
+      }>`insert into pickup_points(name, is_default, is_active) values ('Cerrada', false, false) returning id`.execute(
+        db,
+      )
+    ).rows[0]!.id;
+    const pointOf = async (redirect: string) => {
+      const o = await orderFromRedirect(redirect);
+      const r = await sql<{
+        pickup_point_id: string | null;
+        fulfillment_type: string;
+      }>`select pickup_point_id, fulfillment_type from orders where id = ${o.id}`.execute(db);
+      return r.rows[0]!;
+    };
+    const a = await placeOrderAction(base({ pickup_point_id: second }));
+    expect(a.ok).toBe(true);
+    if (a.ok)
+      expect(await pointOf(a.redirect)).toEqual({
+        pickup_point_id: second,
+        fulfillment_type: "scheduled_pickup",
+      });
+    for (const pid of [inactive, crypto.randomUUID(), undefined]) {
+      const r = await placeOrderAction(base({ pickup_point_id: pid }));
+      expect(r.ok).toBe(true);
+      if (r.ok) expect((await pointOf(r.redirect)).pickup_point_id).toBe(def);
+    }
+  });
+
+  it("entrega a domicilio: exige dirección, cobra el envío de las políticas y no asigna punto de retiro", async () => {
+    await sql`update business_settings set policies = '{"delivery_fee_cents": 3500, "delivery_zone": "Centro"}'::jsonb where id = 1`.execute(
+      db,
+    );
+    const deliveryWindow = (
+      await sql<{
+        id: string;
+      }>`insert into ordering_windows(name, fulfillment_type, order_weekdays, cutoff_time, fulfillment_weekday, fulfillment_from, fulfillment_to, lead_days_min, sort_order)
+        values ('Entrega', 'delivery', '{0,1,2,3,4,5,6}', '23:59', ${weekdayOf(date)}, '12:00', '15:00', 1, 1) returning id`.execute(
+        db,
+      )
+    ).rows[0]!.id;
+    const d = (over: Partial<Parameters<Actions["placeOrderAction"]>[0]> = {}) =>
+      base({ window_id: deliveryWindow, ...over });
+    expect(await placeOrderAction(d())).toMatchObject({ ok: false, field: "delivery_address" });
+    expect(await placeOrderAction(d({ delivery_address: { street: "ab" } }))).toMatchObject({
+      ok: false,
+      field: "delivery_address",
+    });
+    expect(await orderCount()).toBe(0);
+    const r = await placeOrderAction(
+      d({
+        // un punto de retiro enviado por el cliente se ignora en entregas
+        pickup_point_id: (
+          await sql<{ id: string }>`select id from pickup_points limit 1`.execute(db)
+        ).rows[0]!.id,
+        delivery_address: {
+          street: "Calle Olivo 123",
+          neighborhood: "Centro",
+          references_note: "Portón verde",
+        },
+      }),
+    );
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+    if (!r.ok) return;
+    const o = await orderFromRedirect(r.redirect);
+    const row = await sql<{
+      fulfillment_type: string;
+      pickup_point_id: string | null;
+      delivery_address: Record<string, string>;
+      delivery_fee_cents: number;
+    }>`select fulfillment_type, pickup_point_id, delivery_address, delivery_fee_cents from orders where id = ${o.id}`.execute(
+      db,
+    );
+    expect(row.rows[0]).toEqual({
+      fulfillment_type: "delivery",
+      pickup_point_id: null,
+      delivery_address: {
+        street: "Calle Olivo 123",
+        neighborhood: "Centro",
+        references_note: "Portón verde",
+      },
+      delivery_fee_cents: 3500,
+    });
+    expect(o.subtotal_cents).toBe(5000);
+    expect(o.total_cents).toBe(8500);
+    expect(o.scheduled_for.toISOString()).toBe(zonedToUtc(date, "12:00", TZ).toISOString());
+  });
+});
+
 describe("checkout web · métodos de pago", () => {
   it("efectivo: pedido confirmado con precios del servidor (ignora lo que diga el cliente)", async () => {
     // El cliente "cree" pagar otra cosa: el servidor recalcula con current_price_cents(web).
