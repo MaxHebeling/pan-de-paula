@@ -9,8 +9,14 @@ for (const f of [".env.local", ".env"]) {
   if (existsSync(p)) config({ path: p, override: false, quiet: true });
 }
 
-export function databaseUrl(kind: "app" | "test" = "app"): string {
-  const url = kind === "test" ? process.env.DATABASE_URL_TEST : process.env.DATABASE_URL;
+export function databaseUrl(kind: "app" | "test" | "migrate" = "app"): string {
+  // "migrate": rol propietario (MIGRATE_DATABASE_URL, pooler en modo sesión); si falta, DATABASE_URL (local).
+  const url =
+    kind === "test"
+      ? process.env.DATABASE_URL_TEST
+      : kind === "migrate"
+        ? (process.env.MIGRATE_DATABASE_URL ?? process.env.DATABASE_URL)
+        : process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
       kind === "test"
