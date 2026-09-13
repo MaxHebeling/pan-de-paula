@@ -10,6 +10,18 @@ import type { FormState } from "@/components/ops/action-form";
 import { receiptData } from "@/lib/receipt";
 
 const uuid = z.string().uuid();
+
+/**
+ * Sesión de caja abierta (si hay). Los cobros de pedidos hechos en mostrador deben entrar al corte: sin esto el
+ * efectivo recibido por un pedido no sumaba al "efectivo esperado" y el cierre salía con diferencia falsa.
+ * Con la caja cerrada el cobro se permite (p. ej. entrega a domicilio) y queda fuera de caja.
+ */
+async function openRegisterId(exec: Parameters<typeof callFn>[0]): Promise<string | null> {
+  const r = await sql<{
+    id: string;
+  }>`select id from register_sessions where status = 'open' limit 1`.execute(exec);
+  return r.rows[0]?.id ?? null;
+}
 const METHODS = Object.keys(PAYMENT_METHOD_LABELS) as [string, ...string[]];
 const providerFor = (method: string) =>
   method === "cash" ? "cash" : method === "mercadopago" ? "mercadopago" : "manual";
@@ -85,7 +97,7 @@ export async function paymentAction(_prev: FormState, form: FormData): Promise<F
   if (p.method === "points")
     return { error: "Los pagos con puntos se aplican como recompensa al crear el pedido" };
   try {
-    const r = await withStaff(db(), session.staff.id, (trx) =>
+    const r = await withStaff(db(), session.staff.id, async (trx) =>
       callFn<{
         payment_id: string;
         sale_id: string | null;
@@ -100,6 +112,7 @@ export async function paymentAction(_prev: FormState, form: FormData): Promise<F
           tendered_cents: p.method === "cash" ? p.tendered_cents : null,
           reference: p.reference,
           idempotency_key: p.idempotency_key,
+          register_session_id: await openRegisterId(trx),
         }),
       ]),
     );
@@ -385,6 +398,7 @@ export async function createOrderAction(_prev: FormState, form: FormData): Promi
             method: p.payment_method,
             amount_cents: p.payment_amount_cents,
             idempotency_key: `${p.idempotency_key}-pay`,
+            register_session_id: await openRegisterId(trx),
           }),
         ]);
       } else {

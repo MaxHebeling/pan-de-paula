@@ -33,11 +33,13 @@ export async function GET(req: NextRequest) {
     "cierre",
   ];
   const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  // Nombres que empiezan con = + - @ se abrirían como fórmula en Excel/Sheets (inyección CSV).
+  const text = (v: string) => (/^[=+\-@\t\r]/.test(v) ? `'${v}` : v);
   const lines = [
     header.join(","),
     ...rows.rows.map((r) =>
       [
-        r.product_name!,
+        text(r.product_name!),
         r.opening!,
         r.production!,
         r.sales!,

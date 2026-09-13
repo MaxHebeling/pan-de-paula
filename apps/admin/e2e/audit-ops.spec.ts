@@ -1279,3 +1279,287 @@ test("notificaciones: listar/filtrar/marcar, contador, cron stock-alerts (401, i
   expect(zero).toBe(0);
   await expect(page.getByText("Todo al día")).toBeVisible();
 });
+
+// ── 12. Hallazgos de integración caja ↔ pedidos, MP y conteo ────────────────
+test("cobro en efectivo de un pedido con caja abierta entra al corte (pago manual y pago inicial)", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  await login(page);
+  await openRegisterIfClosed(page, 20000);
+  const session = await one<{ id: string }>(
+    sql`select id from register_sessions where status = 'open'`,
+  );
+  const staff = await one<{ id: string }>(
+    sql`select id from staff_users where email = ${ADMIN.email}`,
+  );
+  const orderId = await db.transaction().execute(async (trx) => {
+    await sql`select set_config('app.staff_id', ${staff.id}, true)`.execute(trx);
+    const r = await sql<{ id: string }>`select create_order(${JSON.stringify({
+      channel: "whatsapp",
+      customer_name: "Caja Audit",
+      items: [{ product_id: panId, qty: 1 }],
+      idempotency_key: `aud-caja-pedido-${Date.now()}`,
+    })}::jsonb) as id`.execute(trx);
+    return r.rows[0]!.id;
+  });
+  await page.goto(`/pedidos/${orderId}`);
+  await expect(page.getByTestId("balance")).toHaveText("$40.00");
+  await page.getByLabel("Método").selectOption("cash");
+  await fillField(page, "Recibido (efectivo)", "50");
+  await page.getByRole("button", { name: "Registrar pago" }).click();
+  await expect(page.getByTestId("balance")).toBeHidden();
+  const pay = await one<{ register_session_id: string | null; change_cents: number }>(
+    sql`select register_session_id, change_cents from payments where order_id = ${orderId}::uuid`,
+  );
+  expect(pay).toEqual({ register_session_id: session.id, change_cents: 1000 });
+  // Pago inicial de un pedido manual nuevo también queda en la caja abierta
+  await page.goto("/pedidos/nuevo");
+  const pick = page.locator(`[data-testid^="pick-"][data-product-name="${PAN}"]`);
+  await pick.getByRole("button", { name: `Agregar ${PAN}` }).click();
+  await page.getByLabel("Tipo").selectOption("pickup");
+  await page.getByLabel("Registrar pago inicial").check();
+  await page.getByLabel("Método").selectOption("cash");
+  await page.getByRole("button", { name: "Crear pedido" }).click();
+  await page.waitForURL(/\/pedidos\/[0-9a-f-]{36}$/);
+  const newId = new URL(page.url()).pathname.split("/").pop()!;
+  const pay2 = await one<{ register_session_id: string | null; status: string }>(
+    sql`select p.register_session_id, o.status::text as status from payments p join orders o on o.id = p.order_id where o.id = ${newId}::uuid`,
+  );
+  expect(pay2).toEqual({ register_session_id: session.id, status: "paid" });
+  await page.goto("/caja");
+  expect(Number(await page.getByTestId("expected-cash").getAttribute("data-cents"))).toBe(
+    20000 + 4000 + 4000,
+  );
+  await closeRegisterIfOpen(page);
+  // Con la caja cerrada el cobro en efectivo del pedido sigue permitido pero queda fuera de caja (documentado)
+});
+
+test("cancelar cobro MP desde el POS solo aplica a pedidos del POS (no a pedidos web/WhatsApp)", async ({
+  page,
+}) => {
+  await login(page, ADMIN, "/pos");
+  const headers = await apiLogin(page.request, page);
+  const staff = await one<{ id: string }>(
+    sql`select id from staff_users where email = ${ADMIN.email}`,
+  );
+  const mk = (channel: string) =>
+    db.transaction().execute(async (trx) => {
+      await sql`select set_config('app.staff_id', ${staff.id}, true)`.execute(trx);
+      const r = await sql<{ id: string }>`select create_order(${JSON.stringify({
+        channel,
+        customer_name: "MP Audit",
+        items: [{ product_id: panId, qty: 1 }],
+        idempotency_key: `aud-mpcancel-${channel}-${Date.now()}`,
+      })}::jsonb) as id`.execute(trx);
+      return r.rows[0]!.id;
+    });
+  const whatsappOrder = await mk("whatsapp");
+  const denied = await page.request.post("/api/pos/payments/mercadopago/cancel", {
+    headers,
+    data: { orderId: whatsappOrder },
+  });
+  expect(denied.status()).toBe(404);
+  expect(
+    (
+      await one<{ status: string }>(
+        sql`select status::text as status from orders where id = ${whatsappOrder}::uuid`,
+      )
+    ).status,
+  ).toBe("new");
+  const posOrder = await mk("pos");
+  const ok = await page.request.post("/api/pos/payments/mercadopago/cancel", {
+    headers,
+    data: { orderId: posOrder },
+  });
+  expect(ok.status()).toBe(200);
+  expect((await ok.json()).cancelled).toBe(true);
+});
+
+test("conteo abierto con ventas intermedias: capturar lo contado aplica la diferencia real, no la del esperado congelado", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  await login(page, ADMIN, "/inventario?tab=conteo");
+  await sql`update stock_counts set status = 'discarded', closed_at = now() where status = 'open'`.execute(
+    db,
+  );
+  await ensureProduct(PAN, "audit-pan-e2e", 4000, 50);
+  const other = await ensureProduct("Audit Otro E2E", "audit-otro-e2e", 1000, 30);
+  await page.goto("/inventario?tab=conteo");
+  await page.getByRole("button", { name: "Crear conteo" }).click();
+  await page.waitForURL(/paso=capturar/);
+  const countId = new URL(page.url()).searchParams.get("conteo")!;
+  // Mientras el conteo está abierto se venden 3 de PAN y 2 del otro producto
+  const headers = await apiLogin(page.request, page);
+  for (const [pid, qty, price] of [
+    [panId, 3, 4000],
+    [other, 2, 1000],
+  ] as const) {
+    const r = await page.request.post("/api/pos/checkout", {
+      headers,
+      data: {
+        idempotency_key: `aud-count-${pid}-${Date.now()}`,
+        items: [{ product_id: pid, qty }],
+        payments: [{ provider: "manual", method: "card_terminal", amount_cents: qty * price }],
+      },
+    });
+    expect(r.status()).toBe(201);
+  }
+  expect(await onHand(panId)).toBe(47);
+  // La persona cuenta PAN físicamente: hay 47 (coincide con el sistema). El otro producto no lo toca.
+  await page.reload();
+  await page.getByLabel(`Contado de ${PAN}`).fill("47");
+  await page.getByRole("button", { name: /Guardar y revisar/ }).click();
+  await page.waitForURL(/paso=revisar/);
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Aplicar correcciones" }).click();
+  await page.waitForURL(/aplicado=/);
+  expect(await onHand(panId)).toBe(47);
+  expect(await onHand(other)).toBe(28);
+  const corr = await one<{ n: number }>(
+    sql`select count(*)::int as n from inventory_movements where ref_type = 'stock_count' and ref_id = ${countId}`,
+  );
+  expect(corr.n).toBe(0);
+});
+
+test("pedido sin pagar no ofrece 'Pagado'; anular venta POS cobrada por Mercado Pago se rechaza; CSV escapa fórmulas", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  await login(page);
+  const staff = await one<{ id: string }>(
+    sql`select id from staff_users where email = ${ADMIN.email}`,
+  );
+  const run = async (q: string, params: unknown) =>
+    db.transaction().execute(async (trx) => {
+      await sql`select set_config('app.staff_id', ${staff.id}, true)`.execute(trx);
+      const r = await sql<{
+        r: unknown;
+      }>`select ${sql.raw(q)}(${JSON.stringify(params)}::jsonb) as r`.execute(trx);
+      return r.rows[0]!.r;
+    });
+  // 1) Pedido nuevo con saldo: no hay botón "Pagado"; la llamada directa también se rechaza (DB test)
+  const orderId = (await run("create_order", {
+    channel: "instagram",
+    customer_name: "Pagado Audit",
+    items: [{ product_id: panId, qty: 1 }],
+    idempotency_key: `aud-paid-btn-${Date.now()}`,
+  })) as string;
+  await page.goto(`/pedidos/${orderId}`);
+  const transitions = page.getByTestId("transitions");
+  await expect(transitions.getByRole("button", { name: "Confirmado" })).toBeVisible();
+  await expect(transitions.getByRole("button", { name: "Pagado", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Para marcarlo como pagado usa/)).toBeVisible();
+
+  // 2) Venta POS cobrada por Mercado Pago (webhook simulado por SQL): "Anular" se rechaza con mensaje claro
+  const mpOrder = (await run("create_order", {
+    channel: "pos",
+    items: [{ product_id: panId, qty: 1 }],
+    idempotency_key: `aud-mp-void-${Date.now()}`,
+  })) as string;
+  const extId = `aud-mp-${Date.now()}`;
+  await run("apply_mercadopago_payment", {
+    order_id: mpOrder,
+    external_id: extId,
+    mp_status: "approved",
+    amount_cents: 4000,
+  });
+  const folio = (
+    await one<{ folio: string }>(sql`select folio from orders where id = ${mpOrder}::uuid`)
+  ).folio;
+  const stockBefore = await onHand(panId);
+  await page.goto(`/pos/ventas?q=${folio}`);
+  const row = page.getByTestId("sale-row").filter({ hasText: folio });
+  await row.getByRole("button").first().click();
+  await page.getByRole("button", { name: "Anular venta" }).click();
+  await page.getByPlaceholder("Motivo (obligatorio)").fill("intento de anular MP");
+  await page.getByLabel(/Confirmo que deseo anular/).check();
+  await page.getByRole("button", { name: "Anular venta" }).last().click();
+  await expect(page.getByRole("alert").filter({ hasText: "Mercado Pago" })).toBeVisible();
+  const still = await one<{ voided_at: Date | null; status: string }>(
+    sql`select s.voided_at, p.status::text as status from sales s join payments p on p.order_id = s.order_id where s.order_id = ${mpOrder}::uuid`,
+  );
+  expect(still).toEqual({ voided_at: null, status: "paid" });
+  expect(await onHand(panId)).toBe(stockBefore);
+
+  // 3) Exportar CSV con un nombre de producto que parece fórmula
+  const evil = await ensureProduct('=HYPERLINK("x")', "audit-csv-formula", 1000, 5);
+  const csv = await page.request.get(
+    `/inventario/conciliacion/export?desde=2020-01-01&hasta=2030-12-31`,
+    { headers: await apiLogin(page.request, page) },
+  );
+  const line = (await csv.text()).split("\r\n").find((l) => l.includes("HYPERLINK"))!;
+  expect(line.startsWith(`"'=HYPERLINK(""x"")"`)).toBe(true);
+  await sql`update products set is_active = false, deleted_at = now() where id = ${evil}::uuid`.execute(
+    db,
+  );
+});
+
+test("sesión expirada en el POS: el cobro muestra error claro y la cola offline NO descarta ventas", async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(150_000);
+  await setFlag("pos_offline_queue", true);
+  try {
+    await login(page);
+    await openRegisterIfClosed(page, 10000);
+    await page.goto("/pos");
+    await page.getByRole("tab", { name: "Todos" }).click();
+    // 1) Venta en efectivo encolada sin red
+    await addToCart(page, PAN);
+    await context.setOffline(true);
+    await page.getByTestId("checkout-button").click();
+    await page.getByTestId("quick-4000").click();
+    await page.getByRole("button", { name: "Cobrar", exact: true }).click();
+    await expect(page.getByTestId("sale-success")).toContainText("Venta guardada sin conexión");
+    await page.getByTestId("new-sale").click();
+    const key = (
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("pdp.pos.offline-queue.v1") ?? "[]"),
+      )
+    )[0].key as string;
+    // 2) La sesión expira (cookie borrada) y vuelve la red: la sincronización no debe darla por buena
+    await context.clearCookies();
+    await context.setOffline(false);
+    await expect(page.getByTestId("sync-indicator")).toContainText("ERROR", { timeout: 40_000 });
+    const queued = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("pdp.pos.offline-queue.v1") ?? "[]"),
+    );
+    expect(queued.map((q: { key: string }) => q.key)).toContain(key);
+    expect(queued[0].lastError).toMatch(/Sesión expirada/);
+    expect(
+      (
+        await one<{ n: number }>(
+          sql`select count(*)::int as n from orders where idempotency_key = ${key}`,
+        )
+      ).n,
+    ).toBe(0);
+    // 3) Cobro con tarjeta con la sesión expirada: error visible, sin pantalla de éxito ni venta
+    await addToCart(page, PAN);
+    await page.getByTestId("checkout-button").click();
+    await page.getByTestId("pay-tab-card_terminal").click();
+    await page.getByTestId("confirm-payment").click();
+    await expect(page.getByTestId("checkout-error")).toContainText("Sesión expirada");
+    await expect(page.getByTestId("sale-success")).toHaveCount(0);
+    // 4) Al volver a entrar, reintentar la venta encolada la registra una sola vez
+    await login(page, ADMIN, "/pos");
+    await page.getByTestId("sync-indicator").click();
+    await page.getByRole("button", { name: "Reintentar" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await one<{ n: number }>(
+              sql`select count(*)::int as n from sales s join orders o on o.id = s.order_id where o.idempotency_key = ${key}`,
+            )
+          ).n,
+      )
+      .toBe(1);
+    await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+    await closeRegisterIfOpen(page);
+  } finally {
+    await setFlag("pos_offline_queue", false);
+  }
+});

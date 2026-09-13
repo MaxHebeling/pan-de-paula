@@ -1,7 +1,9 @@
 -- 0013_audit_ops.sql — Correcciones de la auditoría de OPERACIÓN (POS, caja, pedidos, inventario).
--- Aditiva: solo `create or replace` de funciones definidas en 0008 y un índice parcial. No toca datos.
--- NOTA de orden: este archivo corre antes de 0020/0030 en una base nueva; por eso SOLO redefine funciones
--- de 0008_transactions.sql (ninguna migración posterior las vuelve a definir).
+-- Aditiva: solo `create or replace` de funciones definidas en 0006/0008 y un índice parcial. No toca datos.
+-- NOTA de orden: este archivo corre antes de 0020–0080 en una base nueva; por eso SOLO redefine funciones
+-- de 0006/0008 (ninguna migración posterior las vuelve a definir). En producción se aplica después de 0080
+-- (el runner aplica pendientes sin exigir orden) y _post_migrate.sql re-otorga privilegios.
+-- Pre-requisito del índice (5): `select count(*) from stock_counts where status = 'open'` debe ser ≤ 1.
 --
 -- 1) pos_checkout: la idempotency_key de cada pago se derivaba de método+monto, así que un pago dividido con
 --    dos partes idénticas (dos tarjetas de $50) trataba la segunda como duplicado: el pedido quedaba "partial"
@@ -16,6 +18,9 @@
 --    venta). Ahora valida en SQL (la app también valida, defensa en profundidad).
 -- 5) stock_counts: dos conteos creados en paralelo quedaban ambos abiertos (la validación era un `exists`).
 --    Índice único parcial, igual que register_sessions.
+-- 6) pos_checkout: pagos que no cubrían el total (llamada directa a la API) dejaban un pedido POS parcial sin venta.
+-- 7) rebuild_inventory_levels (0006): concurrente con un movimiento perdía ese movimiento (actualización perdida).
+-- 8) change_order_status: "paid"/"refunded" a mano sin dinero registrado.
 
 -- ── 1) pos_checkout ─────────────────────────────────────────────────────────
 create or replace function pos_checkout(p jsonb) returns jsonb
@@ -67,6 +72,12 @@ begin
   end if;
   -- Pedido de total $0 (100% recompensa/cupón) se concreta sin pago
   if v_sale_id is null and o.total_cents = 0 then v_sale_id := finalize_sale(v_order_id, v_session); end if;
+  -- El POS cobra en el acto: si los pagos no cubren el total se revierte TODO (no queda pedido parcial huérfano).
+  -- Los cobros asíncronos (Mercado Pago Point/QR) no pasan por aquí: usan create_order + webhook.
+  if v_sale_id is null then
+    select * into o from orders where id = v_order_id;
+    raise exception 'Los pagos no cubren el total de la venta (total %, pagado %)', o.total_cents, o.paid_cents using errcode = 'check_violation';
+  end if;
 
   select * into o from orders where id = v_order_id;
   if o.customer_id is not null and v_sale_id is not null then
@@ -270,3 +281,58 @@ end $$;
 
 -- ── 5) Un solo conteo físico abierto (garantía a nivel de base, como register_sessions) ──
 create unique index if not exists stock_counts_open_idx on stock_counts(status) where status = 'open';
+
+-- ── 8) change_order_status ─────────────────────────────────────────────────
+-- "paid" y "refunded" son estados financieros: solo se alcanzan con dinero registrado (record_payment /
+-- record_refund / webhook). A mano dejaban pedidos "Pagado" sin venta, sin descontar stock ni otorgar puntos.
+create or replace function change_order_status(p_order_id uuid, p_to order_status, p_note text default null)
+returns void language plpgsql as $$
+declare
+  o orders%rowtype;
+begin
+  select * into o from orders where id = p_order_id for update;
+  if o.id is null then raise exception 'Pedido no existe'; end if;
+  if o.status = p_to then return; end if;
+  if not order_transition_allowed(o.status, p_to) then
+    raise exception 'Transición no permitida: % → %', o.status, p_to using errcode = 'check_violation';
+  end if;
+  if p_to = 'paid' and o.paid_cents < o.total_cents then
+    raise exception 'Registra el pago para marcar el pedido como pagado (pagado %, total %)', o.paid_cents, o.total_cents using errcode = 'check_violation';
+  end if;
+  if p_to = 'paid' and o.total_cents = 0 and not exists (select 1 from sales where order_id = p_order_id) then
+    raise exception 'Registra el pago para marcar el pedido como pagado (pedido de $0 sin venta)' using errcode = 'check_violation';
+  end if;
+  if p_to = 'refunded' and (o.refunded_cents <= 0 or o.refunded_cents < o.paid_cents) then
+    raise exception 'Registra el reembolso para marcar el pedido como reembolsado' using errcode = 'check_violation';
+  end if;
+  if p_to = 'cancelled' and exists (select 1 from sales where order_id = p_order_id and voided_at is null) then
+    raise exception 'El pedido ya tiene una venta registrada; usa anular venta o reembolso' using errcode = 'check_violation';
+  end if;
+  update orders set status = p_to,
+         confirmed_at = case when p_to = 'confirmed' then now() else confirmed_at end,
+         completed_at = case when p_to in ('completed','delivered') then now() else completed_at end,
+         cancelled_at = case when p_to = 'cancelled' then now() else cancelled_at end,
+         cancel_reason = case when p_to = 'cancelled' then p_note else cancel_reason end
+   where id = p_order_id;
+  insert into order_status_history(order_id, from_status, to_status, note, staff_id) values (p_order_id, o.status, p_to, p_note, current_staff_id());
+  perform emit_event(case p_to when 'confirmed' then 'ORDER_CONFIRMED' when 'cancelled' then 'ORDER_CANCELLED' else 'ORDER_STATUS_CHANGED' end,
+                     'order', p_order_id::text, jsonb_build_object('from', o.status, 'to', p_to));
+  if p_to = 'cancelled' and o.coupon_id is not null then
+    delete from coupon_redemptions where order_id = p_order_id;
+  end if;
+  if p_to = 'cancelled' and o.reward_redemption_id is not null then
+    update reward_redemptions set status = 'issued', order_id = null, applied_at = null where id = o.reward_redemption_id and status = 'applied';
+  end if;
+end $$;
+
+-- ── 7) rebuild_inventory_levels ────────────────────────────────────────────
+-- SHARE bloquea inserciones de movimientos mientras se reconstruye (espera a las transacciones en curso),
+-- así la suma y el upsert ven el mismo conjunto de movimientos.
+create or replace function rebuild_inventory_levels() returns void
+language plpgsql as $$
+begin
+  lock table inventory_movements in share mode;
+  insert into inventory_levels(product_id, on_hand, updated_at)
+  select product_id, sum(qty), now() from inventory_movements group by product_id
+  on conflict (product_id) do update set on_hand = excluded.on_hand, updated_at = now();
+end $$;

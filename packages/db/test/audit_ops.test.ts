@@ -123,6 +123,29 @@ describe("POS · pago dividido", () => {
     expect(n.rows[0]!.n).toBe(0);
   });
 
+  it("pagos que no cubren el total se rechazan completos (sin pedido POS huérfano en estado parcial)", async () => {
+    // Regresión: una llamada directa a la API con pagos parciales (o sin pagos) dejaba un pedido POS
+    // "new/partial" sin venta que nadie iba a cobrar.
+    await expect(
+      posCheckout(db, staff, {
+        idempotency_key: "pos-partial",
+        items: [{ product_id: pan, qty: 1 }],
+        payments: [{ provider: "manual", method: "card_terminal", amount_cents: 1000 }],
+      }),
+    ).rejects.toThrow(/no cubren el total/);
+    await expect(
+      posCheckout(db, staff, { items: [{ product_id: pan, qty: 1 }], payments: [] }),
+    ).rejects.toThrow(/no cubren el total/);
+    const n = await sql<{
+      o: number;
+      p: number;
+    }>`select (select count(*)::int from orders) as o, (select count(*)::int from payments) as p`.execute(
+      db,
+    );
+    expect(n.rows[0]).toEqual({ o: 0, p: 0 });
+    expect(await onHand(db, pan)).toBe(20);
+  });
+
   it("vender con una sesión de caja cerrada se rechaza", async () => {
     const session = await withStaff(db, staff, (trx) => callFn<string>(trx, "open_register", [0]));
     await withStaff(db, staff, (trx) => callFn(trx, "close_register", [session, 0]));
@@ -590,6 +613,28 @@ describe("pedidos · pagos y transiciones", () => {
     expect(h.rows[2]!.note).toBe("cliente canceló");
   });
 
+  it("marcar Pagado o Reembolsado a mano sin dinero se rechaza (no hay venta ni stock que lo respalde)", async () => {
+    // Regresión: el botón "Pagado" movía el pedido a paid sin pago; después podía llegar a completed sin venta,
+    // sin descontar inventario y sin puntos. Igual con refunded vía llamada directa.
+    const o = await order();
+    const go = (to: string) =>
+      withStaff(db, staff, (trx) => callFn(trx, "change_order_status", [o, to, null]));
+    await expect(go("paid")).rejects.toThrow(/Registra el pago/);
+    await pay(o, { amount_cents: 4000, method: "transfer", provider: "manual" });
+    await expect(go("paid")).rejects.toThrow(/Registra el pago/);
+    await pay(o, { amount_cents: 6000, method: "transfer", provider: "manual" });
+    const st = await sql<{
+      status: string;
+    }>`select status::text as status from orders where id = ${o}::uuid`.execute(db);
+    expect(st.rows[0]!.status).toBe("paid");
+    await expect(go("refunded")).rejects.toThrow(/reembolso/);
+    await go("completed");
+    const zero = await order({ items: [{ product_id: galleta, qty: 1 }] });
+    await expect(
+      withStaff(db, staff, (trx) => callFn(trx, "change_order_status", [zero, "paid", null])),
+    ).rejects.toThrow(/Registra el pago/);
+  });
+
   it("cancelar un pedido que ya tiene venta se rechaza (hay que anular la venta)", async () => {
     const r = await posCheckout(db, staff, {
       items: [{ product_id: galleta, qty: 1 }],
@@ -878,6 +923,36 @@ describe("inventario", () => {
       waste: 0,
       closing: 111,
     });
+  });
+
+  it("rebuild_inventory_levels concurrente con un movimiento no pierde ese movimiento", async () => {
+    // Regresión: la reconstrucción tomaba la suma con una foto previa al commit del movimiento y luego
+    // sobrescribía el nivel (actualización perdida). Ahora bloquea inventory_movements en modo SHARE.
+    const a = await rawClient();
+    const b = await rawClient();
+    try {
+      await a.query("begin");
+      await asStaff(a);
+      await a.query("select record_production($1::uuid, 5, null, null)", [pan]);
+      const bRun = (async () => {
+        await b.query("begin");
+        await b.query("select rebuild_inventory_levels()");
+        await b.query("commit");
+      })();
+      await new Promise((r) => setTimeout(r, 300));
+      await a.query("commit");
+      await bRun;
+      const sum = await sql<{
+        s: string;
+      }>`select sum(qty)::text as s from inventory_movements where product_id = ${pan}::uuid`.execute(
+        db,
+      );
+      expect(Number(sum.rows[0]!.s)).toBe(25);
+      expect(await onHand(db, pan)).toBe(25);
+    } finally {
+      await a.end();
+      await b.end();
+    }
   });
 
   it("rebuild_inventory_levels repara un nivel materializado alterado", async () => {
