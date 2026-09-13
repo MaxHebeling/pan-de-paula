@@ -75,6 +75,7 @@ export async function migrate(
       return { applied: 0, pending };
     }
     if (pending === 0) {
+      await runPostMigrate(client, log);
       log("Base de datos al día (0 migraciones pendientes)");
       return { applied: 0, pending: 0 };
     }
@@ -99,12 +100,28 @@ export async function migrate(
           throw new Error(`Falló ${f.name}: ${(e as Error).message}`, { cause: e });
         }
       }
+      await runPostMigrate(client, log);
     } finally {
       await client.query("select pg_advisory_unlock($1)", [LOCK_KEY]);
     }
     return { applied: count, pending: 0 };
   } finally {
     await client.end();
+  }
+}
+
+/** Endurecimiento post-migración: revoca anon/authenticated/PUBLIC y garantiza pdp_app + RLS. Siempre idempotente. */
+async function runPostMigrate(client: pg.Client, log: (m: string) => void) {
+  const file = resolve(MIGRATIONS_DIR, "_post_migrate.sql");
+  const sqlText = readFileSync(file, "utf8");
+  await client.query("begin");
+  try {
+    await client.query(sqlText);
+    await client.query("commit");
+    log("✔ post-migración: superficie pública cerrada (anon/authenticated sin acceso)");
+  } catch (e) {
+    await client.query("rollback");
+    throw new Error(`Falló _post_migrate.sql: ${(e as Error).message}`, { cause: e });
   }
 }
 

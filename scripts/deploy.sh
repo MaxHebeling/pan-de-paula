@@ -31,6 +31,7 @@ node scripts/check-env.mjs "$ENV"
 echo "▶ [$ENV] 4/6 Respaldo previo + migraciones"
 if [ "$ENV" = "production" ]; then bash scripts/backup.sh production "pre-deploy-$SHA"; fi
 pnpm db:migrate
+bash scripts/check-grants.sh "${MIGRATE_DATABASE_URL:-$DATABASE_URL}"
 
 echo "▶ [$ENV] 5/6 Despliegue en Vercel"
 VERCEL_FLAGS=""
