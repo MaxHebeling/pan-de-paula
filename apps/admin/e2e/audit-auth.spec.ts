@@ -220,9 +220,13 @@ test("admin: crea usuario (contraseña temporal una sola vez) → primer acceso 
   const u = await ctxUser.newPage();
   await loginAs(u, email, temp);
   expect(new URL(u.url()).pathname).toBe("/cuenta/contrasena");
-  // No puede saltarse el cambio
+  // No puede saltarse el cambio: ni por páginas ni por /api (BUG: /api/search servía datos con la clave temporal)
   await u.goto("/pos");
   await u.waitForURL((x) => x.pathname === "/cuenta/contrasena");
+  const earlyApi = await u.request.get("/api/search?q=pan", { maxRedirects: 0 });
+  expect(earlyApi.status()).toBe(401);
+  const earlyPos = await u.request.get("/api/pos/customers?q=a", { maxRedirects: 0 });
+  expect(earlyPos.status()).toBe(401);
   // Política: corta, sin números, distinta a la actual, confirmación
   const tryChange = async (current: string, next: string, confirm: string) => {
     await u.goto("/cuenta/contrasena?forzado=1");
@@ -474,6 +478,33 @@ test("configuración: guardar → refrescar → persiste (y queda en auditoría 
   await expect(page.locator('p[role="alert"]')).toContainText("Nombre muy corto");
   await page.goto("/configuracion?tab=negocio");
   await expect(page.getByLabel("Nombre comercial", { exact: true })).not.toHaveValue("X");
+
+  // Punto de retiro con enlace javascript: → rechazado en servidor (se publica como <a href> en el sitio)
+  await page.goto("/configuracion?tab=retiro");
+  await page.waitForLoadState("domcontentloaded");
+  const newPickup = page.locator("form", {
+    has: page.getByRole("button", { name: "Crear punto" }),
+  });
+  const pname = `Retiro auditoría ${testInfo.project.name} ${Date.now().toString(36)}`;
+  const nameField = newPickup.getByLabel("Nombre", { exact: true });
+  const mapField = newPickup.getByLabel("Enlace de mapa", { exact: true });
+  for (let i = 0; i < 5 && (await nameField.inputValue()) !== pname; i++) {
+    await nameField.fill(pname);
+    await page.waitForTimeout(150);
+  }
+  await mapField.fill("javascript:alert(document.cookie)");
+  await newPickup.getByRole("button", { name: "Crear punto" }).click();
+  await expect(newPickup.locator('p[role="alert"]')).toContainText("https://");
+  // React 19 limpia el formulario tras la acción: se vuelven a escribir ambos campos
+  for (let i = 0; i < 5 && (await nameField.inputValue()) !== pname; i++) {
+    await nameField.fill(pname);
+    await page.waitForTimeout(150);
+  }
+  await mapField.fill("https://maps.google.com/?q=pan");
+  await newPickup.getByRole("button", { name: "Crear punto" }).click();
+  await expect(newPickup.locator('p[role="status"]')).toContainText("creado");
+  await page.goto("/auditoria?entidad=pickup_points&accion=INSERT");
+  await expect(page.locator("details", { hasText: pname }).first()).toContainText("Administrador");
 
   // Restaurar
   await page.goto("/configuracion?tab=negocio");

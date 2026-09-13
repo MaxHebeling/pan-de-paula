@@ -53,10 +53,15 @@ export async function requestReset(_prev: ActionState, form: FormData): Promise<
             "[recuperar] no se pudo enviar el correo de restablecimiento",
             r.error ?? r.skipped,
           );
-      } else {
-        // Sin proveedor de email configurado: el enlace queda en el log del servidor para que un admin lo comparta.
+      } else if ((process.env.APP_ENV ?? "development") !== "production") {
+        // Desarrollo/staging sin proveedor de email: el enlace queda en el log local para probar el flujo.
         console.info(
           `[recuperar] EMAIL NO CONFIGURADO. Enlace de restablecimiento para ${parsed.data.email}: ${url}`,
+        );
+      } else {
+        // Producción: nunca se escribe un token vivo en los logs (los lee cualquiera con acceso a Vercel/Sentry).
+        console.warn(
+          "[recuperar] EMAIL NO CONFIGURADO: solicitud de restablecimiento sin enviar. Un administrador puede generar el enlace en /usuarios.",
         );
       }
     }

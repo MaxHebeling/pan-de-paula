@@ -358,6 +358,47 @@ describe("cambio de contraseña por el usuario", () => {
   });
 });
 
+describe("vida máxima de la sesión", () => {
+  it("una sesión con más de SESSION_TTL_DAYS desde el login ya no resuelve aunque su expires_at se haya deslizado (BUG: token robado vivía indefinidamente)", async () => {
+    await reset(users.ana);
+    const r = await login(db, { email: users.ana, password: PW });
+    if (!r.ok) throw new Error("login");
+    await sql`update staff_sessions set created_at = now() - interval '60 days', expires_at = now() + interval '1 hour', last_seen_at = now() - interval '10 minutes' where id = ${r.session.sessionId}`.execute(
+      db,
+    );
+    expect(await resolveSession(db, r.token)).toBeNull();
+  });
+
+  it("el deslizamiento no extiende más allá de created_at + SESSION_TTL_DAYS", async () => {
+    const r = await login(db, { email: users.ana, password: PW });
+    if (!r.ok) throw new Error("login");
+    // Sesión de 10 días, vence en 1 h, inactiva hace 10 min → se desliza, pero como tope a created_at + 14 d
+    await sql`update staff_sessions set created_at = now() - interval '10 days', expires_at = now() + interval '1 hour', last_seen_at = now() - interval '10 minutes' where id = ${r.session.sessionId}`.execute(
+      db,
+    );
+    expect(await resolveSession(db, r.token)).not.toBeNull();
+    const row = await sql<{
+      hours: number;
+    }>`select extract(epoch from (expires_at - now())) / 3600 as hours from staff_sessions where id = ${r.session.sessionId}`.execute(
+      db,
+    );
+    const hours = Number(row.rows[0]!.hours);
+    expect(hours).toBeGreaterThan(95); // ~4 días restantes
+    expect(hours).toBeLessThanOrEqual(96.1);
+    // Sesión reciente inactiva: sí se desliza a 7 días
+    await sql`update staff_sessions set created_at = now() - interval '1 day', expires_at = now() + interval '1 hour', last_seen_at = now() - interval '10 minutes' where id = ${r.session.sessionId}`.execute(
+      db,
+    );
+    await resolveSession(db, r.token);
+    const row2 = await sql<{
+      hours: number;
+    }>`select extract(epoch from (expires_at - now())) / 3600 as hours from staff_sessions where id = ${r.session.sessionId}`.execute(
+      db,
+    );
+    expect(Number(row2.rows[0]!.hours)).toBeGreaterThan(167);
+  });
+});
+
 describe("revocación de sesiones", () => {
   it("revokeAllSessions con excepción conserva solo esa sesión", async () => {
     await reset(users.ana);

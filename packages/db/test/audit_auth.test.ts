@@ -176,6 +176,50 @@ describe("auditoría de staff_users", () => {
   });
 });
 
+describe("auditoría de configuración (0012)", () => {
+  it("horarios y puntos de retiro quedan en audit_logs con el actor y un entity_id útil", async () => {
+    const actor = await createStaff(db, "config@pdp.local", "manager");
+    let pickupId = "";
+    await withStaff(db, actor, async (trx) => {
+      await sql`update business_hours set opens_at = '07:30' where weekday = 2`.execute(trx);
+      const r = await sql<{
+        id: string;
+      }>`insert into pickup_points(name, map_url) values ('Retiro auditoría', 'https://maps.example/1') returning id`.execute(
+        trx,
+      );
+      pickupId = r.rows[0]!.id;
+      await sql`update pickup_points set is_active = false where id = ${pickupId}`.execute(trx);
+      await sql`update feature_flags set enabled = not enabled where key = 'email_receipts'`.execute(
+        trx,
+      );
+    });
+    const rows = await sql<{
+      entity: string;
+      action: string;
+      entity_id: string | null;
+      staff_id: string | null;
+    }>`select entity, action, entity_id, staff_id from audit_logs where staff_id = ${actor} order by id`.execute(
+      db,
+    );
+    expect(rows.rows.map((r) => `${r.entity}:${r.action}:${r.entity_id}`)).toEqual([
+      "business_hours:UPDATE:2",
+      `pickup_points:INSERT:${pickupId}`,
+      `pickup_points:UPDATE:${pickupId}`,
+      "feature_flags:UPDATE:email_receipts",
+    ]);
+    // Guardar horarios sin cambios reales no genera ruido
+    await withStaff(db, actor, (trx) =>
+      sql`update business_hours set opens_at = opens_at where weekday = 2`.execute(trx),
+    );
+    const again = await sql<{
+      n: number;
+    }>`select count(*)::int as n from audit_logs where staff_id = ${actor} and entity = 'business_hours'`.execute(
+      db,
+    );
+    expect(again.rows[0]?.n).toBe(1);
+  });
+});
+
 describe("integridad de sesiones y tokens", () => {
   it("token_hash de sesión y de reset son únicos; borrar el usuario cascada sesiones y tokens", async () => {
     const id = await createStaff(db, "cascade@pdp.local", "cashier");

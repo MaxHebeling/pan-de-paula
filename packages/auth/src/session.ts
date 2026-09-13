@@ -153,7 +153,11 @@ export async function loadPermissions(db: Database, roleKey: string): Promise<Se
   return new Set(r.rows.map((x) => x.permission_key));
 }
 
-/** Resuelve la sesión desde el token de cookie. Renueva last_seen (throttled) y desliza expiración. */
+/**
+ * Resuelve la sesión desde el token de cookie. Renueva last_seen (throttled) y desliza la expiración,
+ * pero NUNCA más allá de SESSION_TTL_DAYS desde el login (vida máxima absoluta, alineada con la cookie):
+ * un token robado no se mantiene vivo indefinidamente por usarlo cada pocos días.
+ */
 export async function resolveSession(
   db: Database,
   token: string | undefined | null,
@@ -172,13 +176,14 @@ export async function resolveSession(
     is_active: boolean;
   }>`select s.id as session_id, s.expires_at, s.last_seen_at, u.id, u.email, u.full_name, u.role_key, u.must_change_password, u.is_active
      from staff_sessions s join staff_users u on u.id = s.staff_id
-     where s.token_hash = ${th} and s.revoked_at is null and s.expires_at > now() and u.deleted_at is null`.execute(
+     where s.token_hash = ${th} and s.revoked_at is null and s.expires_at > now()
+       and s.created_at > now() - (${SESSION_TTL_DAYS} || ' days')::interval and u.deleted_at is null`.execute(
     db,
   );
   const row = r.rows[0];
   if (!row || !row.is_active) return null;
   if (Date.now() - new Date(row.last_seen_at).getTime() > 5 * 60_000) {
-    await sql`update staff_sessions set last_seen_at = now(), expires_at = greatest(expires_at, now() + interval '7 days') where id = ${row.session_id}`.execute(
+    await sql`update staff_sessions set last_seen_at = now(), expires_at = least(greatest(expires_at, now() + interval '7 days'), created_at + (${SESSION_TTL_DAYS} || ' days')::interval) where id = ${row.session_id}`.execute(
       db,
     );
   }

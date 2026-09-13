@@ -12,15 +12,32 @@ import {
 import { NAV } from "./nav";
 import { db } from "./db";
 
-/** Sesión del staff actual (cacheada por request). */
-export const getSession = cache(async (): Promise<StaffSession | null> => {
+/** Sesión cruda del token de la cookie (cacheada por request), sin considerar el cambio de contraseña pendiente. */
+const loadSession = cache(async (): Promise<StaffSession | null> => {
   const jar = await cookies();
   return resolveSession(db(), jar.get(SESSION_COOKIE)?.value);
 });
 
-/** Exige sesión (y permiso opcional). Redirige a /login o /403. */
+/** Rutas que un usuario con contraseña temporal pendiente de cambio sí puede usar. */
+const MUST_CHANGE_ALLOWED = ["/cuenta/contrasena", "/api/auth/"];
+
+/**
+ * Sesión del staff actual (cacheada por request). Si el usuario debe cambiar su contraseña, fuera de
+ * /cuenta/contrasena se comporta como "sin sesión": los route handlers (/api/*) responden 401 en vez de
+ * servir datos a quien aún usa la contraseña temporal. Las páginas y acciones usan requireSession.
+ */
+export const getSession = cache(async (): Promise<StaffSession | null> => {
+  const s = await loadSession();
+  if (s?.staff.mustChangePassword) {
+    const path = (await headers()).get("x-pathname") ?? "";
+    if (!MUST_CHANGE_ALLOWED.some((p) => path.startsWith(p))) return null;
+  }
+  return s;
+});
+
+/** Exige sesión (y permiso opcional). Redirige a /login, a /cuenta/contrasena (cambio pendiente) o a /403. */
 export async function requireSession(permission?: string): Promise<StaffSession> {
-  const s = await getSession();
+  const s = await loadSession();
   if (!s) {
     const h = await headers();
     const path = h.get("x-pathname") ?? "/";
