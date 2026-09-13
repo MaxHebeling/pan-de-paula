@@ -1,3 +1,4 @@
+// secret-scan: fixtures — tokens inventados para probar la redacción.
 import { describe, expect, it } from "vitest";
 import type { ErrorEvent } from "@sentry/nextjs";
 import { scrubEvent, REDACTED } from "./sentry-options";

@@ -7,7 +7,7 @@ import { test, expect, type Page } from "@playwright/test";
  */
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@elpandepaula.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "CambiaEstaClave!2026";
-const CRON_SECRET = process.env.CRON_SECRET ?? "dev-cron-secret";
+const CRON_SECRET = process.env.CRON_SECRET ?? "dev-cron-secret-0123456789abcdef";
 
 const num = (s: string | null) => Number((s ?? "0").replace(/[^0-9.-]/g, ""));
 

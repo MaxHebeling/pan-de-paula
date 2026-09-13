@@ -14,7 +14,7 @@ const ADMIN = {
 };
 const CASHIER = { email: "cajera@audit.local", password: "AuditOps!2026x" };
 const PRODUCTION = { email: "produccion@audit.local", password: "AuditOps!2026x" };
-const CRON_SECRET = process.env.CRON_SECRET ?? "dev-cron-secret";
+const CRON_SECRET = process.env.CRON_SECRET ?? "dev-cron-secret-0123456789abcdef";
 
 const { db, pool } = createDb({ connectionString: process.env.DATABASE_URL, max: 3 });
 type Row = Record<string, unknown>;
