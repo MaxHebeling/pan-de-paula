@@ -24,7 +24,11 @@ OUT="backups/pdp-$ENV-$STAMP-$LABEL.dump"
 # `--schema` NO incluye las extensiones (citext, pgcrypto, pg_trgm) de las que dependen las tablas: sin ellas el
 # restore en una base nueva falla en cada tabla con citext. Se agregan explícitamente con `--extension`
 # (lista viva desde pg_extension; si no se puede consultar, las tres conocidas).
-EXTS=$(psql "$SRC" -tAc "select extname from pg_extension where extname <> 'plpgsql' order by 1" 2>/dev/null || true)
+# SOLO las extensiones que crean nuestras migraciones. En Supabase existen otras de la plataforma (supabase_vault,
+# pg_graphql, pg_stat_statements…) cuyos esquemas no son accesibles para pdp_app: incluirlas rompe el respaldo
+# ("permission denied for schema vault") y además no nos pertenecen.
+APP_EXTS="'citext','pg_trgm','pgcrypto'"
+EXTS=$(psql "$SRC" -tAc "select extname from pg_extension where extname in ($APP_EXTS) order by 1" 2>/dev/null || true)
 [ -n "$EXTS" ] || EXTS=$'pgcrypto\ncitext\npg_trgm'
 EXT_FLAGS=()
 while IFS= read -r e; do [ -n "$e" ] && EXT_FLAGS+=("--extension=$e"); done <<< "$EXTS"

@@ -14,7 +14,12 @@ START=$(date +%s)
 createdb -h localhost "$DB"
 # Las tablas usan citext/pgcrypto/pg_trgm. Los respaldos nuevos las incluyen (backup.sh --extension); para
 # respaldos anteriores las creamos antes. `if not exists` hace ambas rutas compatibles.
-psql -h localhost -d "$DB" -q -c "create extension if not exists pgcrypto; create extension if not exists citext; create extension if not exists pg_trgm;"
+# pgcrypto se crea en el MISMO esquema que en el origen (Supabase: extensions; local: public), porque los
+# defaults de columnas lo referencian con esquema calificado (extensions.gen_random_bytes / public.gen_random_bytes).
+PGC_SCHEMA=$(pg_restore -f - "$FILE" 2>/dev/null | grep -oE 'CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA [a-z_]+' | awk '{print $NF}' | head -1)
+PGC_SCHEMA="${PGC_SCHEMA:-public}"
+psql -h localhost -d "$DB" -q -c "create schema if not exists $PGC_SCHEMA; create extension if not exists pgcrypto with schema $PGC_SCHEMA; create extension if not exists citext; create extension if not exists pg_trgm;"
+psql -h localhost -d postgres -q -c "alter database \"$DB\" set search_path = public, $PGC_SCHEMA"
 set +e
 pg_restore --no-owner --no-privileges -h localhost -d "$DB" "$FILE" 2>"$ERR"
 RC=$?
