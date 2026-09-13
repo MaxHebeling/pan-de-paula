@@ -5,7 +5,6 @@ import { customerRegistrationSchema } from "@pdp/domain";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { findCustomer } from "@/lib/customers";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
-import { normalizeMxPhone } from "@/lib/phone";
 import { cardUrl } from "@/lib/qr";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { getBusiness } from "@/lib/site";
@@ -29,7 +28,7 @@ export type JoinState = {
 export async function joinClubAction(_prev: JoinState, formData: FormData): Promise<JoinState> {
   const raw = {
     full_name: String(formData.get("full_name") ?? ""),
-    phone: normalizeMxPhone(String(formData.get("phone") ?? "")),
+    phone: String(formData.get("phone") ?? ""), // phoneMX lo deja canónico
     email: String(formData.get("email") ?? ""),
     birthday: String(formData.get("birthday") ?? ""),
     marketing_consent: formData.get("marketing_consent") === "on",

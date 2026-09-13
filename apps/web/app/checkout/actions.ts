@@ -12,7 +12,6 @@ import {
   sendOrderConfirmationEmail,
   startMercadoPago,
 } from "@/lib/orders";
-import { normalizeMxPhone } from "@/lib/phone";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { fulfillmentOptions, getBusiness } from "@/lib/site";
 import { zonedToUtc } from "@/lib/tz";
@@ -21,9 +20,8 @@ export type LookupResult = { found: true; hint: string } | { found: false; error
 
 /** "Ya soy cliente": confirma solo un nombre parcial; el vínculo real se hace en el servidor al crear el pedido. */
 export async function lookupCustomerAction(query: string): Promise<LookupResult> {
-  const trimmed = (query ?? "").trim().slice(0, 120);
-  // Un teléfono con lada (+52 …) se busca como 10 dígitos; códigos PDP y correos pasan tal cual.
-  const q = /^[\d\s()+-]+$/.test(trimmed) ? normalizeMxPhone(trimmed) : trimmed;
+  // find_customer normaliza el teléfono (+52 / 52 / 521 / 01 → 10 dígitos) en SQL; códigos PDP y correos pasan tal cual.
+  const q = (query ?? "").trim().slice(0, 120);
   if (q.length < 6) return { found: false, error: "Escribe tu teléfono o tu código PDP." };
   try {
     const rl = await rateLimit("lookup", { max: 20 });
@@ -118,7 +116,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       scheduled_date: option.date,
       pickup_point_id: isDelivery ? undefined : payload.pickup_point_id,
       customer_name: payload.customer_name,
-      customer_phone: normalizeMxPhone(payload.customer_phone),
+      customer_phone: payload.customer_phone, // phoneMX lo deja canónico (canonicalPhone)
       customer_email: payload.customer_email ?? "",
       delivery_address: isDelivery ? payload.delivery_address : undefined,
       coupon_code: payload.coupon_code ?? "",
@@ -195,9 +193,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
 
     // 6) Cliente: vínculo explícito ("ya soy cliente") o por teléfono. Nunca se revela nada al cliente aquí.
     let customerId: string | null = null;
-    const rawLookup = payload.customer_lookup?.trim();
-    const lookup =
-      rawLookup && /^[\d\s()+-]+$/.test(rawLookup) ? normalizeMxPhone(rawLookup) : rawLookup;
+    const lookup = payload.customer_lookup?.trim();
     if (lookup) customerId = (await findCustomer(lookup))?.id ?? null;
     if (!customerId) customerId = (await findCustomer(data.customer_phone))?.id ?? null;
     if (!customerId && data.marketing_consent) {
