@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { marginBps } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
-import { qty, pct } from "@/lib/format";
-import { PageHeader, Table, Badge, Money, EmptyState, LinkButton, Alert } from "@/components/ui";
+import { qty } from "@/lib/format";
+import { PageHeader, Table, EmptyState, LinkButton, Alert } from "@/components/ui";
 import { Select, TextInput } from "@/components/catalog/fields";
+import { ProductCostCells, ProductFlags } from "@/components/catalog/product-inline";
+import { normalizeBreakdown } from "@/components/catalog/costing-types";
+import { setProductFlag, setProductPrice } from "./actions";
 
 export const metadata = { title: "Productos" };
 export const dynamic = "force-dynamic";
@@ -23,11 +25,13 @@ type Row = {
   track_stock: boolean;
   requires_preorder: boolean;
   is_featured: boolean;
+  pos_favorite: boolean;
   pos_price: number | null;
   web_price: number | null;
   cost: number | null;
   on_hand: string | number | null;
   image_url: string | null;
+  breakdown: unknown;
 };
 
 type Search = {
@@ -57,10 +61,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       .execute(),
     sql<Row>`
       select p.id, p.name, p.slug, p.parent_id, p.variant_label, p.category_id, c.name as category_name,
-             p.is_active, p.show_on_web, p.show_on_pos, p.track_stock, p.requires_preorder, p.is_featured,
+             p.is_active, p.show_on_web, p.show_on_pos, p.track_stock, p.requires_preorder, p.is_featured, p.pos_favorite,
              current_price_cents(p.id, 'pos') as pos_price,
              current_price_cents(p.id, 'web') as web_price,
              product_cost_cents(p.id) as cost,
+             recipe_formula_breakdown(p.id) as breakdown,
              l.on_hand,
              (select url from product_images i where i.product_id = p.id order by is_primary desc, sort_order asc limit 1) as image_url
       from products p
@@ -90,7 +95,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="Productos"
-        subtitle={`${rows.filter((r) => !r.parent_id).length} productos · ${rows.filter((r) => r.parent_id).length} variantes`}
+        subtitle={`${rows.filter((r) => !r.parent_id).length} productos · ${rows.filter((r) => r.parent_id).length} variantes${canWrite ? " · precios y estados editables en línea (clic en la celda)" : ""}`}
         actions={
           canWrite ? <LinkButton href="/productos/nuevo">Nuevo producto</LinkButton> : undefined
         }
@@ -169,8 +174,6 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           </thead>
           <tbody>
             {ordered.map(({ row: p, depth }) => {
-              const margin =
-                p.pos_price !== null && p.cost !== null ? marginBps(p.pos_price, p.cost) : null;
               return (
                 <tr key={p.id} className={depth ? "bg-black/[0.015]" : ""}>
                   <td>
@@ -206,40 +209,30 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     </div>
                   </td>
                   <td className="text-muted">{p.category_name ?? "—"}</td>
-                  <td className="text-right">
-                    <Money cents={p.pos_price} />
-                  </td>
-                  <td className="text-right">
-                    <Money cents={p.web_price} />
-                  </td>
-                  <td className="text-right">
-                    {p.cost === null ? (
-                      <Link
-                        href={`/recetas/${p.id}`}
-                        className="text-xs text-teal-d hover:underline"
-                      >
-                        sin receta
-                      </Link>
-                    ) : (
-                      <Money cents={p.cost} />
-                    )}
-                  </td>
-                  <td
-                    className={`text-right tabular-nums ${margin !== null && margin < 3000 ? "text-red-d" : ""}`}
-                  >
-                    {margin === null ? "—" : pct(margin)}
-                  </td>
+                  <ProductCostCells
+                    productId={p.id}
+                    name={p.name}
+                    breakdown={normalizeBreakdown(p.breakdown)}
+                    canWrite={canWrite}
+                    setPrice={setProductPrice}
+                  />
                   <td className="text-right tabular-nums">
                     {p.track_stock ? qty(p.on_hand ?? 0) : <span className="text-muted">n/a</span>}
                   </td>
                   <td>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge tone={p.is_active ? "green" : "gray"}>
-                        {p.is_active ? "Activo" : "Inactivo"}
-                      </Badge>
-                      {p.show_on_web && <Badge tone="blue">Web</Badge>}
-                      {p.show_on_pos && <Badge tone="gray">POS</Badge>}
-                    </div>
+                    <ProductFlags
+                      productId={p.id}
+                      name={p.name}
+                      flags={{
+                        is_active: p.is_active,
+                        show_on_web: p.show_on_web,
+                        show_on_pos: p.show_on_pos,
+                        is_featured: p.is_featured,
+                        pos_favorite: p.pos_favorite,
+                      }}
+                      canWrite={canWrite}
+                      setFlag={setProductFlag}
+                    />
                   </td>
                 </tr>
               );

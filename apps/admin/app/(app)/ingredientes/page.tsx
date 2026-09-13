@@ -3,9 +3,18 @@ import { formatQty, type BaseUnit } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
-import { PageHeader, Table, Badge, Money, EmptyState, LinkButton, Alert } from "@/components/ui";
+import { PageHeader, Table, Badge, EmptyState, LinkButton, Alert } from "@/components/ui";
 import { Select, TextInput } from "@/components/catalog/fields";
 import { formatUnitCost } from "@/components/catalog/units";
+import {
+  IngredientMinStockCell,
+  IngredientPriceCell,
+  type IngredientUsage,
+} from "@/components/catalog/ingredient-inline";
+import { FormulaDetails } from "@/components/catalog/formula";
+import { unitCostFormula } from "@/components/catalog/formula-lines";
+import { loadCostingSettings } from "@/lib/costing";
+import { recordIngredientPriceQuick, setIngredientMinStock } from "./actions";
 
 export const metadata = { title: "Ingredientes" };
 export const dynamic = "force-dynamic";
@@ -25,6 +34,7 @@ type Row = {
   last_package_label: string | null;
   last_valid_from: Date | null;
   recipes: number;
+  usages: IngredientUsage[];
 };
 
 export default async function IngredientsPage({
@@ -41,7 +51,17 @@ export default async function IngredientsPage({
     select i.id, i.name, i.brand, s.name as supplier_name, i.base_unit, i.is_available, i.stock_qty, i.min_stock_qty,
            ingredient_unit_cost(i.id) as unit_cost,
            lp.price_cents as last_price_cents, lp.package_qty as last_package_qty, lp.package_label as last_package_label, lp.valid_from as last_valid_from,
-           (select count(*)::int from recipe_items ri where ri.ingredient_id = i.id) as recipes
+           (select count(*)::int from recipe_items ri where ri.ingredient_id = i.id) as recipes,
+           coalesce((
+             select json_agg(json_build_object(
+               'product_id', r.product_id, 'product_name', p.name, 'yield_qty', r.yield_qty::float8,
+               'labor_cents', r.labor_cents, 'overhead_cents', r.overhead_cents, 'labor_minutes', r.labor_minutes::float8,
+               'waste_bps', r.waste_bps, 'qty_this', ri.qty::float8,
+               'other_cost', (select coalesce(sum(o.qty * coalesce(ingredient_unit_cost(o.ingredient_id), 0)), 0)::float8
+                              from recipe_items o where o.recipe_id = r.id and o.ingredient_id <> i.id),
+               'current_cost_cents', product_cost_cents(r.product_id)) order by p.name)
+             from recipe_items ri join recipes r on r.id = ri.recipe_id join products p on p.id = r.product_id and p.deleted_at is null
+             where ri.ingredient_id = i.id), '[]'::json) as usages
     from ingredients i
     left join suppliers s on s.id = i.supplier_id
     left join lateral (select price_cents, package_qty, package_label, valid_from from ingredient_prices p where p.ingredient_id = i.id order by valid_from desc limit 1) lp on true
@@ -49,6 +69,7 @@ export default async function IngredientsPage({
       and (${q} = '' or i.name ilike ${"%" + q + "%"} or coalesce(i.brand,'') ilike ${"%" + q + "%"} or coalesce(s.name,'') ilike ${"%" + q + "%"})
       and (${filtro} = '' or (${filtro} = 'alerta' and i.stock_qty <= i.min_stock_qty) or (${filtro} = 'sin-precio' and ingredient_unit_cost(i.id) is null) or (${filtro} = 'no-disponible' and not i.is_available))
     order by i.name`.execute(db());
+  const { breakdownSettings } = await loadCostingSettings();
   const rows = res.rows;
   const alerts = rows.filter((r) => Number(r.stock_qty) <= Number(r.min_stock_qty)).length;
   const noPrice = rows.filter((r) => r.unit_cost === null).length;
@@ -57,7 +78,7 @@ export default async function IngredientsPage({
     <>
       <PageHeader
         title="Ingredientes"
-        subtitle={`${rows.length} insumos · ${alerts} en alerta de stock · ${noPrice} sin precio`}
+        subtitle={`${rows.length} insumos · ${alerts} en alerta de stock · ${noPrice} sin precio${canWrite ? " · clic en “Último precio” o “Mínimo” para editar en línea" : ""}`}
         actions={
           <>
             <LinkButton href="/ingredientes/proveedores" variant="secondary">
@@ -151,18 +172,44 @@ export default async function IngredientsPage({
                       <>
                         {formatUnitCost(Number(r.unit_cost))}
                         <span className="text-xs text-muted">/{r.base_unit}</span>
+                        {r.last_price_cents !== null && r.last_package_qty !== null && (
+                          <FormulaDetails
+                            summary="Fórmula"
+                            lines={[
+                              unitCostFormula(
+                                r.last_price_cents,
+                                Number(r.last_package_qty),
+                                r.base_unit,
+                                Number(r.unit_cost),
+                              ),
+                            ]}
+                          />
+                        )}
                       </>
                     )}
                   </td>
-                  <td className="text-muted">
-                    {r.last_price_cents === null ? (
-                      "—"
-                    ) : (
-                      <>
-                        <Money cents={r.last_price_cents} /> ·{" "}
-                        {r.last_package_label ?? formatQty(Number(r.last_package_qty), r.base_unit)}
-                        <div className="text-xs">{fmtDate(r.last_valid_from)}</div>
-                      </>
+                  <td>
+                    <IngredientPriceCell
+                      ingredientId={r.id}
+                      name={r.name}
+                      baseUnit={r.base_unit}
+                      currentUnitCost={r.unit_cost === null ? null : Number(r.unit_cost)}
+                      last={
+                        r.last_price_cents === null
+                          ? null
+                          : {
+                              price_cents: r.last_price_cents,
+                              package_qty: Number(r.last_package_qty),
+                              label: r.last_package_label,
+                            }
+                      }
+                      usages={r.usages}
+                      settings={breakdownSettings}
+                      canWrite={canWrite}
+                      action={recordIngredientPriceQuick}
+                    />
+                    {r.last_valid_from && (
+                      <div className="px-2 text-xs text-muted">{fmtDate(r.last_valid_from)}</div>
                     )}
                   </td>
                   <td
@@ -170,8 +217,15 @@ export default async function IngredientsPage({
                   >
                     {formatQty(stock, r.base_unit)}
                   </td>
-                  <td className="text-right tabular-nums text-muted">
-                    {formatQty(min, r.base_unit)}
+                  <td>
+                    <IngredientMinStockCell
+                      ingredientId={r.id}
+                      name={r.name}
+                      baseUnit={r.base_unit}
+                      value={min}
+                      canWrite={canWrite}
+                      action={setIngredientMinStock}
+                    />
                   </td>
                   <td>
                     <div className="flex flex-wrap gap-1">

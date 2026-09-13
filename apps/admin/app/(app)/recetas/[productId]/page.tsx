@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { BaseUnit } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
+import { loadBreakdown, loadCostingSettings } from "@/lib/costing";
 import { fmtDate } from "@/lib/format";
 import { PageHeader, Card, Badge, LinkButton } from "@/components/ui";
 import {
@@ -11,13 +12,15 @@ import {
   type RecipeInitial,
 } from "@/components/catalog/recipe-editor";
 import { ConfirmButton } from "@/components/catalog/action-form";
-import { deleteRecipe, saveRecipe } from "../actions";
+import { recordIngredientPriceQuick } from "../../ingredientes/actions";
+import { applySuggestedPrice, deleteRecipe, saveRecipe } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function RecipePage({ params }: { params: Promise<{ productId: string }> }) {
   const session = await requireSession("recipes.read");
   const canWrite = hasPermission(session, "recipes.write");
+  const canWritePrice = hasPermission(session, "catalog.write");
   const { productId } = await params;
   const product = await db()
     .selectFrom("products")
@@ -27,17 +30,22 @@ export default async function RecipePage({ params }: { params: Promise<{ product
     .executeTakeFirst();
   if (!product) notFound();
 
-  const [ingredientsRes, recipe, priceRes] = await Promise.all([
+  const [ingredientsRes, recipe, priceRes, breakdown, { breakdownSettings }] = await Promise.all([
     sql<RecipeIngredient>`
-      select i.id, i.name || coalesce(' (' || i.brand || ')', '') as name, i.base_unit, ingredient_unit_cost(i.id)::float8 as unit_cost, i.is_available
-      from ingredients i where i.deleted_at is null order by i.name`.execute(db()),
+      select i.id, i.name || coalesce(' (' || i.brand || ')', '') as name, i.base_unit, ingredient_unit_cost(i.id)::float8 as unit_cost, i.is_available,
+             lp.price_cents as last_price_cents, lp.package_qty::float8 as last_package_qty
+      from ingredients i
+      left join lateral (select price_cents, package_qty from ingredient_prices p where p.ingredient_id = i.id order by valid_from desc limit 1) lp on true
+      where i.deleted_at is null order by i.name`.execute(db()),
     db().selectFrom("recipes").selectAll().where("product_id", "=", productId).executeTakeFirst(),
     sql<{
-      cost: number | null;
       pos: number | null;
-    }>`select product_cost_cents(${productId}) as cost, current_price_cents(${productId}, 'pos') as pos`.execute(
+      web: number | null;
+    }>`select current_price_cents(${productId}, 'pos') as pos, current_price_cents(${productId}, 'web') as web`.execute(
       db(),
     ),
+    loadBreakdown(productId),
+    loadCostingSettings(),
   ]);
   const items = recipe
     ? await db()
@@ -54,6 +62,9 @@ export default async function RecipePage({ params }: { params: Promise<{ product
         labor_cents: recipe.labor_cents,
         overhead_cents: recipe.overhead_cents,
         notes: recipe.notes,
+        waste_bps: recipe.waste_bps,
+        target_margin_bps: recipe.target_margin_bps,
+        labor_minutes: recipe.labor_minutes === null ? null : Number(recipe.labor_minutes),
         items: items.map((it) => ({
           ingredient_id: it.ingredient_id,
           qty: Number(it.qty),
@@ -75,6 +86,9 @@ export default async function RecipePage({ params }: { params: Promise<{ product
           <span className="flex flex-wrap items-center gap-2">
             <Link href="/recetas" className="hover:underline">
               ← Recetas
+            </Link>
+            <Link href="/recetas/hoja" className="hover:underline">
+              · Hoja de costos
             </Link>
             {recipe ? (
               <Badge tone="green">
@@ -111,9 +125,16 @@ export default async function RecipePage({ params }: { params: Promise<{ product
           action={saveRecipe.bind(null, product.id)}
           ingredients={ingredients}
           initial={initial}
-          sqlCostCents={st.cost}
+          breakdown={breakdown?.has_recipe ? breakdown : null}
+          settings={breakdownSettings}
+          productId={product.id}
+          productName={product.name}
           posPriceCents={st.pos}
+          webPriceCents={st.web}
           canWrite={canWrite}
+          canWritePrice={canWritePrice}
+          quickPriceAction={recordIngredientPriceQuick}
+          applySuggestedAction={applySuggestedPrice}
         />
       </Card>
       {canWrite && recipe && (

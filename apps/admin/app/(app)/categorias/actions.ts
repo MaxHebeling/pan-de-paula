@@ -149,3 +149,44 @@ export async function deleteCategory(id: string): Promise<void> {
   revalidate();
   redirect("/categorias");
 }
+
+// ── Edición inline en la lista ───────────────────────────────────────────────
+const cellSchema = z.discriminatedUnion("field", [
+  z.object({
+    field: z.literal("name"),
+    value: z.string().trim().min(2, "Nombre muy corto").max(80),
+  }),
+  z.object({
+    field: z.literal("sort_order"),
+    value: z.number({ error: "Orden inválido" }).int("Debe ser entero").min(0).max(9999),
+  }),
+]);
+
+export async function updateCategoryCell(
+  id: string,
+  field: "name" | "sort_order",
+  value: unknown,
+): Promise<ActionState> {
+  const s = await requireSession("catalog.write");
+  if (!zId.safeParse(id).success) return { error: "Categoría inválida" };
+  const parsed = cellSchema.safeParse({ field, value });
+  if (!parsed.success) return { error: zodMessage(parsed.error) };
+  try {
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx
+        .updateTable("categories")
+        .set(
+          parsed.data.field === "name"
+            ? { name: parsed.data.value }
+            : { sort_order: parsed.data.value },
+        )
+        .where("id", "=", id)
+        .where("deleted_at", "is", null)
+        .execute(),
+    );
+  } catch (e) {
+    return failure("categorias.cell", e);
+  }
+  revalidate();
+  return { ok: "Guardado." };
+}

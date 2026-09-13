@@ -400,3 +400,67 @@ export async function toggleFlag(key: string, enabled: boolean): Promise<void> {
   );
   revalidate();
 }
+
+// ── Fórmulas de costeo ───────────────────────────────────────────────────────
+const costingSchema = z.object({
+  default_target_margin_bps: z
+    .number({ error: "Margen objetivo inválido" })
+    .int()
+    .min(0, "El margen objetivo no puede ser negativo")
+    .max(9900, "El margen objetivo debe ser menor a 99%"),
+  price_rounding_cents: z.union([z.literal(50), z.literal(100), z.literal(500), z.literal(1000)], {
+    error: "Redondeo inválido (0.50, 1, 5 o 10 pesos)",
+  }),
+  default_waste_bps: z
+    .number({ error: "Merma inválida" })
+    .int()
+    .min(0, "La merma no puede ser negativa")
+    .max(10000, "Merma máxima 100%"),
+  labor_mode: z.enum(["per_batch", "per_hour"], { error: "Modo de mano de obra inválido" }),
+  labor_rate_cents_per_hour: z
+    .number({ error: "Tarifa inválida" })
+    .int()
+    .min(0, "La tarifa no puede ser negativa")
+    .max(100_000_000),
+  overhead_mode: z.enum(["fixed", "pct_of_ingredients"], { error: "Modo de indirectos inválido" }),
+  overhead_pct_bps: z
+    .number({ error: "Porcentaje de indirectos inválido" })
+    .int()
+    .min(0, "El porcentaje no puede ser negativo")
+    .max(100000, "Máximo 1000%"),
+});
+
+const pctToBps = (v: number | undefined) =>
+  v === undefined ? undefined : Number.isNaN(v) ? Number.NaN : Math.round(v * 100);
+
+export async function saveCostingSettings(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  const s = await requireSession("settings.write");
+  const parsed = costingSchema.safeParse({
+    default_target_margin_bps: pctToBps(num(form, "default_target_margin_pct")),
+    price_rounding_cents: num(form, "price_rounding_cents"),
+    default_waste_bps: pctToBps(num(form, "default_waste_pct")),
+    labor_mode: str(form, "labor_mode"),
+    labor_rate_cents_per_hour: pctToBps(num(form, "labor_rate_per_hour")),
+    overhead_mode: str(form, "overhead_mode"),
+    overhead_pct_bps: pctToBps(num(form, "overhead_pct")),
+  });
+  if (!parsed.success) return { error: zodMessage(parsed.error) };
+  if (parsed.data.labor_mode === "per_hour" && parsed.data.labor_rate_cents_per_hour === 0)
+    return { error: "Con mano de obra por hora necesitas una tarifa mayor a cero." };
+  try {
+    await withStaff(db(), s.staff.id, (trx) =>
+      trx.updateTable("costing_settings").set(parsed.data).where("id", "=", 1).execute(),
+    );
+  } catch (e) {
+    return failure("configuracion.formulas", e);
+  }
+  revalidate();
+  for (const p of ["/recetas", "/recetas/hoja", "/productos", "/precios", "/ingredientes"])
+    revalidatePath(p);
+  return {
+    ok: "Parámetros de costeo guardados. Todos los costos y precios sugeridos se recalcularon.",
+  };
+}

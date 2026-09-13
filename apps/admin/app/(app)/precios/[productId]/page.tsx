@@ -3,10 +3,15 @@ import { notFound } from "next/navigation";
 import { marginBps } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
+import { loadBreakdown } from "@/lib/costing";
 import { fmtDate, pct } from "@/lib/format";
 import { PageHeader, Card, Badge, Money, Stat, Table, LinkButton } from "@/components/ui";
 import { ActionForm, ConfirmButton, SubmitButton } from "@/components/catalog/action-form";
 import { FormGrid, MoneyInput, Select, TextInput } from "@/components/catalog/fields";
+import { RegularPriceForm } from "@/components/catalog/price-live-form";
+import { FormulaList } from "@/components/catalog/formula";
+import { formulaLines } from "@/components/catalog/formula-lines";
+import { marginTone } from "@/components/catalog/costing-types";
 import { utcToZonedInput } from "@/lib/tz";
 import { createPromotion, endPromotion, setRegularPrice } from "../actions";
 
@@ -43,7 +48,7 @@ export default async function ProductPricesPage({
     .executeTakeFirst();
   if (!product) notFound();
 
-  const [cur, history, tzRow] = await Promise.all([
+  const [cur, history, tzRow, breakdown] = await Promise.all([
     sql<{ pos: number | null; web: number | null; cost: number | null }>`
       select current_price_cents(${productId}, 'pos') as pos, current_price_cents(${productId}, 'web') as web, product_cost_cents(${productId}) as cost`.execute(
       db(),
@@ -56,7 +61,9 @@ export default async function ProductPricesPage({
       db(),
     ),
     sql<{ timezone: string }>`select timezone from business_settings where id = 1`.execute(db()),
+    loadBreakdown(productId),
   ]);
+  const target = breakdown?.target_margin_bps ?? 6000;
   const tz = tzRow.rows[0]?.timezone ?? "America/Tijuana";
   const c = cur.rows[0]!;
   const rows = history.rows;
@@ -93,16 +100,37 @@ export default async function ProductPricesPage({
         <Stat
           label="Vigente POS"
           value={<Money cents={c.pos} />}
-          hint={marginPos === null ? "sin costo" : `margen ${pct(marginPos)}`}
-          tone={marginPos !== null && marginPos < 3000 ? "red" : undefined}
+          hint={
+            marginPos === null ? "sin costo" : `margen ${pct(marginPos)} · objetivo ${pct(target)}`
+          }
+          tone={
+            marginTone(marginPos, target) === "gray" ? undefined : marginTone(marginPos, target)
+          }
         />
         <Stat
           label="Vigente web"
           value={<Money cents={c.web} />}
-          hint={marginWeb === null ? "sin costo" : `margen ${pct(marginWeb)}`}
-          tone={marginWeb !== null && marginWeb < 3000 ? "red" : undefined}
+          hint={
+            marginWeb === null ? "sin costo" : `margen ${pct(marginWeb)} · objetivo ${pct(target)}`
+          }
+          tone={
+            marginTone(marginWeb, target) === "gray" ? undefined : marginTone(marginWeb, target)
+          }
         />
-        <Stat label="Costo por pieza" value={<Money cents={c.cost} />} hint="según receta" />
+        <Stat
+          label="Costo por pieza"
+          value={<Money cents={c.cost} />}
+          hint={
+            breakdown?.suggested_price_cents !== null &&
+            breakdown?.suggested_price_cents !== undefined ? (
+              <>
+                sugerido <Money cents={breakdown.suggested_price_cents} />
+              </>
+            ) : (
+              "según receta"
+            )
+          }
+        />
         <Stat
           label="Promos activas"
           value={promosOpen.filter((r) => r.status === "vigente").length}
@@ -110,6 +138,11 @@ export default async function ProductPricesPage({
         />
       </div>
 
+      {breakdown?.has_recipe && (
+        <Card title="Fórmulas (costo, margen y precio sugerido)" className="mb-4">
+          <FormulaList lines={formulaLines(breakdown, { channel: "both" })} />
+        </Card>
+      )}
       <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
         <div className="flex min-w-0 flex-col gap-4">
           <Card title="Vigentes y programados">
@@ -232,40 +265,14 @@ export default async function ProductPricesPage({
         {canWrite && (
           <div className="flex min-w-0 flex-col gap-4">
             <Card title="Nuevo precio regular">
-              <ActionForm
+              <RegularPriceForm
                 action={setRegularPrice.bind(null, product.id)}
-                resetOnSuccess
-                className="flex flex-col gap-3"
-              >
-                <FormGrid>
-                  <Select
-                    label="Canal"
-                    name="channel"
-                    id="reg-channel"
-                    defaultValue="all"
-                    hint="El precio del canal específico gana al de 'Todos'."
-                  >
-                    <option value="all">Todos los canales</option>
-                    <option value="pos">Solo POS</option>
-                    <option value="web">Solo tienda web</option>
-                  </Select>
-                  <MoneyInput label="Precio (MXN)" name="price" id="reg-price" required />
-                </FormGrid>
-                <TextInput
-                  label="Motivo / etiqueta (opcional)"
-                  name="label"
-                  id="reg-label"
-                  maxLength={80}
-                  placeholder="Ajuste por inflación"
-                />
-                <p className="text-xs text-muted">
-                  Cierra el precio regular vigente del mismo canal (valid_to = ahora) y activa el
-                  nuevo. Las ventas pasadas no cambian.
-                </p>
-                <div>
-                  <SubmitButton>Fijar precio</SubmitButton>
-                </div>
-              </ActionForm>
+                costCents={c.cost}
+                suggestedCents={breakdown?.suggested_price_cents ?? null}
+                suggestedRawCents={breakdown?.suggested_raw_cents ?? null}
+                targetMarginBps={target}
+                roundingCents={breakdown?.settings.price_rounding_cents ?? 100}
+              />
             </Card>
             <Card title="Crear promoción">
               <ActionForm

@@ -5,7 +5,8 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Card, Table, Badge, EmptyState } from "@/components/ui";
 import { ActionForm, SubmitButton, ConfirmButton } from "@/components/catalog/action-form";
 import { TextInput, TextArea, Checkbox, FormGrid } from "@/components/catalog/fields";
-import { createCategory, moveCategory, toggleCategory } from "./actions";
+import { CategoryNameCell, CategoryOrderCell } from "@/components/catalog/category-inline";
+import { createCategory, moveCategory, toggleCategory, updateCategoryCell } from "./actions";
 
 export const metadata = { title: "Categorías" };
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function CategoriesPage() {
     <>
       <PageHeader
         title="Categorías"
-        subtitle="Orden en que aparecen en la tienda y el POS. Arrástralas con las flechas."
+        subtitle={`Orden en que aparecen en la tienda y el POS. Muévelas con las flechas${canWrite ? " o edita nombre y orden en línea (clic en la celda)" : ""}.`}
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0">
@@ -50,6 +51,7 @@ export default async function CategoriesPage() {
               <thead>
                 <tr>
                   <th className="w-10">#</th>
+                  <th className="w-24">Orden</th>
                   <th>Categoría</th>
                   <th className="text-right">Productos</th>
                   <th>Estado</th>
@@ -60,6 +62,15 @@ export default async function CategoriesPage() {
                 {rows.map((c, i) => (
                   <tr key={c.id}>
                     <td className="tabular-nums text-muted">{i + 1}</td>
+                    <td>
+                      <CategoryOrderCell
+                        id={c.id}
+                        name={c.name}
+                        order={c.sort_order}
+                        canWrite={canWrite}
+                        action={updateCategoryCell}
+                      />
+                    </td>
                     <td>
                       <div className="flex items-center gap-3">
                         {c.image_url ? (
@@ -72,14 +83,18 @@ export default async function CategoriesPage() {
                         ) : (
                           <div className="size-10 rounded-lg bg-black/5" aria-hidden />
                         )}
-                        <div>
-                          <Link
-                            href={`/categorias/${c.id}`}
-                            className="font-medium hover:underline"
-                          >
-                            {c.name}
-                          </Link>
-                          <div className="text-xs text-muted">/{c.slug}</div>
+                        <div className="min-w-0">
+                          <CategoryNameCell
+                            id={c.id}
+                            name={c.name}
+                            canWrite={canWrite}
+                            action={updateCategoryCell}
+                          />
+                          <div className="px-2 text-xs text-muted">
+                            <Link href={`/categorias/${c.id}`} className="hover:underline">
+                              /{c.slug}
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </td>

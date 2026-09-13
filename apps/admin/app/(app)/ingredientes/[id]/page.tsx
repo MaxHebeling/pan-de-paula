@@ -12,6 +12,9 @@ import {
   type IngredientUsage,
 } from "@/components/catalog/ingredient-price-form";
 import { PURCHASE_UNITS, formatUnitCost } from "@/components/catalog/units";
+import { Formula } from "@/components/catalog/formula";
+import { unitCostFormula } from "@/components/catalog/formula-lines";
+import { loadCostingSettings } from "@/lib/costing";
 import {
   deleteIngredient,
   recordIngredientMovement,
@@ -49,49 +52,52 @@ export default async function IngredientPage({
   if (!ing) notFound();
   const base = ing.base_unit as BaseUnit;
 
-  const [suppliers, prices, movements, usagesRes, unitCostRes] = await Promise.all([
-    db()
-      .selectFrom("suppliers")
-      .select(["id", "name"])
-      .where("is_active", "=", true)
-      .orderBy("name")
-      .execute(),
-    sql<{
-      id: string;
-      valid_from: Date;
-      package_label: string | null;
-      package_qty: string;
-      price_cents: number;
-      unit_cost: string;
-      source: string;
-      supplier_name: string | null;
-      created_by_name: string | null;
-    }>`select p.id, p.valid_from, p.package_label, p.package_qty, p.price_cents, p.unit_cost, p.source, s.name as supplier_name, u.full_name as created_by_name
+  const [suppliers, prices, movements, usagesRes, unitCostRes, { breakdownSettings }] =
+    await Promise.all([
+      db()
+        .selectFrom("suppliers")
+        .select(["id", "name"])
+        .where("is_active", "=", true)
+        .orderBy("name")
+        .execute(),
+      sql<{
+        id: string;
+        valid_from: Date;
+        package_label: string | null;
+        package_qty: string;
+        price_cents: number;
+        unit_cost: string;
+        source: string;
+        supplier_name: string | null;
+        created_by_name: string | null;
+      }>`select p.id, p.valid_from, p.package_label, p.package_qty, p.price_cents, p.unit_cost, p.source, s.name as supplier_name, u.full_name as created_by_name
        from ingredient_prices p left join suppliers s on s.id = p.supplier_id left join staff_users u on u.id = p.created_by
        where p.ingredient_id = ${id} order by p.valid_from desc, p.created_at desc limit 100`.execute(
-      db(),
-    ),
-    sql<{
-      id: number;
-      type: string;
-      qty: string;
-      note: string | null;
-      occurred_at: Date;
-      staff_name: string | null;
-      ref_type: string | null;
-    }>`
+        db(),
+      ),
+      sql<{
+        id: number;
+        type: string;
+        qty: string;
+        note: string | null;
+        occurred_at: Date;
+        staff_name: string | null;
+        ref_type: string | null;
+      }>`
       select m.id, m.type, m.qty, m.note, m.occurred_at, u.full_name as staff_name, m.ref_type
       from ingredient_movements m left join staff_users u on u.id = m.staff_id
       where m.ingredient_id = ${id} order by m.occurred_at desc, m.id desc limit 30`.execute(db()),
-    sql<IngredientUsage>`
+      sql<IngredientUsage>`
       select r.product_id, p.name as product_name, r.yield_qty::float8 as yield_qty, r.labor_cents, r.overhead_cents,
+             r.labor_minutes::float8 as labor_minutes, r.waste_bps,
              coalesce((select sum(o.qty * coalesce(ingredient_unit_cost(o.ingredient_id), 0)) from recipe_items o where o.recipe_id = r.id and o.ingredient_id <> ${id}), 0)::float8 as other_cost,
              ri.qty::float8 as qty_this,
              product_cost_cents(r.product_id) as current_cost_cents
       from recipe_items ri join recipes r on r.id = ri.recipe_id join products p on p.id = r.product_id and p.deleted_at is null
       where ri.ingredient_id = ${id} order by p.name`.execute(db()),
-    sql<{ c: string | null }>`select ingredient_unit_cost(${id}) as c`.execute(db()),
-  ]);
+      sql<{ c: string | null }>`select ingredient_unit_cost(${id}) as c`.execute(db()),
+      loadCostingSettings(),
+    ]);
   const unitCost =
     unitCostRes.rows[0]?.c === null || unitCostRes.rows[0]?.c === undefined
       ? null
@@ -137,6 +143,13 @@ export default async function IngredientPage({
           </Alert>
         </div>
       )}
+      {unitCost !== null && last && (
+        <div className="card mb-4 px-4 py-3">
+          <Formula
+            line={unitCostFormula(last.price_cents, Number(last.package_qty), base, unitCost)}
+          />
+        </div>
+      )}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
           label={`Costo por ${base === "pz" ? "pieza" : base}`}
@@ -175,6 +188,7 @@ export default async function IngredientPage({
                 suppliers={suppliers}
                 defaultSupplierId={ing.supplier_id}
                 usages={usages}
+                settings={breakdownSettings}
                 lastPackage={
                   last ? { qty: Number(last.package_qty), label: last.package_label } : null
                 }

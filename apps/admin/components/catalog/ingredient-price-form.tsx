@@ -4,7 +4,6 @@ import {
   formatMXN,
   formatQty,
   priceChangePct,
-  roundHalfUp,
   toBaseQty,
   toCents,
   type BaseUnit,
@@ -13,33 +12,13 @@ import type { ActionState } from "@/lib/action-state";
 import { PURCHASE_UNITS, formatUnitCost } from "./units";
 import { ActionForm, SubmitButton } from "./action-form";
 import { Checkbox, FormGrid, MoneyInput, Select, TextInput } from "./fields";
+import { impactOf, unitCostFor, type IngredientUsage } from "./ingredient-inline";
+import type { BreakdownSettings } from "./costing-types";
+import { Formula } from "./formula";
+import { fmtCents } from "./formula-lines";
 
-/** Producto que usa el ingrediente, con lo necesario para recalcular su costo en el cliente (espejo de product_cost_impact). */
-export type IngredientUsage = {
-  product_id: string;
-  product_name: string;
-  yield_qty: number;
-  labor_cents: number;
-  overhead_cents: number;
-  other_cost: number; // MXN: suma de las demás líneas (qty × costo unitario vigente)
-  qty_this: number; // cantidad de este ingrediente en la receta (unidad base)
-  current_cost_cents: number | null;
-};
-
-export function unitCostFor(
-  priceCents: number,
-  qty: number,
-  unit: string,
-  base: BaseUnit,
-): number | null {
-  try {
-    const b = toBaseQty(qty, unit, base).qty;
-    if (b <= 0) return null;
-    return priceCents / 100 / b;
-  } catch {
-    return null;
-  }
-}
+export type { IngredientUsage } from "./ingredient-inline";
+export { unitCostFor } from "./ingredient-inline";
 
 export function IngredientPriceForm({
   action,
@@ -49,6 +28,7 @@ export function IngredientPriceForm({
   defaultSupplierId,
   usages,
   lastPackage,
+  settings,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   baseUnit: BaseUnit;
@@ -57,6 +37,7 @@ export function IngredientPriceForm({
   defaultSupplierId: string | null;
   usages: IngredientUsage[];
   lastPackage?: { qty: number; label: string | null } | null;
+  settings: BreakdownSettings;
 }) {
   const units = PURCHASE_UNITS[baseUnit];
   const [price, setPrice] = useState("");
@@ -76,21 +57,9 @@ export function IngredientPriceForm({
       currentUnitCost && currentUnitCost > 0
         ? priceChangePct(Math.round(currentUnitCost * 1_000_000), Math.round(unitCost * 1_000_000))
         : null;
-    const impact = usages
-      .map((u) => {
-        const newCost = roundHalfUp(
-          ((u.other_cost + u.qty_this * unitCost) * 100 + u.labor_cents + u.overhead_cents) /
-            u.yield_qty,
-        );
-        return {
-          ...u,
-          new_cost_cents: newCost,
-          delta: u.current_cost_cents === null ? null : newCost - u.current_cost_cents,
-        };
-      })
-      .filter((u) => u.delta === null || u.delta !== 0);
+    const impact = impactOf(usages, unitCost, settings);
     return { unitCost, baseQty, change, impact };
-  }, [price, qty, unit, baseUnit, currentUnitCost, usages]);
+  }, [price, qty, unit, baseUnit, currentUnitCost, usages, settings]);
 
   const per = baseUnit === "pz" ? "pieza" : baseUnit;
 
@@ -169,14 +138,14 @@ export function IngredientPriceForm({
         {preview ? (
           <>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span>
-                Costo por {per}:{" "}
-                <strong className="tabular-nums">{formatUnitCost(preview.unitCost)}</strong>
-                <span className="text-xs opacity-80">
-                  {" "}
-                  · {formatQty(preview.baseQty, baseUnit)} por empaque
-                </span>
-              </span>
+              <Formula
+                line={{
+                  key: "unit-cost",
+                  label: `Costo por ${per}`,
+                  expr: `${fmtCents(toCents(Number(price)))} ÷ ${formatQty(preview.baseQty, baseUnit)}`,
+                  result: `${formatUnitCost(preview.unitCost)}/${baseUnit}`,
+                }}
+              />
               {preview.change !== null && (
                 <span
                   className={`font-semibold tabular-nums ${preview.change > 0 ? "text-red-d" : preview.change < 0 ? "text-green-d" : ""}`}
@@ -207,8 +176,16 @@ export function IngredientPriceForm({
                           key={u.product_id}
                           className="flex items-center justify-between gap-2 tabular-nums"
                         >
-                          <span className="truncate">{u.product_name}</span>
-                          <span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{u.product_name}</span>
+                            <span
+                              className="block truncate font-mono text-[11px] opacity-70"
+                              title={u.formula}
+                            >
+                              {u.formula}
+                            </span>
+                          </span>
+                          <span className="shrink-0">
                             {u.current_cost_cents === null ? "—" : formatMXN(u.current_cost_cents)}{" "}
                             → <strong>{formatMXN(u.new_cost_cents)}</strong>
                             {u.delta !== null && (
