@@ -55,7 +55,7 @@ export async function productBonuses() {
     is_active: boolean;
   }>`
     select b.product_id, p.name, b.bonus_points, b.is_active
-    from loyalty_product_bonuses b join products p on p.id = b.product_id order by p.name`.execute(
+    from loyalty_product_bonuses b join products p on p.id = b.product_id where p.deleted_at is null order by p.name`.execute(
     db(),
   );
   return r.rows;

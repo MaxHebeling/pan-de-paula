@@ -142,7 +142,14 @@ const rewardSchema = z
     name: z.string().trim().min(2).max(80),
     description: z.string().trim().max(300).optional(),
     kind: z.enum(["discount_pct", "discount_amount", "free_product", "gift"]),
-    points_cost: z.number().int().min(0).max(1_000_000),
+    points_cost: z
+      .number()
+      .int()
+      .min(
+        1,
+        "El costo en puntos debe ser al menos 1 (una recompensa de 0 puntos se podría canjear sin límite; usa un cupón para regalos)",
+      )
+      .max(1_000_000),
     value_bps: z.number().int().min(1).max(10000).optional(),
     value_cents: z.number().int().min(1).optional(),
     product_id: uuid.optional(),

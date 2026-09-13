@@ -1,5 +1,5 @@
 import "server-only";
-import { normalizePhone } from "@pdp/domain";
+import { canonicalPhone, containsPattern } from "@pdp/domain";
 import { db, sql } from "./db";
 import { customerSearchCondition } from "./customers";
 
@@ -37,8 +37,8 @@ export type SearchResults = {
 export async function globalSearch(q: string, limit = 6): Promise<SearchResults> {
   const term = q.trim().slice(0, 80);
   if (term.length < 2) return { q: term, customers: [], orders: [], products: [] };
-  const like = `%${term}%`;
-  const digits = normalizePhone(term).replace(/\D/g, "");
+  const like = containsPattern(term);
+  const digits = canonicalPhone(term).replace(/\D/g, "");
   const d = db();
   const [customers, orders, products] = await Promise.all([
     sql<SearchResults["customers"][number]>`

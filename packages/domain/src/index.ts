@@ -9,3 +9,4 @@ export * from "./cart.ts";
 export * from "./inventory.ts";
 export * from "./validation.ts";
 export * from "./ids.ts";
+export * from "./text.ts";

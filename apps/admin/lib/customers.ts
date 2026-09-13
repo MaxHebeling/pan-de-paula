@@ -1,5 +1,5 @@
 import "server-only";
-import { normalizePhone, isCustomerCode } from "@pdp/domain";
+import { canonicalPhone, containsPattern, isCustomerCode } from "@pdp/domain";
 import { db, sql } from "./db";
 
 export type CustomerRow = {
@@ -34,8 +34,10 @@ export function customerSearchCondition(q: string) {
   const term = q.trim();
   if (!term) return sql`true`;
   if (isCustomerCode(term)) return sql`c.public_code = upper(${term})`;
-  const digits = normalizePhone(term).replace(/\D/g, "");
-  const like = `%${term}%`;
+  // canonicalPhone: "+52 664 215 8380" / "521…" → 10 dígitos (regresión: con +52 no encontraba al cliente)
+  const digits = canonicalPhone(term).replace(/\D/g, "");
+  // Comodines escapados: "%" o "_" ya no devuelven todo el padrón
+  const like = containsPattern(term);
   const parts = [
     sql`c.full_name ilike ${like}`,
     sql`c.email ilike ${like}`,

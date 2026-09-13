@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { csvCell } from "@pdp/domain";
 import type { ActionState } from "@/lib/action-state";
 import {
   marginTone,
@@ -191,7 +192,8 @@ export function CostSheet({
     ];
     const num = (c: number | null | undefined, div = 100) =>
       c === null || c === undefined ? "" : (c / div).toFixed(2);
-    const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    // Todas las celdas entre comillas y protegidas contra inyección de fórmulas al abrir en Excel
+    const esc = (v: string | number) => csvCell(v, /[\s\S]/);
     const lines = visible.map((r) => {
       const b = r.breakdown;
       return [

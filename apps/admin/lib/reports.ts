@@ -1,4 +1,5 @@
 import "server-only";
+import { csvCell } from "@pdp/domain";
 import { db, sql, callFn } from "./db";
 import { todayLocal } from "./format";
 
@@ -280,10 +281,7 @@ export function toCsv(
   columns: Array<{ key: string; label: string }>,
   rows: Array<Record<string, unknown>>,
 ): string {
-  const esc = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : v instanceof Date ? v.toISOString() : String(v);
-    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const esc = (v: unknown) => csvCell(v);
   const head = columns.map((c) => esc(c.label)).join(",");
   const body = rows.map((r) => columns.map((c) => esc(r[c.key])).join(",")).join("\n");
   return "﻿" + head + "\n" + body + "\n";

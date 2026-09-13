@@ -379,3 +379,37 @@ describe("reportes", () => {
     expect(r.total_active).toBe(2);
   });
 });
+
+describe("regresión auditoría: cron de eventos por fecha local del negocio", () => {
+  it("dos corridas el mismo día local pero en días UTC distintos no duplican el cumpleaños", async () => {
+    await truncateAll(db);
+    await sql`update business_settings set timezone = 'America/Tijuana' where id = 1`.execute(db);
+    const c = await createCustomer(db, "Cumple Local", "6640001111");
+    const t = (
+      await sql<{
+        t: string;
+      }>`select (now() at time zone 'America/Tijuana')::date::text as t`.execute(db)
+    ).rows[0]!.t;
+    await sql`update customers set birthday = (${t}::date - interval '30 years')::date where id = ${c.customer_id}`.execute(
+      db,
+    );
+    await sql`select run_customer_events(${t}::date)`.execute(db);
+    // Mueve la primera corrida a una hora del MISMO día local cuyo día UTC difiera del de now():
+    // 09:00 local (= mismo día UTC) o 17:30 local (= día UTC siguiente), la que no coincida con now().
+    await sql`
+      update customer_events e set created_at = x.ts
+      from (
+        select case when ((${t}::date + time '09:00') at time zone 'America/Tijuana')::date <> (now() at time zone 'UTC')::date
+                    then (${t}::date + time '09:00') at time zone 'America/Tijuana'
+                    else (${t}::date + time '17:30') at time zone 'America/Tijuana' end as ts
+      ) x
+      where e.customer_id = ${c.customer_id} and e.kind = 'birthday'`.execute(db);
+    await sql`select run_customer_events(${t}::date)`.execute(db);
+    const n = await sql<{
+      n: number;
+    }>`select count(*)::int as n from customer_events where customer_id = ${c.customer_id} and kind = 'birthday'`.execute(
+      db,
+    );
+    expect(n.rows[0]!.n).toBe(1);
+  });
+});
