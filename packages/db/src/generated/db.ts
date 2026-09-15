@@ -506,6 +506,12 @@ export interface Notifications {
   title: string;
 }
 
+export interface OrderFirstViews {
+  order_id: string;
+  staff_id: string | null;
+  viewed_at: Generated<Timestamp>;
+}
+
 export interface OrderingWindows {
   created_at: Generated<Timestamp>;
   cutoff_time: Generated<string>;
@@ -1015,6 +1021,7 @@ export interface DB {
   loyalty_transactions: LoyaltyTransactions;
   marketing_campaigns: MarketingCampaigns;
   notifications: Notifications;
+  order_first_views: OrderFirstViews;
   order_items: OrderItems;
   order_status_history: OrderStatusHistory;
   ordering_windows: OrderingWindows;
