@@ -6,19 +6,25 @@ import { NavLink } from "./nav-link";
 import { Icon } from "./icon";
 import { GlobalSearch } from "./search/global-search";
 import { NAV_GROUPS, type NavItem } from "@/lib/nav";
+import { CountBadge, useUnseenOrders } from "./orders-badge";
 
 export function Shell({
   items,
   user,
   unread,
+  unseenOrders,
   children,
 }: {
   items: NavItem[];
   user: { name: string; role: string };
   unread: number;
+  /** Pedidos que nadie ha abierto; null si el usuario no puede ver pedidos. */
+  unseenOrders: number | null;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const unseen = useUnseenOrders(unseenOrders ?? 0, unseenOrders !== null);
+  const unseenLabel = `${unseen} ${unseen === 1 ? "pedido sin ver" : "pedidos sin ver"}`;
   const groups = Object.entries(NAV_GROUPS) as Array<[NavItem["group"], string]>;
   const nav = (
     <nav className="flex flex-col gap-4 p-3" aria-label="Principal">
@@ -35,6 +41,7 @@ export function Shell({
                 <NavLink key={i.href} href={i.href} onNavigate={() => setOpen(false)}>
                   <Icon name={i.icon} />
                   <span>{i.label}</span>
+                  {i.href === "/pedidos" && <CountBadge count={unseen} label={unseenLabel} />}
                 </NavLink>
               ))}
             </div>
@@ -58,11 +65,19 @@ export function Shell({
       <div className="flex min-h-dvh flex-col">
         <header className="glass sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line px-3 py-2 md:px-6">
           <button
-            className="btn btn-secondary btn-sm md:hidden"
-            aria-label="Abrir menú"
+            className="btn btn-secondary btn-sm relative md:hidden!"
+            aria-label={unseen > 0 ? `Abrir menú (${unseenLabel})` : "Abrir menú"}
             onClick={() => setOpen(true)}
           >
             <Icon name="☰" size={20} />
+            {unseen > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 rounded-full bg-red px-1.5 text-[10px] font-bold text-white"
+              >
+                {unseen > 99 ? "99+" : unseen}
+              </span>
+            )}
           </button>
           <div className="hidden text-sm text-muted md:block">
             Hola, <span className="font-medium text-ink">{user.name}</span> · {user.role}

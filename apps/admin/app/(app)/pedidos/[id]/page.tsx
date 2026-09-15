@@ -6,6 +6,7 @@ import { db, sql } from "@/lib/db";
 import { whatsappNumber } from "@/lib/ops";
 import { PageHeader, Card, Table, Badge, Money, LinkButton, Alert } from "@/components/ui";
 import { UnreadBadge } from "@/components/ops/unread-badge";
+import { MarkOrderSeen } from "@/components/ops/mark-order-seen";
 import { ActionForm } from "@/components/ops/action-form";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Field } from "@/components/ops/field";
@@ -312,6 +313,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
+      <MarkOrderSeen orderId={o.id} />
       <PageHeader
         title={o.folio}
         subtitle={

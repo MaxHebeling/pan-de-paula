@@ -2,6 +2,7 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { NAV } from "@/lib/nav";
 import { Shell } from "@/components/shell";
+import { countUnseenOrders } from "@/lib/orders-unseen";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }>`select count(*)::int as n from notifications where read_at is null and (staff_id is null or staff_id = ${session.staff.id})`.execute(
     db(),
   );
+  const unseenOrders = hasPermission(session, "orders.read") ? await countUnseenOrders() : null;
   return (
     <Shell
       items={items}
@@ -31,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         role: ROLE_LABEL[session.staff.roleKey] ?? session.staff.roleKey,
       }}
       unread={unread.rows[0]?.n ?? 0}
+      unseenOrders={unseenOrders}
     >
       {children}
     </Shell>

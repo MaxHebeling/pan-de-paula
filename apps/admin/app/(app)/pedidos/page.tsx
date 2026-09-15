@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
+import { UNSEEN_ORDER_SQL } from "@/lib/orders-unseen";
 import { PageHeader, Table, Badge, EmptyState, Money, LinkButton } from "@/components/ui";
 import { UnreadBadge } from "@/components/ops/unread-badge";
 import { Field } from "@/components/ops/field";
@@ -83,9 +84,11 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
     total_cents: number;
     paid_cents: number;
     items: number;
+    unseen: boolean;
   }>`select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.payment_status::text as payment_status, o.fulfillment_type::text as fulfillment_type,
             o.customer_name, o.customer_phone, o.scheduled_for, o.placed_at, o.total_cents, o.paid_cents,
-            (select count(*)::int from order_items i where i.order_id = o.id) as items
+            (select count(*)::int from order_items i where i.order_id = o.id) as items,
+            ${UNSEEN_ORDER_SQL} as unseen
      from orders o
      where (${vista} <> 'abiertos' or o.status = any(${openStatuses}::order_status[]))
        and (${vista} <> 'hoy' or ((o.scheduled_for at time zone (select timezone from business_settings where id = 1))::date = (now() at time zone (select timezone from business_settings where id = 1))::date
@@ -241,6 +244,11 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
                   >
                     {o.folio}
                   </Link>
+                  {o.unseen && (
+                    <span className="ml-2 align-middle">
+                      <Badge tone="red">Nuevo</Badge>
+                    </span>
+                  )}
                   <div className="text-xs text-muted">{fmtDate(o.placed_at, "datetime")}</div>
                 </td>
                 <td>
