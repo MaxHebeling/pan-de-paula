@@ -26,7 +26,7 @@ import { getStoryPhotos } from "@/lib/storyPhotos";
 export const metadata: Metadata = {
   title: "El Pan de Paula · Panadería artesanal",
   description:
-    "Croissants de mantequilla, roles de canela, galletas y pan dulce hechos a mano. Pide en línea y recoge en tu fecha.",
+    "Croissants de mantequilla, kouign-amann, galletas y pan de temporada hechos a mano. Pide en línea y recoge en tu fecha.",
   alternates: { canonical: "/" },
 };
 

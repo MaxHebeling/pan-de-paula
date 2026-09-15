@@ -1,0 +1,35 @@
+Producto,Categoría,Precio,Descripción,Unidad,Activo,Destacado,Orden
+Croissant Natural,Croissants,48.00,"Nuestro clásico croissant estilo francés, elaborado con mantequilla y masa laminada para lograr un interior suave y aireado y un exterior dorado y crujiente.",pieza,sí,no,10
+Docena Mini Croissant Natural,Para compartir,180.00,"12 piezas de la versión mini de nuestro croissant clásico de mantequilla: doraditos, crujientes por fuera y suaves por dentro.",docena,sí,no,10
+Croissant Chocolate Almendra,Croissants,59.00,"Nuestro croissant clásico de mantequilla, cubierto con chocolate a elegir entre leche, oscuro o blanco y terminado con almendras.",pieza,sí,sí,20
+Docena Mini Croissant Surtidos,Para compartir,230.00,"12 mini croissants de mantequilla: 3 naturales y 9 cubiertos con chocolate —3 de leche, 3 oscuros y 3 blancos— terminados con almendras.",docena,sí,no,20
+Croissant S'mores,Croissants,76.00,"Croissant de mantequilla relleno con un toque de Nutella y bombones flameados, terminado con tiras de chocolate, galleta graham y trozos de chocolate Hershey’s.",pieza,sí,sí,30
+Croissant Pistache,Croissants,100.00,"Croissant de mantequilla relleno de crema italiana de pistache, cubierto con chocolate blanco y terminado con trozos de pistache.",pieza,sí,sí,40
+Croissant Dubai,Croissants,115.00,"Croissant de mantequilla relleno de crema de pistache y kataifi crujiente, cubierto con chocolate oscuro y terminado con trozos de pistache y kataifi.",pieza,sí,sí,50
+Croissant Magnum,Croissants,120.00,Nuestra versión del croissant viral: un croissant clásico con una paleta Magnum Clásica en su interior. Crujiente en cada mordida.,pieza,sí,no,60
+Croissant Pumpkin Spice,Temporada,90.00,"Croissant de temporada con doble horneado, relleno de calabaza y especias estilo pay. Terminado con tiras de chocolate blanco y semillas de calabaza.",pieza,sí,no,10
+Croissant de Reyes,Temporada,,"Nuestra versión de temporada inspirada en la tradicional Rosca de Reyes: croissant de mantequilla con su característica cubierta dulce y suave, terminado con ate de fruta, cereza e higos de Valle de Guadalupe.",pieza,no,no,20
+Crookie,Croissants,97.00,"La combinación de croissant y galleta con chispas de chocolate: suave y fundente por dentro, crujiente y doradita por fuera.",pieza,sí,no,70
+Croncha,Temporada,76.00,"Nuestro croissant se viste de concha. Una pieza de temporada inspirada en la panadería tradicional mexicana, con la clásica cubierta dulce y suave de las conchas. Disponible en cocoa o vainilla durante la temporada de Fiestas Patrias.",pieza,sí,no,30
+Chocolatine,Croissants,59.00,"A.k.a. Pain au chocolat. Un clásico de la panadería francesa: con dos barras de chocolate oscuro en su interior, terminado con almendras tostadas.",pieza,sí,no,80
+Docena Mini Chocolatine,Para compartir,365.00,"12 mini chocolatines de mantequilla, cada uno con chocolate oscuro en su interior y terminados con almendras tostadas.",docena,sí,no,30
+Scrudel Manzana,Croissants,70.00,"Nuestra versión del clásico strudel de manzana, hecho con masa de croissant —por eso, Scrudel con C—. Relleno de manzana verde especiada y terminado con azúcar y canela para lograr una cubierta dorada y crujiente.",pieza,sí,no,90
+Trenza de Manzana,Para compartir,390.00,"Una gran trenza de masa de croissant rellena de manzana verde especiada, con azúcar y canela que se caramelizan al hornearse. Dorada, crujiente y hecha para compartir entre 6–8 personas.",pieza,sí,no,40
+Cruffin Nutella,Croissants,70.00,"Un híbrido entre croissant y muffin: masa laminada de mantequilla horneada en forma de muffin, con Nutella entre sus capas y un centro relleno de Nutella.",pieza,sí,no,100
+Kouign-amann,Kouign-amann,36.00,"Clásico de la panadería bretona elaborado con masa laminada de mantequilla y azúcar, que al hornearse se carameliza para crear un exterior dorado y crujiente con un centro suave y mantequilloso.",pieza,sí,no,10
+Kouign-amann Churro,Kouign-amann,48.00,"Inspirado en el churro: kouign-amann de mantequilla espolvoreado con azúcar y canela y relleno de dulce de leche. Crujiente y caramelizado por fuera, suave por dentro.",pieza,sí,no,20
+Kouign-amann Guayaba,Temporada,,"Una versión de temporada de nuestro kouign-amann: masa laminada de mantequilla y azúcar, caramelizada al hornearse y rellena con compota de guayaba natural.",pieza,no,no,40
+Croissant Cinnamon Roll,Croissants,70.00,"Nuestra versión del clásico rol de canela, elaborado con masa de croissant de mantequilla, azúcar y canela entre sus capas, y terminado con frosting de queso crema.",pieza,sí,no,110
+Pan de Muerto,Temporada,53.00,"Suave, esponjoso y profundamente aromático a azahar, terminado con mantequilla y una generosa capa de azúcar. Un pan de temporada hecho para celebrar nuestras tradiciones y recordar con amor a quienes extrañamos.",pieza,sí,no,50
+Docena Mini Pan de Muerto,Temporada,252.00,"12 piezas de nuestro Pan de Muerto tradicional en versión mini: suaves, esponjosas y aromáticas a azahar, terminadas con mantequilla y azúcar. Una docena para compartir, regalar y mantener viva una de nuestras tradiciones más bonitas.",docena,sí,no,60
+Rosca de Reyes,Temporada,,,pieza,no,no,70
+Galleta Chispas,Galletas,54.00,"Galleta de 120 g con chispas de chocolate, dorada por fuera y suave por dentro. Un clásico que nunca falla.",pieza,sí,no,10
+Galleta Birthday Cake,Galletas,54.00,"Galleta de 120 g estilo birthday cake, con chocolate blanco y sprinkles de colores. Suave por dentro, doradita por fuera y con sabor a pastel de cumpleaños.",pieza,sí,no,20
+Galleta S'mores,Galletas,65.00,"Galleta de 120 g inspirada en el clásico s’more, con chocolate, galleta graham y bombón. Suave y chocolatosa con bombón flameado y todos los sabores de un s’more en una galleta.",pieza,sí,no,30
+Galleta Kinder Bueno,Galletas,76.00,,pieza,sí,no,40
+Galleta M&M's,Galletas,,,pieza,no,no,50
+Galleta Pumpkin Spice,Temporada,60.00,"Galleta de temporada elaborada con puré de calabaza y una mezcla de especias cálidas, con chispas de chocolate blanco. Suave, especiada y con todos los sabores del otoño en cada mordida.",pieza,sí,no,80
+Docena Mini Galletas,Para compartir,,,docena,no,no,50
+Coricos,Tradicionales,,,pieza,no,no,10
+Puerquitos,Tradicionales,,,pieza,no,no,20
+Polvorones,Tradicionales,,,pieza,no,no,30

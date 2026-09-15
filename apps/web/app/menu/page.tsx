@@ -5,7 +5,7 @@ import { MenuBrowser } from "./MenuBrowser";
 export const metadata: Metadata = {
   title: "Menú",
   description:
-    "Todo nuestro pan artesanal: croissants, roles, galletas, pan dulce, brownies y especialidades de temporada.",
+    "Todo nuestro pan artesanal: croissants, kouign-amann, galletas, docenas para compartir y especialidades de temporada.",
   alternates: { canonical: "/menu" },
 };
 

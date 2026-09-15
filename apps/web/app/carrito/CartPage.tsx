@@ -190,7 +190,7 @@ export function CartPage() {
               value={cart.notes}
               onChange={(e) => cart.setNotes(e.target.value)}
               maxLength={500}
-              placeholder="Ej. sin nuez en el brownie, es para regalo…"
+              placeholder="Ej. es para regalo, sin almendras…"
             />
             <p className="help">{cart.notes.length}/500</p>
           </div>
