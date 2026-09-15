@@ -1,0 +1,10 @@
+{
+  "$comment": "Precios de la hoja real para productos que ya existían (cierra el precio anterior y abre el nuevo).",
+  "entity": "prices",
+  "columns": {
+    "product": { "from": "Producto", "transform": "text", "required": true },
+    "price_cents": { "from": "Precio", "transform": "money", "required": true },
+    "channel": { "from": "Canal", "transform": "text", "default": "all" }
+  },
+  "options": { "default_price_channel": "all" }
+}

@@ -1,0 +1,15 @@
+{
+  "$comment": "Catálogo real 2026-09-15 (packages/db/import/catalogo). Categorías ya creadas por el paso 1; los parecidos a productos demo se crean igual (los demo quedaron inactivos).",
+  "entity": "products",
+  "columns": {
+    "name": { "from": "Producto", "transform": "text", "required": true },
+    "category": { "from": "Categoría", "transform": "text" },
+    "price_cents": { "from": "Precio", "transform": "money" },
+    "short_description": { "from": "Descripción", "transform": "text" },
+    "unit_label": { "from": "Unidad", "transform": "text" },
+    "is_active": { "from": "Activo", "transform": "bool" },
+    "is_featured": { "from": "Destacado", "transform": "bool" },
+    "sort_order": { "from": "Orden", "transform": "int" }
+  },
+  "options": { "similarity_threshold": 0.7, "similar_policy": "create" }
+}
