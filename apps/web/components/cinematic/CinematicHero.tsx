@@ -71,8 +71,8 @@ export function CinematicHero({ status, next }: { status: OpenStatus; next: Next
 
           <div className="cin-hero-body">
             <p className="cin-hero-copy hero-sub">
-              Croissants, roles, galletas y pan dulce hechos a mano. Pides en línea, eliges tu fecha
-              y lo horneamos para ti.
+              Croissants, kouign-amann, galletas y pan de temporada hechos a mano. Pides en línea,
+              eliges tu fecha y lo horneamos para ti.
             </p>
             <div className="cin-hero-actions hero-cta">
               <CinLink href="/menu" magnetic testId="cta-menu">

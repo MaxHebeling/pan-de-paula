@@ -14,13 +14,13 @@ const PISTACHIO: EditorialPhoto = {
 };
 const ALMOND: EditorialPhoto = {
   src: "/editorial/almond-original.webp",
-  alt: "Croissant de almendra con glaseado y láminas de almendra",
+  alt: "Croissant Chocolate Almendra cubierto de chocolate blanco y almendras",
   width: 1600,
   height: 1200,
 };
 export const SMORES: EditorialPhoto = {
   src: "/editorial/smores-original.webp",
-  alt: "Croissant artesanal con chocolate, galleta y malvavisco",
+  alt: "Croissant S'mores con chocolate, galleta graham y bombón flameado",
   width: 1600,
   height: 1200,
 };
@@ -41,13 +41,13 @@ export const HERO_SQUARE: EditorialPhoto = {
 /** Por slug de producto. */
 export const PRODUCT_PHOTOS: Record<string, EditorialPhoto> = {
   "croissant-dubai": PISTACHIO,
-  "croissant-almendra": ALMOND,
+  "croissant-chocolate-almendra": ALMOND,
+  "croissant-s-mores": SMORES,
 };
 
 /** Por slug de categoría (se usa si la categoría no tiene `image_url`). */
 export const CATEGORY_PHOTOS: Record<string, EditorialPhoto> = {
   croissants: ALMOND,
-  dubai: PISTACHIO,
 };
 
 /** Foto de un producto: la suya (`product_images`) o la editorial que le corresponde. */

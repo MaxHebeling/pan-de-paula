@@ -6,7 +6,7 @@ const STEPS = [
   {
     number: "01",
     title: "Elige tu pan",
-    body: "Arma tu pedido desde el menú: croissants, roles, galletas y más.",
+    body: "Arma tu pedido desde el menú: croissants, kouign-amann, galletas y más.",
   },
   {
     number: "02",

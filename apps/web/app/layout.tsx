@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: "El Pan de Paula · Panadería artesanal", template: "%s · El Pan de Paula" },
   description:
-    "Panadería artesanal. Croissants, galletas, roles y pan dulce recién horneado. Pide en línea y recoge en tienda en tu fecha.",
+    "Panadería artesanal. Croissants, kouign-amann, galletas y pan de temporada recién horneados. Pide en línea y recoge en tienda en tu fecha.",
   applicationName: "El Pan de Paula",
   openGraph: { type: "website", locale: "es_MX", siteName: "El Pan de Paula" },
   twitter: { card: "summary_large_image" },
