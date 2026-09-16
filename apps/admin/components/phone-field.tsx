@@ -32,6 +32,8 @@ const NO_JS_HINT = "Escribe tu número sin el prefijo del país.";
 type Props = {
   /** Nombre del campo del número. El país viaja en `<name>_country`. */
   name?: string;
+  /** id del input del número; por defecto igual a `name` (los formularios ya usaban `#phone`). */
+  id?: string;
   label?: string;
   required?: boolean;
   /** Teléfono ya guardado (canónico): se reparte solo en país + número nacional. */
@@ -56,6 +58,7 @@ type Props = {
  */
 export function PhoneField({
   name = "phone",
+  id,
   label = "Teléfono",
   required,
   storedValue,
@@ -66,7 +69,7 @@ export function PhoneField({
   onChange,
 }: Props) {
   const uid = useId();
-  const inputId = `${uid}-phone`;
+  const inputId = id ?? name;
   const helpId = `${uid}-phone-help`;
   const initial = storedValue
     ? splitStoredPhone(storedValue)
@@ -104,17 +107,23 @@ export function PhoneField({
     trigger.current?.focus();
   };
 
-  /** Si pegan el número completo en internacional, el selector se mueve solo al país que toca. */
+  /**
+   * Si pegan (o el navegador autocompleta) el número completo en internacional, el selector se mueve
+   * solo al país que toca y el campo se queda con el número nacional. Solo al pegar o al salir del
+   * campo: a mitad de teclear "+52 1 664…" un prefijo parcial podría parecer otro número válido.
+   */
+  const detect = (raw: string): boolean => {
+    if (!/^\s*(\+|00)/.test(raw)) return false;
+    const r = parsePhone(country.iso, raw);
+    if (!r.ok) return false;
+    setCountry(r.country);
+    setNational(r.national);
+    emit(r.country, r.national);
+    return true;
+  };
   const typed = (raw: string) => {
-    if (/^\s*(\+|00)/.test(raw)) {
-      const r = parsePhone(country.iso, raw);
-      if (r.ok) {
-        setCountry(r.country);
-        setNational(r.national);
-        emit(r.country, r.national);
-        return;
-      }
-    }
+    const pasted = raw.length - national.length > 1;
+    if (pasted && detect(raw)) return;
     setNational(raw);
     emit(country, raw);
   };
@@ -216,6 +225,7 @@ export function PhoneField({
             maxLength={24}
             value={national}
             onChange={(e) => typed(e.target.value)}
+            onBlur={(e) => detect(e.target.value)}
             placeholder={enhanced ? country.example : undefined}
             aria-describedby={helpId}
             data-testid={testId}

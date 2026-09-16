@@ -1,14 +1,32 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createDb, sql, type Database } from "@pdp/db";
 
 /**
  * Campo de teléfono con país en el sitio público.
  *
  * Regla de almacenamiento: México se guarda con 10 dígitos y el resto del mundo en E.164. Aquí se
- * comprueba por la UI (sin tocar la base) que el país viaja al servidor, que el número extranjero
- * queda guardado y se vuelve a encontrar, y que el formulario funciona igual sin JavaScript.
+ * comprueba por la UI que el país viaja al servidor, que el número extranjero queda guardado y se
+ * vuelve a encontrar, y que el formulario funciona igual sin JavaScript.
+ *
+ * Requiere DATABASE_URL apuntando a la MISMA base que el sitio (migrada + seed), solo para vaciar
+ * `rate_limits` antes de empezar: `audit-web.spec.ts` agota a propósito la cuota de "ya soy cliente"
+ * desde la misma IP y, sin esto, la búsqueda responde "demasiados intentos" en la suite completa.
  */
 
 const CART_KEY = "pdp.cart.v1";
+
+let db: Database;
+let pool: { end: () => Promise<void> };
+
+test.beforeAll(async () => {
+  if (!process.env.DATABASE_URL) throw new Error("Falta DATABASE_URL para la prueba de teléfonos");
+  ({ db, pool } = createDb({ connectionString: process.env.DATABASE_URL, ssl: false, max: 2 }));
+  await sql`truncate rate_limits`.execute(db);
+});
+test.afterAll(async () => {
+  await db.destroy();
+  await pool.end().catch(() => {});
+});
 
 /** Número estadounidense único por corrida (10 dígitos nacionales). */
 const usNumber = (salt: number) => `6195${String(Date.now()).slice(-5)}${salt}`;

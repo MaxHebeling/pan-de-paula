@@ -371,6 +371,7 @@ export function CheckoutForm({
               )}
             </div>
             <PhoneField
+              id="phone"
               name="customer_phone"
               label="Teléfono (WhatsApp)"
               required
