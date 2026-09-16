@@ -77,6 +77,10 @@ export const cartStore = {
           },
     );
   },
+  /** Sustituye las líneas por las ya reconciliadas con el servidor (precios y disponibilidad vigentes). */
+  replaceLines(lines: CartLine[]) {
+    update((s) => ({ ...s, lines }));
+  },
   remove(productId: string) {
     update((s) => ({ ...s, lines: s.lines.filter((l) => l.productId !== productId) }));
   },

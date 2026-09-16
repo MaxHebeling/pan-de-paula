@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useState } from "react";
 import { QuantityStepper } from "@/components/AddToCart";
+import { CartNotice } from "@/components/CartNotice";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/lib/cart/CartProvider";
+import { useCartRevalidation } from "@/lib/cart/useCartRevalidation";
 import { money } from "@/lib/format";
 
 export function CartPage() {
   const cart = useCart();
+  // Una sola revalidación al cargar: precios y disponibilidad vigentes del servidor.
+  const { changes, dismiss } = useCartRevalidation();
   const [code, setCode] = useState("");
 
   if (!cart.hydrated) {
@@ -24,6 +28,7 @@ export function CartPage() {
     return (
       <div className="container-x py-14">
         <h1 className="display text-4xl">Tu carrito</h1>
+        <CartNotice changes={changes} onDismiss={dismiss} className="mt-6" />
         <div className="card mt-8 p-10 text-center">
           <p className="font-display text-2xl text-ink">Aún no hay pan aquí</p>
           <p className="mt-2 text-ink-2">Elige algo del menú y lo horneamos para tu fecha.</p>
@@ -38,6 +43,7 @@ export function CartPage() {
   return (
     <div className="container-x py-10 sm:py-14">
       <h1 className="display text-4xl">Tu carrito</h1>
+      <CartNotice changes={changes} onDismiss={dismiss} className="mt-6" />
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
         <ul className="card divide-y divide-line" data-testid="cart-lines">
           {cart.lines.map((l) => (

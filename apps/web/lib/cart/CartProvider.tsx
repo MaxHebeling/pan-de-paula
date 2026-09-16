@@ -87,8 +87,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  // El descuento depende del contenido: al cambiar líneas se revalida (con pequeño debounce) en el servidor.
-  const linesKey = state.lines.map((l) => `${l.productId}:${l.qty}`).join("|");
+  // El descuento depende del contenido y de los precios: al cambiar líneas (o al reconciliarse un precio
+  // con el servidor) se revalida con un pequeño debounce.
+  const linesKey = state.lines.map((l) => `${l.productId}:${l.qty}:${l.unitPriceCents}`).join("|");
   const couponCode = state.coupon?.code ?? null;
   const customerLookup = state.customerLookup;
   useEffect(() => {
