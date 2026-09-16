@@ -295,6 +295,7 @@ export function ProductionBoard({
                   </div>
                   <form
                     className="flex flex-wrap gap-2"
+                    aria-label={`Otra cantidad de ${p.name}`}
                     onSubmit={(e) => {
                       e.preventDefault();
                       produce(p, Number(manual[p.id] ?? ""));
@@ -307,7 +308,7 @@ export function ProductionBoard({
                       max={9999}
                       step={1}
                       placeholder="Otra cantidad"
-                      className="input min-h-12 w-full sm:w-auto sm:flex-1"
+                      className="input min-h-12 w-full"
                       value={manual[p.id] ?? ""}
                       onChange={(e) => setManual((m) => ({ ...m, [p.id]: e.target.value }))}
                       disabled={!canWrite}
@@ -316,19 +317,17 @@ export function ProductionBoard({
                     />
                     <button
                       type="submit"
-                      className="btn btn-secondary min-h-12 flex-1 px-4 sm:flex-none"
+                      className="btn btn-secondary min-h-12 flex-1 px-4"
                       disabled={!canManualAdd}
-                      aria-label={`Registrar la cantidad escrita de ${p.name}`}
                       data-testid="manual-add"
                     >
                       Registrar
                     </button>
                     <button
                       type="button"
-                      className="btn btn-danger min-h-12 flex-1 px-4 sm:flex-none"
+                      className="btn btn-danger min-h-12 flex-1 px-4"
                       onClick={() => reduce(p, manualQty)}
                       disabled={!canManualSub}
-                      aria-label={`Restar la cantidad escrita de ${p.name}`}
                       title={
                         canManualAdd && !canManualSub
                           ? "No puedes restar más de lo producido hoy"
