@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { customerRegistrationWithEmailSchema, phoneMX, requiredEmailSchema } from "@pdp/domain";
+import { customerRegistrationWithEmailSchema, emailSchema, phoneMX } from "@pdp/domain";
 import { createCustomerAccessToken } from "@pdp/auth/customer";
 import { isEmailConfigured, sendPortalAccessEmail } from "@pdp/integrations";
 import { requireSession, clientIp } from "@/lib/auth";
@@ -73,7 +73,10 @@ const updateSchema = z.object({
   id: uuid,
   full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
   phone: phoneMX.optional().or(z.literal("").transform(() => undefined)),
-  email: requiredEmailSchema,
+  // En la edición el correo es opcional a nivel de forma: si el cliente YA tenía correo se exige más
+  // abajo (no se puede borrar), y si es un cliente histórico sin correo se puede guardar el resto sin
+  // quedar bloqueado. El alta sí lo exige siempre.
+  email: emailSchema.optional().or(z.literal("").transform(() => undefined)),
   birthday: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -100,6 +103,14 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   const d = parsed.data;
+  // Un cliente que ya tiene correo no puede quedarse sin él: es su acceso al portal.
+  const actual = await sql<{ email: string | null }>`
+    select email::text as email from customers where id = ${d.id} and deleted_at is null`.execute(
+    db(),
+  );
+  if (!actual.rows[0]) return { error: "Ese cliente ya no existe." };
+  if (actual.rows[0].email && !d.email)
+    return { error: "El correo electrónico es obligatorio: es el acceso del cliente a su portal." };
   try {
     await withStaff(db(), s.staff.id, (trx) =>
       sql`update customers set full_name = ${d.full_name}, phone = ${d.phone ?? null}, email = ${d.email ?? null},
