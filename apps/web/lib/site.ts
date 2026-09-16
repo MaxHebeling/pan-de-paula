@@ -179,6 +179,15 @@ export function digits(s: string | null | undefined): string | null {
   return d.length === 10 ? `52${d}` : d;
 }
 
+/**
+ * Enlace al perfil de Instagram a partir del handle centralizado (`business_settings.instagram_handle`,
+ * editable en el CRM → Configuración). Único lugar donde se arma la URL: nunca se escribe el handle a mano.
+ */
+export function instagramUrl(handle: string | null | undefined): string | null {
+  const h = handle?.trim().replace(/^@/, "");
+  return h ? `https://www.instagram.com/${h}/` : null;
+}
+
 export function whatsappLink(b: Business, text?: string): string | null {
   const d = digits(b.whatsapp ?? b.phone);
   if (!d) return null;

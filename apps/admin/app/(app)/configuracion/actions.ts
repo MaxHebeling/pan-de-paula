@@ -31,12 +31,17 @@ const businessSchema = z.object({
     .max(254)
     .nullable()
     .or(z.literal("").transform(() => null)),
+  // Handle de Instagram sin "@". Instagram permite letras, números, punto y guion bajo (máx. 30),
+  // así que "el.pandepaula" es válido; se rechaza cualquier otra cosa (URLs, espacios, etc.).
   instagram_handle: z
     .string()
     .trim()
     .max(40)
     .nullable()
-    .transform((v) => (v ? v.replace(/^@/, "") : v)),
+    .transform((v) => (v ? v.replace(/^@/, "") : v))
+    .refine((v) => !v || /^[A-Za-z0-9._]{1,30}$/.test(v), {
+      message: "Usuario de Instagram inválido: solo letras, números, punto y guion bajo",
+    }),
   timezone: z.string().trim().min(3).max(60),
   tax_rate_bps: z.number().int().min(0).max(10000),
   prices_include_tax: z.boolean(),

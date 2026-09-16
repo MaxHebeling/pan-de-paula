@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fullAddress, getBusiness, whatsappLink } from "@/lib/site";
+import { fullAddress, getBusiness, instagramUrl, whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Ubicación",
@@ -11,6 +11,7 @@ export default async function LocationPage() {
   const business = await getBusiness();
   const address = fullAddress(business);
   const wa = whatsappLink(business, "Hola, ¿me comparten la ubicación de la panadería?");
+  const ig = instagramUrl(business.instagramHandle);
   const points = business.pickupPoints;
   const mapEmbed = business.policies.map_embed_url;
   return (
@@ -74,11 +75,11 @@ export default async function LocationPage() {
                 </a>
               </li>
             )}
-            {business.instagramHandle && (
+            {ig && (
               <li>
                 Instagram:{" "}
                 <a
-                  href={`https://www.instagram.com/${business.instagramHandle}/`}
+                  href={ig}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sage underline"

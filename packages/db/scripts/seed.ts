@@ -31,7 +31,7 @@ try {
   }
 
   // ── Negocio ──
-  await q(`update business_settings set name='El Pan de Paula', tagline='Boulangerie · Made with love', instagram_handle=coalesce(instagram_handle,'elpandepaula'),
+  await q(`update business_settings set name='El Pan de Paula', tagline='Boulangerie · Made with love', instagram_handle=coalesce(instagram_handle,'el.pandepaula'),
            timezone=coalesce(timezone,'America/Tijuana') where id=1`);
   await q(`insert into pickup_points(name, address, is_default, sort_order) select 'Panadería (mostrador)', 'Dirección por configurar', true, 0
            where not exists (select 1 from pickup_points)`);
