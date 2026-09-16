@@ -162,7 +162,7 @@ describe("register_customer y find_customer", () => {
     }>`select phone, email from customers where id = ${a.customer_id}`.execute(db);
     expect(row.rows[0]).toEqual({ phone: "6641234567", email: "ana@example.com" });
     const b = await callFn<{ customer_id: string; created: boolean }>(db, "register_customer", [
-      JSON.stringify({ full_name: "Otra", phone: "6641234567" }),
+      JSON.stringify({ full_name: "Otra", phone: "6641234567", allow_without_email: true }),
     ]);
     expect(b).toMatchObject({ customer_id: a.customer_id, created: false });
     const c = await callFn<{ customer_id: string; created: boolean }>(db, "register_customer", [

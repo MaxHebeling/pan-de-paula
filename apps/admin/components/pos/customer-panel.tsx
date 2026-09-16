@@ -25,7 +25,7 @@ export function CustomerPanel({
   const [mode, setMode] = useState<"search" | "new">("search");
   const [scanning, setScanning] = useState(false);
   const canScan = useSyncExternalStore(noopSubscribe, hasBarcodeDetector, () => false);
-  const [form, setForm] = useState({ full_name: "", phone: "" });
+  const [form, setForm] = useState({ full_name: "", phone: "", email: "" });
   const inputRef = useRef<HTMLInputElement>(null);
 
   const search = useCallback(
@@ -85,7 +85,7 @@ export function CustomerPanel({
       }
       if (r.data.customer) {
         onSelect(r.data.customer);
-        setForm({ full_name: "", phone: "" });
+        setForm({ full_name: "", phone: "", email: "" });
         setMode("search");
       }
     } catch (e) {
@@ -254,6 +254,18 @@ export function CustomerPanel({
             className="input min-h-11"
             inputMode="tel"
             required
+          />
+          {/* Opcional a propósito: en mostrador no se frena la venta por el correo (ver migración 0043).
+              Si el cliente lo da aquí, ya puede entrar a su portal sin pasar por el sitio. */}
+          <input
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="Correo (opcional, abre su portal)"
+            aria-label="Correo del cliente"
+            className="input min-h-11"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
           />
           <button className="btn btn-primary min-h-11" disabled={loading}>
             {loading ? "Guardando…" : "Registrar y usar"}

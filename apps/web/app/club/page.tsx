@@ -39,7 +39,10 @@ export default async function ClubPage() {
           <Link href="/unete" className="btn btn-primary btn-lg">
             Quiero mi tarjeta
           </Link>
-          <Link href="/menu" className="btn btn-secondary btn-lg">
+          <Link href="/portal/entrar" className="btn btn-secondary btn-lg">
+            Ya soy del club
+          </Link>
+          <Link href="/menu" className="btn btn-ghost btn-lg">
             Ver menú
           </Link>
         </div>

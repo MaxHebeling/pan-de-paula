@@ -109,10 +109,12 @@ export const customers: EntityHandler = {
         key: `row-${mr.rowNumber}`,
         rows: [row],
         apply: async (trx) => {
+          // Excepción documentada (0043): los clientes históricos del Sheets se importan tal cual,
+          // muchos sin correo. Se conservan intactos y el CRM puede completarlos después.
           const r = await callFn<{ customer_id: string; created: boolean }>(
             trx,
             "register_customer",
-            [JSON.stringify(normalized)],
+            [JSON.stringify({ ...normalized, allow_without_email: true })],
           );
           if (r.created)
             existing.push({ id: r.customer_id, full_name: name, phone, email, public_code: "" });

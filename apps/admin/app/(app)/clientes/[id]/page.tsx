@@ -16,6 +16,7 @@ import {
   ORDER_STATUS_LABELS,
 } from "@/lib/customers";
 import { ActionForm } from "@/components/customers/action-form";
+import { PortalLinkButton } from "@/components/customers/portal-link";
 import {
   adjustPointsAction,
   redeemRewardAction,
@@ -24,6 +25,7 @@ import {
   deleteAddressAction,
   setMarketingConsentAction,
   markEventHandledAction,
+  generatePortalLinkAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -219,6 +221,20 @@ export default async function CustomerPage({
                 </Badge>
               </div>
             </div>
+          </Card>
+
+          <Card title="Acceso a su cuenta en el sitio">
+            {canWrite ? (
+              <PortalLinkButton
+                action={generatePortalLinkAction}
+                customerId={c.id}
+                hasEmail={Boolean(c.email)}
+              />
+            ) : (
+              <p className="text-sm text-muted">
+                Solo quien pueda editar clientes genera enlaces de acceso.
+              </p>
+            )}
           </Card>
 
           <Card title="Nivel y progreso">

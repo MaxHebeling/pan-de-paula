@@ -71,7 +71,7 @@ test.describe("regresión auditoría 360°: la búsqueda respeta permisos", () =
                   must_change_password = false, failed_logins = 0, locked_until = null, deleted_at = null`.execute(
         db,
       );
-      await sql`select register_customer(${JSON.stringify({ full_name: `Zulema Permisos ${stamp}`, phone: `664${stamp}` })}::jsonb)`.execute(
+      await sql`select register_customer(${JSON.stringify({ full_name: `Zulema Permisos ${stamp}`, phone: `664${stamp}`, allow_without_email: true })}::jsonb)`.execute(
         db,
       );
     } finally {

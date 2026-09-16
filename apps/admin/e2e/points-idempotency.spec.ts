@@ -26,7 +26,7 @@ test("regresión auditoría 360°: doble envío del ajuste de puntos suma una so
   try {
     const r = await sql<{
       r: { customer_id: string };
-    }>`select register_customer(${JSON.stringify({ full_name: `Puntos Doble ${stamp}`, phone: `663${stamp}` })}::jsonb) as r`.execute(
+    }>`select register_customer(${JSON.stringify({ full_name: `Puntos Doble ${stamp}`, phone: `663${stamp}`, allow_without_email: true })}::jsonb) as r`.execute(
       db,
     );
     id = r.rows[0]!.r.customer_id;

@@ -13,6 +13,7 @@
     "test:e2e": "playwright test --pass-with-no-tests"
   },
   "dependencies": {
+    "@pdp/auth": "workspace:*",
     "@pdp/db": "workspace:*",
     "@pdp/domain": "workspace:*",
     "@pdp/integrations": "workspace:*",

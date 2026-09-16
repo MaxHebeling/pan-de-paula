@@ -360,12 +360,17 @@ export async function createOrderAction(_prev: FormState, form: FormData): Promi
     orderId = await withStaff(db(), session.staff.id, async (trx) => {
       let customerId = p.customer_mode === "existing" ? p.customer_id : undefined;
       if (p.customer_mode === "new") {
+        // Excepcion documentada al correo obligatorio (migracion 0043): aqui lo que se esta
+        // capturando es un PEDIDO (mostrador o telefono), no un alta del club. Bloquear la captura
+        // del pedido por falta de correo costaria ventas; el campo de correo esta en el formulario y
+        // si el cliente lo da, queda listo para entrar a su portal.
         const c = await callFn<{ customer_id: string }>(trx, "register_customer", [
           JSON.stringify({
             full_name: p.customer_name,
             phone: p.customer_phone,
             email: p.customer_email,
             source: "admin",
+            allow_without_email: true,
           }),
         ]);
         customerId = c.customer_id;

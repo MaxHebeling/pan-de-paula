@@ -105,6 +105,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pdp/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@pdp/db':
         specifier: workspace:*
         version: link:../../packages/db

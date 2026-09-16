@@ -364,8 +364,15 @@ export const orders: EntityHandler = {
               null;
             if (cached) customerId = cached;
             else {
+              // Excepción documentada (0043): venta histórica; el correo casi nunca viene en el Sheets.
               const r = await callFn<{ customer_id: string }>(trx, "register_customer", [
-                JSON.stringify({ full_name: customerName, phone, email, source: "import" }),
+                JSON.stringify({
+                  full_name: customerName,
+                  phone,
+                  email,
+                  source: "import",
+                  allow_without_email: true,
+                }),
               ]);
               customerId = r.customer_id;
               if (phone) registeredInRun.set(phone, customerId);

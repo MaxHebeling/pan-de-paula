@@ -227,6 +227,18 @@ export interface Coupons {
   value_cents: number | null;
 }
 
+export interface CustomerAccessTokens {
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  ip: string | null;
+  requested_by: Generated<string>;
+  staff_id: string | null;
+  token_hash: string;
+  used_at: Timestamp | null;
+}
+
 export interface CustomerAddresses {
   city: string | null;
   created_at: Generated<Timestamp>;
@@ -276,6 +288,18 @@ export interface Customers {
   total_orders: Generated<number>;
   total_spent_cents: Generated<Int8>;
   updated_at: Generated<Timestamp>;
+}
+
+export interface CustomerSessions {
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  ip: string | null;
+  last_seen_at: Generated<Timestamp>;
+  revoked_at: Timestamp | null;
+  token_hash: string;
+  user_agent: string | null;
 }
 
 export interface DomainEvents {
@@ -1014,8 +1038,10 @@ export interface DB {
   costing_settings: CostingSettings;
   coupon_redemptions: CouponRedemptions;
   coupons: Coupons;
+  customer_access_tokens: CustomerAccessTokens;
   customer_addresses: CustomerAddresses;
   customer_events: CustomerEvents;
+  customer_sessions: CustomerSessions;
   customers: Customers;
   domain_events: DomainEvents;
   feature_flags: FeatureFlags;

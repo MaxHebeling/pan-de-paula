@@ -187,13 +187,17 @@ describe("normalize_mx_phone + register_customer + find_customer", () => {
 
   it("registrar con +52 reutiliza al cliente de 10 dígitos (y viceversa); email en mayúsculas dedupe", async () => {
     const a = await asStaff<{ customer_id: string; created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Ana", phone: "664 000 1111" }),
+      JSON.stringify({ full_name: "Ana", phone: "664 000 1111", allow_without_email: true }),
     ]);
     const b = await asStaff<{ customer_id: string; created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Ana (móvil)", phone: "+52 664 000 1111" }),
+      JSON.stringify({
+        full_name: "Ana (móvil)",
+        phone: "+52 664 000 1111",
+        allow_without_email: true,
+      }),
     ]);
     const c = await asStaff<{ customer_id: string; created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Ana", phone: "52 664 000 1111" }),
+      JSON.stringify({ full_name: "Ana", phone: "52 664 000 1111", allow_without_email: true }),
     ]);
     expect(a.created).toBe(true);
     expect(b).toMatchObject({ customer_id: a.customer_id, created: false });
@@ -211,7 +215,7 @@ describe("normalize_mx_phone + register_customer + find_customer", () => {
       db,
     );
     const f = await asStaff<{ created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Legacy 2", phone: "6649998877" }),
+      JSON.stringify({ full_name: "Legacy 2", phone: "6649998877", allow_without_email: true }),
     ]);
     expect(f.created).toBe(false);
     const found = await sql<{
