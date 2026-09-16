@@ -57,6 +57,7 @@
 | 0008_transactions         | todas las funciones transaccionales de negocio                                                                                                                              |
 | 0009_security             | rol `pdp_app`, revocaciones, RLS en todo                                                                                                                                    |
 | 0043_customer_portal      | correo obligatorio en `register_customer` (con excepción documentada), `customer_access_tokens`, `customer_sessions`                                                        |
+| 0044_phone_international  | `normalize_phone_digits`; `find_customer` y `register_customer` comparan teléfonos con o sin `+` (México igual que antes; sin migrar datos, ver `DATABASE.md` → Teléfonos)  |
 
 ## Flujos críticos
 

@@ -21,6 +21,7 @@
    una pieza; toca la cantidad para cambiarla. Los productos sin precio o inactivos no aparecen.
 2. **Cliente (opcional pero recomendado)**: escanea su QR, o escribe su código `PDP-000123`, teléfono o email.
    Si es nuevo: "Registrar" con nombre + teléfono (30 segundos). Con cliente asignado se acumulan puntos.
+   El teléfono trae selector de país (México por defecto); a un cliente extranjero se le busca con o sin `+`.
 3. **Descuentos**: por línea (cantidad fija) o cupón (código). El sistema valida vigencia, canal, mínimo y usos;
    si no aplica te dice el motivo (`expirado`, `mínimo de compra`, `ya usado`…).
 4. **Recompensa**: si el cliente tiene un canje emitido, selecciónalo y el descuento se aplica.

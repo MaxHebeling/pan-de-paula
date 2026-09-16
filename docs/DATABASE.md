@@ -84,6 +84,41 @@ en español; `dbErrorMessage()` los traduce para la UI.
 | `recipe_formula_breakdown(product_id) → jsonb`                                                                                          | —                                                                                                                                                                                                                                                                                                | Todos los términos con valores: líneas (qty × costo unitario), insumos, MO e indirectos efectivos, rendimiento, merma, costo/pieza, precios POS/web, márgenes, objetivo, sugerido bruto y redondeado, parámetros usados. `has_recipe:false` sin receta; NULL si el producto no existe                         |
 | `recipe_cost_terms(recipe_id, ingredients_mxn) → table`                                                                                 | subtotal de insumos (MXN)                                                                                                                                                                                                                                                                        | Única fuente de la fórmula: `costo/pieza = (insumos + MO + indirectos) ÷ rendimiento × (1 + merma)`; MO = `per_batch` → `labor_cents`, `per_hour` → `labor_minutes ÷ 60 × tarifa` (sin minutos: `labor_cents`); indirectos = `fixed` → `overhead_cents`, `pct` → insumos × %                                  |
 
+## Teléfonos: regla de almacenamiento
+
+`customers.phone` (y `orders.customer_phone`) guarda **un único formato canónico**, sin importar cómo lo
+haya escrito la persona:
+
+| País                | Se guarda como                             | Ejemplo        |
+| ------------------- | ------------------------------------------ | -------------- |
+| México              | **10 dígitos, sin prefijo**                | `6641234567`   |
+| Cualquier otro país | **E.164**: `+` + prefijo + número nacional | `+16195550100` |
+
+**Por qué así y sin migrar datos.** Todos los clientes reales eran mexicanos y ya estaban guardados con 10
+dígitos; los números extranjeros no se podían capturar. Conservar México tal cual hace el cambio aditivo:
+ningún registro existente cambia de texto, los índices únicos, las búsquedas y los enlaces de WhatsApp de
+esos clientes siguen idénticos, y un rollback de aplicación no deja datos en un formato que la versión
+anterior no entienda. Los extranjeros entran en E.164, que es inequívoco.
+
+**Dónde vive la regla.**
+
+- `@pdp/domain` → `packages/domain/src/phone.ts`: catálogo curado de países (`PHONE_COUNTRIES`),
+  `parsePhone(país, texto)` (valida la longitud nacional y devuelve el canónico o un error en español),
+  `splitStoredPhone` (repoblar el campo al editar) y `phoneToE164Digits` (wa.me). `canonicalPhone` /
+  `phoneMX` siguen siendo la forma "a ciegas" que usan el importador, el POS y las búsquedas.
+- Formularios (sitio `/unete` y checkout; CRM alta/edición de cliente, alta rápida del POS y pedido manual):
+  mandan `<campo>_country` + `<campo>` y **la server action los combina** con `parsePhone`. Un país
+  desconocido cae a México; nada depende del navegador.
+- SQL: `normalize_mx_phone` (0014) da la forma canónica que se guarda; `normalize_phone_digits` (0044) la
+  forma comparable (sin `+`). `find_customer` y la deduplicación de `register_customer` comparan por esta
+  última, así que `+1 619 555 0100`, `16195550100` y `+16195550100` son el mismo cliente. Un número
+  mexicano canoniza a 10 dígitos con o sin `+`, de modo que para México el comportamiento no cambió.
+
+**Ampliar el catálogo**: agrega una entrada a `PHONE_COUNTRIES` (ISO, nombre en español, bandera emoji,
+prefijo sin `+`, longitudes válidas del número nacional y un ejemplo real). No hace falta migración: el
+formato guardado de los países nuevos ya es E.164. No se usa `libphonenumber-js` a propósito (peso en el
+bundle del sitio).
+
 ## Invariantes (lo que los tests protegen)
 
 - **Dinero en centavos enteros** (`integer`/`bigint`); costos unitarios de insumos en `numeric(18,8)`.
@@ -98,7 +133,8 @@ en español; `dbErrorMessage()` los traduce para la UI.
 - **Una sola fórmula de costeo**: `product_cost_cents`, `product_cost_impact`, `recipe_costing` y `recipe_formula_breakdown`
   pasan por `recipe_cost_terms`; `@pdp/domain` la espeja solo para previsualizar y `parity.test.ts` falla si divergen.
   Con `costing_settings` en sus defaults y sin overrides, el costo es idéntico al de `0003`.
-- **Una caja abierta a la vez**; **un cliente por teléfono/email** (índices únicos parciales).
+- **Una caja abierta a la vez**; **un cliente por teléfono/email** (índices únicos parciales; el teléfono se
+  compara en forma canónica, con o sin `+`, ver _Teléfonos_ arriba).
 - **Seguridad**: RLS en todo; `anon`/`authenticated`/`PUBLIC` sin privilegios; la app entra como `pdp_app`.
   Ninguna función es `SECURITY DEFINER` salvo `audit_row_change`.
 

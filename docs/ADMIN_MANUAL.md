@@ -69,6 +69,24 @@ registrado en la auditoría.
 > Hoy hace falta hacerlo a mano porque el envío de correos todavía no está configurado en producción.
 > Cuando se active, el propio cliente podrá pedirse el enlace desde el sitio y además se lo enviaremos.
 
+#### Teléfonos de otros países
+
+Todos los campos donde se captura el teléfono de un cliente (alta y edición en el CRM, alta rápida del POS,
+pedido manual, `/unete` y el checkout del sitio) tienen un **selector de país con bandera y prefijo**. Por
+defecto está en México 🇲🇽 +52.
+
+- Elige el país y escribe el número **sin el prefijo**. La ayuda debajo del campo muestra un ejemplo del país.
+- Si pegas el número completo con `+` (por ejemplo `+1 619 555 0100`), el selector se cambia solo al país.
+- Los números de México se siguen guardando con 10 dígitos, como siempre. Los de otros países se ven en la
+  ficha con su prefijo (`+16195550100`).
+- Para buscar a un cliente extranjero escribe su número con o sin `+`; el botón de WhatsApp ya lleva el
+  prefijo correcto.
+- Países disponibles: México, Argentina, Canadá, Chile, Colombia, Costa Rica, Ecuador, España, Estados Unidos,
+  Guatemala, Perú y República Dominicana. Si hace falta otro, es un cambio pequeño en el código (ver
+  `docs/DATABASE.md` → _Teléfonos_).
+- Estados Unidos, Canadá y República Dominicana comparten el prefijo +1: al editar un cliente con +1 el
+  selector muestra Estados Unidos. El número guardado es el mismo, así que no afecta búsquedas ni WhatsApp.
+
 #### Cumpleaños y saludos
 
 **Dónde**: `/fidelizacion` → pestaña **Tablero** → tarjeta **🎂 Cumpleaños de hoy** (cantidad, nombre, fecha,
