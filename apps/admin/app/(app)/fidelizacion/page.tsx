@@ -1,8 +1,20 @@
 import Link from "next/link";
+import { birthdayGreetingMessage } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
-import { PageHeader, Card, Stat, Table, Badge, Money } from "@/components/ui";
+import { PageHeader, Card, Stat, Table, Badge, Money, LinkButton } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { loyaltyTiers, tierTone } from "@/lib/customers";
+import {
+  birthdaysWindow,
+  greetingDefaults,
+  greetingState,
+  GREETING_STATE_TONE,
+  CHANNEL_LABELS,
+  formatBirthday,
+  type BirthdayRow,
+} from "@/lib/birthdays";
+import { whatsappNumber } from "@/lib/ops";
+import { sendGreetingAction } from "../clientes/[id]/cumpleanos/actions";
 import {
   loyaltyProgram,
   rewardsList,
@@ -46,6 +58,7 @@ export default async function LoyaltyPage({
 }) {
   const session = await requireSession("customers.read");
   const canWrite = hasPermission(session, "loyalty.write");
+  const canWriteCustomers = hasPermission(session, "customers.write");
   const sp = await searchParams;
   const raw = Array.isArray(sp.tab) ? sp.tab[0] : sp.tab;
   const tab: Tab = TABS.some(([k]) => k === raw) ? (raw as Tab) : "tablero";
@@ -80,7 +93,7 @@ export default async function LoyaltyPage({
           </Link>
         ))}
       </nav>
-      {tab === "tablero" && <Dashboard />}
+      {tab === "tablero" && <Dashboard canWrite={canWriteCustomers} />}
       {tab === "programa" && (
         <ProgramTab program={program} domainProgram={domainProgram} canWrite={canWrite} />
       )}
@@ -97,8 +110,20 @@ export default async function LoyaltyPage({
   );
 }
 
-async function Dashboard() {
-  const d = await loyaltyDashboard();
+/**
+ * El tablero de Fidelización es el lugar natural de los cumpleaños: aquí ya vivía la tarjeta de
+ * "Próximos cumpleaños (30 días)" y aquí están el programa, los niveles y las recompensas que dan
+ * contexto al saludo. El Dashboard general es de operación del día (ventas, pedidos, stock) y no
+ * tiene contenido de relación con clientes, así que no se duplica la sección allá.
+ */
+async function Dashboard({ canWrite }: { canWrite: boolean }) {
+  const [d, birthdays, defaults] = await Promise.all([
+    loyaltyDashboard(),
+    birthdaysWindow(30),
+    greetingDefaults(),
+  ]);
+  const todayBirthdays = birthdays.filter((b) => b.days_left === 0);
+  const upcoming = birthdays.filter((b) => b.days_left > 0);
   const monthLabel = (m: string) =>
     new Intl.DateTimeFormat("es-MX", { month: "short", year: "2-digit", timeZone: "UTC" }).format(
       new Date(m + "-01T00:00:00Z"),
@@ -113,7 +138,15 @@ async function Dashboard() {
         />
         <Stat label="Emitidos (30 días)" value={d.totals.issued_30d.toLocaleString("es-MX")} />
         <Stat label="Canjes (30 días)" value={d.totals.redemptions_30d} />
-        <Stat label="Cumpleaños próximos" value={d.birthdays.length} hint="siguientes 30 días" />
+        <Stat
+          label="🎂 Cumpleaños de hoy"
+          value={todayBirthdays.length}
+          hint={`${upcoming.length} en los próximos 30 días`}
+          tone={todayBirthdays.some((b) => !b.greeting_sent_at) ? "amber" : undefined}
+        />
+      </div>
+      <div className="mt-4">
+        <TodayBirthdays rows={todayBirthdays} canWrite={canWrite} defaults={defaults} />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card title="Puntos emitidos vs canjeados por mes">
@@ -167,34 +200,148 @@ async function Dashboard() {
             ))}
           </ul>
         </Card>
-        <Card title="Próximos cumpleaños (30 días)">
-          {d.birthdays.length === 0 ? (
-            <p className="text-sm text-muted">Sin cumpleaños en los próximos 30 días.</p>
-          ) : (
-            <ul className="max-h-[420px] divide-y divide-line overflow-y-auto text-sm">
-              {d.birthdays.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-2 py-1.5">
-                  <Link href={`/clientes/${b.id}`} className="hover:underline">
-                    {b.full_name}{" "}
-                    <span className="font-mono text-xs text-muted">{b.public_code}</span>
-                  </Link>
-                  <span className="whitespace-nowrap text-xs text-muted">
-                    {b.days === 0 ? (
-                      <Badge tone="green">hoy</Badge>
-                    ) : b.days === 1 ? (
-                      "mañana"
-                    ) : (
-                      `en ${b.days} días`
-                    )}
-                    {b.marketing_consent && <span className="ml-1 text-[10px] uppercase">mkt</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <UpcomingBirthdays rows={upcoming} />
       </div>
     </>
+  );
+}
+
+/**
+ * Sección del día: cantidad, nombre, fecha, nivel con su color, estado del saludo y las acciones
+ * (ver saludo, abrir WhatsApp con el texto, registrar el envío). Todo con sesión y permisos: nada
+ * de esto existe en el sitio público.
+ */
+function TodayBirthdays({
+  rows,
+  canWrite,
+  defaults,
+}: {
+  rows: BirthdayRow[];
+  canWrite: boolean;
+  defaults: Awaited<ReturnType<typeof greetingDefaults>>;
+}) {
+  return (
+    <Card
+      title={`🎂 Cumpleaños de hoy${rows.length ? ` · ${rows.length}` : ""}`}
+      action={
+        <LinkButton href="/clientes?seg=birthday" variant="secondary" size="sm">
+          Cumpleaños del mes
+        </LinkButton>
+      }
+    >
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted">Hoy no cumple años ningún cliente.</p>
+      ) : (
+        // Lista (no tabla): a 390 px las acciones deben quedar a la vista, sin scroll horizontal.
+        <ul className="divide-y divide-line">
+          {rows.map((b) => {
+            const state = greetingState(b);
+            const message = birthdayGreetingMessage({
+              fullName: b.full_name,
+              tierKey: b.tier_key,
+              businessName: defaults.businessName,
+              loyaltyActive: defaults.loyaltyActive,
+              birthdayMultiplier: defaults.birthdayMultiplier,
+            });
+            const wa = whatsappNumber(b.phone);
+            return (
+              <li
+                key={b.id}
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0"
+              >
+                {/* min-w evita que el nombre se parta letra a letra cuando los botones compiten por el ancho */}
+                <div className="min-w-[13rem] flex-1">
+                  <Link
+                    href={`/clientes/${b.id}`}
+                    className="font-medium hover:underline"
+                    data-testid="birthday-name"
+                  >
+                    {b.full_name}
+                  </Link>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                    <span className="font-mono">{b.public_code}</span>
+                    <span>
+                      {formatBirthday(b.celebrates_on)}
+                      {b.age !== null && ` · cumple ${b.age}`}
+                    </span>
+                    {b.tier_name && <Badge tone={tierTone(b.tier_color)}>{b.tier_name}</Badge>}
+                    <Badge tone={GREETING_STATE_TONE[state]}>
+                      {state === "enviado"
+                        ? "Enviado"
+                        : state === "preparado"
+                          ? "Preparado"
+                          : "Pendiente"}
+                    </Badge>
+                    {b.greeting_sent_at && (
+                      <span>
+                        {CHANNEL_LABELS[b.greeting_channel ?? ""] ?? b.greeting_channel} ·{" "}
+                        {fmtDate(b.greeting_sent_at, "time")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={`/clientes/${b.id}/cumpleanos`} className="btn btn-secondary btn-sm">
+                    Ver saludo
+                  </Link>
+                  {!b.greeting_sent_at && wa && (
+                    <a
+                      href={`https://wa.me/${wa}?text=${encodeURIComponent(message)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-wa btn-sm"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
+                  {!b.greeting_sent_at && canWrite && (
+                    <ActionForm
+                      action={sendGreetingAction}
+                      inline
+                      submitLabel="Marcar enviado"
+                      pendingLabel="…"
+                      size="sm"
+                    >
+                      <input type="hidden" name="id" value={b.id} />
+                      <input type="hidden" name="channel" value={wa ? "whatsapp" : "manual"} />
+                    </ActionForm>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+/** Lista discreta de los siguientes días (evolución de la tarjeta de 30 días que ya existía). */
+function UpcomingBirthdays({ rows }: { rows: BirthdayRow[] }) {
+  return (
+    <Card title="Próximos cumpleaños (30 días)">
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted">Sin cumpleaños en los próximos 30 días.</p>
+      ) : (
+        <ul className="max-h-[420px] divide-y divide-line overflow-y-auto text-sm">
+          {rows.map((b) => (
+            <li
+              key={`${b.id}-${b.celebrates_on}`}
+              className="flex items-center justify-between gap-2 py-1.5"
+            >
+              <Link href={`/clientes/${b.id}/cumpleanos`} className="min-w-0 hover:underline">
+                <span className="block truncate">{b.full_name}</span>
+                <span className="text-xs text-muted">{formatBirthday(b.celebrates_on)}</span>
+              </Link>
+              <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-muted">
+                {b.tier_name && <Badge tone={tierTone(b.tier_color)}>{b.tier_name}</Badge>}
+                {b.days_left === 1 ? "mañana" : `en ${b.days_left} días`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

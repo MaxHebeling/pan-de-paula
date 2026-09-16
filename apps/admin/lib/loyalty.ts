@@ -97,7 +97,8 @@ export async function redemptionsList(limit = 100) {
 
 export async function loyaltyDashboard() {
   const d = db();
-  const [months, tiers, birthdays, totals] = await Promise.all([
+  // Los cumpleaños salen de lib/birthdays.ts (regla del 29 de febrero en SQL): aquí no se duplican.
+  const [months, tiers, totals] = await Promise.all([
     sql<{ month: string; issued: number; redeemed: number; adjusted: number; customers: number }>`
       with bs as (select timezone as tz from business_settings where id = 1),
       m as (select generate_series(date_trunc('month', (now() at time zone (select tz from bs))::date) - interval '5 months', date_trunc('month', (now() at time zone (select tz from bs))::date), interval '1 month')::date as month)
@@ -120,28 +121,6 @@ export async function loyaltyDashboard() {
              coalesce((select sum(points_balance) from customers c where c.tier_key = t.key and c.deleted_at is null and c.merged_into_id is null), 0)::int as points
       from loyalty_tiers t order by t.rank`.execute(d),
     sql<{
-      id: string;
-      public_code: string;
-      full_name: string;
-      birthday: string;
-      next_birthday: string;
-      phone: string | null;
-      marketing_consent: boolean;
-      days: number;
-    }>`
-      with bs as (select (now() at time zone timezone)::date as today from business_settings where id = 1),
-      x as (
-        select c.id, c.public_code, c.full_name, c.birthday, c.phone::text as phone, c.marketing_consent,
-               case when to_char(c.birthday, 'MM-DD') >= to_char(bs.today, 'MM-DD')
-                    then date_trunc('year', bs.today)::date + (c.birthday - date_trunc('year', c.birthday)::date)
-                    else (date_trunc('year', bs.today)::date + interval '1 year')::date + (c.birthday - date_trunc('year', c.birthday)::date) end as next_birthday,
-               bs.today
-        from customers c, bs where c.birthday is not null and c.deleted_at is null and c.merged_into_id is null)
-      select id, public_code, full_name, birthday::text, next_birthday::text, phone, marketing_consent, (next_birthday - today)::int as days
-      from x where next_birthday <= today + 30 order by next_birthday, full_name limit 40`.execute(
-      d,
-    ),
-    sql<{
       outstanding: number;
       customers_with_points: number;
       redemptions_30d: number;
@@ -156,7 +135,6 @@ export async function loyaltyDashboard() {
   return {
     months: months.rows,
     tiers: tiers.rows,
-    birthdays: birthdays.rows,
     totals: totals.rows[0]!,
   };
 }

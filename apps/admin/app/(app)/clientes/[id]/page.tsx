@@ -111,6 +111,11 @@ export default async function CustomerPage({
             <LinkButton href={`/clientes/${c.id}/tarjeta`} variant="secondary">
               Tarjeta QR
             </LinkButton>
+            {c.birthday && (
+              <LinkButton href={`/clientes/${c.id}/cumpleanos`} variant="secondary">
+                🎂 Saludo de cumpleaños
+              </LinkButton>
+            )}
             {canWrite && <LinkButton href={`/clientes/${c.id}/editar`}>Editar</LinkButton>}
           </>
         }
