@@ -402,9 +402,9 @@ export async function generatePortalLinkAction(
 
   let mailed = false;
   if (customer.email && isEmailConfigured()) {
-    const biz = await sql<{ name: string }>`select name from business_settings where id = 1`.execute(
-      db(),
-    );
+    const biz = await sql<{
+      name: string;
+    }>`select name from business_settings where id = 1`.execute(db());
     const r = await sendPortalAccessEmail(customer.email, {
       businessName: biz.rows[0]?.name ?? "El Pan de Paula",
       firstName: customer.full_name.split(/\s+/)[0] ?? customer.full_name,
