@@ -44,9 +44,11 @@ test.describe("club · privacidad de la tarjeta", () => {
     page,
   }) => {
     const phone = freshPhone("67");
+    const email = `titular-${phone}@example.com`;
     await page.goto("/unete");
     await page.getByTestId("join-name").fill("Titular Privado");
     await page.getByTestId("join-phone").fill(`+52 ${phone}`);
+    await page.getByTestId("join-email").fill(email);
     await page.getByTestId("join-submit").click();
     await expect(page).toHaveURL(/\/mi-tarjeta\/.+\?bienvenida=1/, { timeout: 20_000 });
     const cardUrl = new URL(page.url());
@@ -69,6 +71,7 @@ test.describe("club · privacidad de la tarjeta", () => {
     await page.goto("/unete");
     await page.getByTestId("join-name").fill("Otra Persona");
     await page.getByTestId("join-phone").fill(phone);
+    await page.getByTestId("join-email").fill(`otra-${phone}@example.com`);
     await page.getByTestId("join-submit").click();
     await expect(page.getByTestId("join-existing")).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveURL(/\/unete$/);
@@ -76,16 +79,25 @@ test.describe("club · privacidad de la tarjeta", () => {
     await expect(page.locator("body")).not.toContainText(code);
   });
 
-  test("/unete: sin teléfono ni correo error claro; correo inválido; token inválido → 404", async ({
+  test("/unete: sin correo error claro; correo inválido; teléfono inválido; token inválido → 404", async ({
     page,
   }) => {
     await page.goto("/unete");
     await page.getByTestId("join-name").fill("Sin Datos");
     await page.getByTestId("join-submit").click();
-    await expect(page.locator('[role="alert"].error')).toContainText(/teléfono/i);
-    await page.getByLabel("Correo (opcional)").fill("correo@");
+    await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
+    await page.getByTestId("join-email").fill("correo@");
     await page.getByTestId("join-submit").click();
     await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
+    // Con el correo bien pero el teléfono mal, el error se mueve al teléfono (sigue siendo opcional,
+    // pero si se escribe tiene que ser válido). Se parte de un formulario limpio: tras un envío
+    // fallido React re-renderiza el formulario con los valores del estado y pisaría lo que se escriba.
+    await page.goto("/unete");
+    await page.getByTestId("join-name").fill("Sin Datos");
+    await page.getByTestId("join-email").fill(`sin-datos-${Date.now()}@example.com`);
+    await page.getByTestId("join-phone").fill("12345");
+    await page.getByTestId("join-submit").click();
+    await expect(page.locator('[role="alert"].error')).toContainText(/teléfono/i);
     expect((await page.request.get("/mi-tarjeta/AAAAAAAAAAAAAAAAAAAAAAAA")).status()).toBe(404);
     expect((await page.request.get("/mi-tarjeta/%2F%2F%2F")).status()).toBe(404);
   });

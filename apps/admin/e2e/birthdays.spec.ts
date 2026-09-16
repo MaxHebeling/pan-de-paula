@@ -50,6 +50,8 @@ async function createCustomer(
   await open(page, "/clientes/nuevo");
   await fillField(page, "#full_name", data.name);
   await fillField(page, "#phone", data.phone);
+  // El correo es obligatorio en el alta del CRM desde 0043 (es la llave del portal del cliente).
+  await fillField(page, "#email", `cumple-${data.phone}@example.com`);
   if (data.birthday) await fillField(page, "#birthday", data.birthday);
   await page.getByRole("button", { name: "Registrar cliente" }).click();
   await page.waitForURL(/\/clientes\/[0-9a-f-]{36}/, { timeout: 20_000 });

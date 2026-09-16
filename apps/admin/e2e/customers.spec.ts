@@ -66,6 +66,8 @@ test.describe("Clientes, fidelización, cupones y reportes", () => {
     await open(page, "/clientes/nuevo");
     await fillField(page, "#full_name", name);
     await fillField(page, "#phone", phone);
+    // Desde la migración 0043 el correo es obligatorio en las altas humanas del CRM.
+    await fillField(page, "#email", `e2e-cliente-${phone}@example.com`);
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await page.waitForURL(/\/clientes\/[0-9a-f-]{36}/, { timeout: 20_000 });
     customerUrl = new URL(page.url()).pathname;

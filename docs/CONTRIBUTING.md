@@ -34,6 +34,17 @@ packages/integrations  Mercado Pago, Meta/Instagram, email, storage, cliente HTT
 - Iconos de navegación y barra superior: **emoji a color** vía `<Icon name="🥐" />` (se declaran en `lib/nav.ts`); no usar iconos de línea monocromos en la navegación.
 - Táctil primero en POS y producción: botones ≥ 44px, 2–3 toques por operación.
 
+## Portal del cliente (apps/web `/portal`)
+
+- La identidad del cliente sale SIEMPRE de la cookie de sesión (`requireCustomerSession`). Ningún dato
+  que venga del navegador decide de quién son los datos; el folio solo acota dentro de sus compras.
+- Consultas nuevas del portal → `apps/web/lib/portal/data.ts`, recibiendo el `customerId` de la sesión.
+- Nunca ids internos en URLs: `public_code` y `folio`. Nunca datos internos en pantalla (costos,
+  márgenes, `internal_notes`, notas del staff).
+- El correo es obligatorio en las altas humanas (`/unete` y CRM). Si necesitas un alta sin correo,
+  usa `allow_without_email` y **documenta por qué** (ver `docs/CUSTOMER_PORTAL.md`).
+- Detalle completo del flujo de acceso: `docs/CUSTOMER_PORTAL.md`.
+
 ## Convenciones del sitio público (apps/web)
 
 - Identidad derivada del logo (crema, tinta, salvia, vino, corteza) definida en `app/globals.css`. Playfair Display para títulos, Inter para texto.

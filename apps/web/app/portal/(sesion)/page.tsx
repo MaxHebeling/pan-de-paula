@@ -80,17 +80,24 @@ export default async function PortalHomePage({
             </p>
           </div>
           <div className="min-w-0 flex-1">
-            {current && <TierBadge name={current.name} color={current.color} />}
+            {/* El nivel y su beneficio van juntos: si el beneficio cuelga del número de puntos parece
+                un pie de foto del número y no se entiende de dónde sale. */}
+            {current && (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-sm text-ink-2">Tu nivel</span>
+                <TierBadge name={current.name} color={current.color} />
+                {current.perks && <span className="text-sm text-ink-2">· {current.perks}</span>}
+              </p>
+            )}
             {enabled ? (
               <>
-                <p className="mt-3 text-sm text-ink-2">Tus puntos</p>
+                <p className="mt-4 text-sm text-ink-2">Tus puntos</p>
                 <p
                   className="font-display text-5xl leading-none text-ink"
                   data-testid="portal-points"
                 >
                   {customer.pointsBalance}
                 </p>
-                {current?.perks && <p className="mt-2 text-sm text-ink-2">{current.perks}</p>}
                 {progress && (
                   <div className="mt-4">
                     <p className="text-xs text-ink-2">
