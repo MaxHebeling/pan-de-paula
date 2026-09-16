@@ -7,3 +7,4 @@ packages/db/src/generated
 packages/db/migrations/*.sql
 scripts/*.sql
 packages/db/import/catalogo/*.sql
+packages/db/import/negocio/*.sql
