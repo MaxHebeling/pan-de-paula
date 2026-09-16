@@ -198,6 +198,9 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     if (!customerId) customerId = (await findCustomer(data.customer_phone))?.id ?? null;
     if (!customerId && data.marketing_consent) {
       // Aceptó comunicaciones: lo damos de alta en el club (fuente web) para poder sumarle puntos.
+      // Excepción documentada (0043): aquí el objetivo es el PEDIDO, no el alta del club. El correo es
+      // opcional en el checkout y bloquear la compra por eso costaría ventas; si lo dejó vacío queda sin
+      // correo (no podrá entrar al portal hasta que lo registre en /unete o se lo capture el CRM).
       const reg = await callFn<{ customer_id: string }>(db(), "register_customer", [
         JSON.stringify({
           full_name: data.customer_name,
@@ -205,6 +208,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
           email: data.customer_email,
           marketing_consent: true,
           source: "web",
+          allow_without_email: true,
         }),
       ]);
       customerId = reg.customer_id;

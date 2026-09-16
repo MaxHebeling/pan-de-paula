@@ -149,6 +149,9 @@ for (let i = 0; i < 40; i++) {
         birthday: bd.toISOString().slice(0, 10),
         marketing_consent: i % 2 === 0,
         source: pick(["pos", "qr", "web", "instagram"]),
+        // Excepción documentada (0043): la demo reproduce la mezcla real (2 de cada 3 clientes
+        // históricos llegaron sin correo) para poder probar cómo se completan desde el CRM.
+        allow_without_email: true,
       }),
     ]),
   );
@@ -164,17 +167,32 @@ for (let i = 0; i < customers.length; i++) {
 // Dos duplicados evidentes para probar la fusión
 await asStaff(() =>
   q("select register_customer($1)", [
-    JSON.stringify({ full_name: "Ana Lopez Garcia", phone: "6649990001", source: "instagram" }),
+    JSON.stringify({
+      full_name: "Ana Lopez Garcia",
+      phone: "6649990001",
+      source: "instagram",
+      allow_without_email: true,
+    }),
   ]),
 );
 await asStaff(() =>
   q("select register_customer($1)", [
-    JSON.stringify({ full_name: "Ana López García", phone: "+526649990001", source: "pos" }),
+    JSON.stringify({
+      full_name: "Ana López García",
+      phone: "+526649990001",
+      source: "pos",
+      allow_without_email: true,
+    }),
   ]),
 ).catch(() =>
   asStaff(() =>
     q("select register_customer($1)", [
-      JSON.stringify({ full_name: "Ana López García", phone: "6649990002", source: "pos" }),
+      JSON.stringify({
+        full_name: "Ana López García",
+        phone: "6649990002",
+        source: "pos",
+        allow_without_email: true,
+      }),
     ]),
   ),
 );

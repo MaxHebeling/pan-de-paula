@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   agentRules: false,
-  transpilePackages: ["@pdp/db", "@pdp/domain", "@pdp/integrations"],
+  transpilePackages: ["@pdp/auth", "@pdp/db", "@pdp/domain", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
   images: {
     qualities: [60, 75],
