@@ -75,6 +75,21 @@ export interface AuditLogs {
   staff_id: string | null;
 }
 
+export interface BirthdayGreetings {
+  birthday_date: Timestamp;
+  channel: string | null;
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  generated_at: Generated<Timestamp>;
+  generated_by: string | null;
+  message: string;
+  sent_at: Timestamp | null;
+  sent_by: string | null;
+  tier_key: string | null;
+  updated_at: Generated<Timestamp>;
+  year: number;
+}
+
 export interface BusinessHours {
   closes_at: string | null;
   is_open: Generated<boolean>;
@@ -990,6 +1005,7 @@ export interface WebhookEvents {
 
 export interface DB {
   audit_logs: AuditLogs;
+  birthday_greetings: BirthdayGreetings;
   business_hours: BusinessHours;
   business_settings: BusinessSettings;
   calendar_exceptions: CalendarExceptions;

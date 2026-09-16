@@ -478,4 +478,52 @@ export async function sendOrderStatusEmail(
   });
 }
 
+// ── Saludo de cumpleaños ────────────────────────────────────────────────────
+// El texto lo arma @pdp/domain (birthdayGreetingMessage) y llega aquí ya redactado y aprobado por
+// el staff: este módulo solo lo maqueta. Nunca se envía solo — lo dispara una acción del CRM.
+
+export type BirthdayGreetingData = {
+  businessName: string;
+  /** Mensaje en texto plano, una idea por línea (salida de birthdayGreetingMessage). */
+  message: string;
+  /** Nombre del nivel del cliente, si se quiere mostrar como sello (VIP, Embajador…). */
+  tierName?: string | null;
+  logoUrl?: string | null;
+  siteUrl?: string | null;
+};
+
+export function renderBirthdayGreetingHtml(data: BirthdayGreetingData): string {
+  const [first = "", ...rest] = data.message.split("\n").filter((l) => l.trim());
+  const body = rest.map((l) => `<p style="margin:0 0 10px;">${escapeHtml(l)}</p>`).join("");
+  const inner = `
+<div style="text-align:center;font-size:40px;line-height:1;margin:4px 0 12px;">🎂</div>
+<h1 style="font-family:Georgia,serif;font-weight:normal;font-size:24px;margin:0 0 14px;text-align:center;">${escapeHtml(first)}</h1>
+${data.tierName ? `<div style="text-align:center;margin:0 0 16px;"><span style="display:inline-block;padding:4px 12px;border:1px solid ${C.line};border-radius:999px;font-size:12px;color:${C.ink2};letter-spacing:.5px;text-transform:uppercase;">${escapeHtml(data.tierName)}</span></div>` : ""}
+${body}`;
+  return layout(
+    { businessName: data.businessName, logoUrl: data.logoUrl, siteUrl: data.siteUrl },
+    first || `¡Feliz cumpleaños! · ${data.businessName}`,
+    inner,
+    first,
+  );
+}
+
+/**
+ * Envía el saludo de cumpleaños. `idempotencyKey` va atado a cliente+año: si el staff hace doble clic
+ * o reintenta, Resend deduplica durante 24 h y el cliente recibe un solo correo.
+ */
+export async function sendBirthdayGreetingEmail(
+  to: string,
+  data: BirthdayGreetingData & { subject: string; idempotencyKey: string },
+): Promise<EmailResult> {
+  if (!isEmailConfigured()) return { sent: false, skipped: "not_configured" };
+  return sendEmail({
+    to,
+    subject: data.subject,
+    html: renderBirthdayGreetingHtml(data),
+    text: data.message,
+    idempotencyKey: data.idempotencyKey,
+  });
+}
+
 export { NotConfiguredError };
