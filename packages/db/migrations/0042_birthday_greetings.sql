@@ -17,16 +17,23 @@
 -- Ambas reglas viven en funciones SQL inmutables para que el cron, el CRM y las pruebas compartan
 -- una sola fuente de verdad.
 
+-- Fecha en la que se celebra el cumpleaños dentro del año p_year (única definición de la regla).
+-- 29 de febrero en año NO bisiesto → 28 de febrero. El último día de febrero de p_year es 28 cuando
+-- el año no es bisiesto y 29 cuando sí lo es.
+create or replace function observed_birthday(p_birthday date, p_year integer) returns date
+language sql immutable as $$
+  select case
+    when p_birthday is null or p_year is null then null
+    when to_char(p_birthday, 'MM-DD') = '02-29'
+      then (make_date(p_year, 3, 1) - 1)                      -- 29 de feb en bisiesto, 28 si no lo es
+    else make_date(p_year, extract(month from p_birthday)::int, extract(day from p_birthday)::int)
+  end
+$$;
+
 -- ¿El cliente nacido en p_birthday celebra su cumpleaños en la fecha local p_on?
 create or replace function celebrates_birthday_on(p_birthday date, p_on date) returns boolean
 language sql immutable as $$
-  select p_birthday is not null and p_on is not null and (
-    to_char(p_birthday, 'MM-DD') = to_char(p_on, 'MM-DD')
-    -- 29 de febrero en año NO bisiesto: se observa el 28. El último día de febrero del año de p_on
-    -- es 28 cuando el año no es bisiesto y 29 cuando sí lo es.
-    or (to_char(p_birthday, 'MM-DD') = '02-29' and to_char(p_on, 'MM-DD') = '02-28'
-        and extract(day from (date_trunc('year', p_on::timestamp) + interval '2 months' - interval '1 day')) = 28)
-  )
+  select coalesce(observed_birthday(p_birthday, extract(year from p_on)::int) = p_on, false)
 $$;
 
 -- Edad que cumple en la fecha observada (ver nota de la regla arriba).
@@ -72,8 +79,10 @@ revoke all on table birthday_greetings from public, anon, authenticated;
 grant select, insert, update, delete on table birthday_greetings to pdp_app;
 
 -- Las funciones nuevas heredan EXECUTE a PUBLIC aunque 0009 ajustó los default privileges: se cierra explícitamente.
+revoke execute on function observed_birthday(date, integer) from public, anon, authenticated;
 revoke execute on function celebrates_birthday_on(date, date) from public, anon, authenticated;
 revoke execute on function birthday_age_on(date, date) from public, anon, authenticated;
+grant execute on function observed_birthday(date, integer) to pdp_app;
 grant execute on function celebrates_birthday_on(date, date) to pdp_app;
 grant execute on function birthday_age_on(date, date) to pdp_app;
 

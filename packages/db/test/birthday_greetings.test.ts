@@ -56,7 +56,29 @@ const clearEvents = async () => {
   await sql`delete from notifications`.execute(db);
 };
 
-describe("celebrates_birthday_on / birthday_age_on", () => {
+describe("observed_birthday / celebrates_birthday_on / birthday_age_on", () => {
+  it("observed_birthday devuelve la fecha celebrada en cada año", async () => {
+    const r = await sql<{
+      normal: string;
+      bisiesto: string;
+      no_bisiesto: string;
+      siglo: string;
+      nulo: string | null;
+    }>`
+      select observed_birthday('1990-05-04', 2027)::text as normal,
+             observed_birthday('2000-02-29', 2024)::text as bisiesto,
+             observed_birthday('2000-02-29', 2027)::text as no_bisiesto,
+             observed_birthday('2000-02-29', 2100)::text as siglo,
+             observed_birthday(null, 2027)::text as nulo`.execute(db);
+    expect(r.rows[0]).toEqual({
+      normal: "2027-05-04",
+      bisiesto: "2024-02-29",
+      no_bisiesto: "2027-02-28",
+      siglo: "2100-02-28",
+      nulo: null,
+    });
+  });
+
   it("coincide en la fecha exacta y no en los días vecinos", async () => {
     const r = await sql<{ exacto: boolean; antes: boolean; despues: boolean }>`
       select celebrates_birthday_on('1990-05-04','2027-05-04') as exacto,

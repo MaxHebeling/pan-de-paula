@@ -50,6 +50,36 @@
 | `/cupones`      | `customers.read` / `loyalty.write` | Cupones: %/monto/producto gratis, vigencia, canales, usos, segmento (solo nuevos, niveles)                                                                   | Cupones vencidos inactivos; `uses_count` vs `max_uses`                         |
 | `/instagram`    | `marketing.*`                      | Conversaciones y mensajes de Instagram, leads, respuestas (bot si el flag está activo)                                                                       | Leads convertidos enlazados a pedido                                           |
 
+#### Cumpleaños y saludos
+
+**Dónde**: `/fidelizacion` → pestaña **Tablero** → tarjeta **🎂 Cumpleaños de hoy** (cantidad, nombre, fecha,
+nivel con su color, estado del saludo y acciones) y, debajo, **Próximos cumpleaños (30 días)**.
+El saludo de cada cliente vive en `/clientes/<id>/cumpleanos` (también desde el botón "🎂 Saludo de cumpleaños"
+de su ficha). Todo exige sesión: nada de esto se publica en el sitio.
+
+**Cómo funciona el día a día**
+
+1. **Detección** — el cron diario (`/api/cron/customer-events`, 14:30 UTC) crea el evento `birthday` y la
+   notificación, usando la **fecha local del negocio** (`business_settings.timezone`), no la UTC.
+2. **Generación** — "Preparar saludo" guarda una fila en `birthday_greetings` con el texto, el nivel del
+   momento y quién lo preparó. La clave es `(cliente, año)`: **un saludo por cliente y año**.
+3. **Previsualización** — la tarjeta premium (imprimible) y el texto exacto que se va a enviar.
+4. **Aprobación / envío** — botón de **WhatsApp** con el mensaje prellenado (el staff lo manda desde su
+   teléfono: no hay API de WhatsApp), **correo** (solo si Resend está configurado) o **entregado en persona**.
+5. **Registro** — se guardan `sent_at`, `sent_by` y `channel`, y el evento del día queda "gestionado".
+   Al volver a la página ya no hay botones de envío: **no se envía un segundo saludo**.
+
+**Regla del 29 de febrero** (definida en SQL, migración `0042`, funciones `observed_birthday` y
+`celebrates_birthday_on`):
+
+- **Año bisiesto** → se felicita el **29 de febrero** (fecha exacta).
+- **Año no bisiesto** → se felicita el **28 de febrero** (último día de febrero).
+- La edad de ese día es la diferencia de años (quien nació el 29-02-2000 cumple **27** el 28-02-2027).
+- La página del saludo lo avisa con una alerta para que el staff sepa por qué la fecha no coincide.
+
+**Qué verificar**: que el texto no prometa beneficios que no existen. El único beneficio que se menciona es
+el real del programa de puntos (`loyalty_program.birthday_multiplier`), y solo si el programa está activo.
+
 ### Analítica y sistema
 
 | Ruta              | Permiso               | Qué hace                                                                                                                                                                                                        |
