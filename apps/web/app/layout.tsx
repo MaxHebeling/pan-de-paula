@@ -9,7 +9,7 @@ import { CartProvider } from "@/lib/cart/CartProvider";
 import { MotionProvider } from "@/lib/motion/MotionProvider";
 import { PageTransition } from "@/lib/motion/pageTransition";
 import { MOTION_BOOT_SCRIPT } from "@/lib/motion/reducedMotion";
-import { fullAddress, getBusiness } from "@/lib/site";
+import { fullAddress, getBusiness, instagramUrl } from "@/lib/site";
 import "./globals.css";
 
 // El sitio lee horarios, catálogo y estado "abierto" en cada petición: nada se congela en build.
@@ -74,8 +74,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       addressCountry: "MX",
     };
   }
-  if (business.instagramHandle)
-    bakeryLd.sameAs = [`https://www.instagram.com/${business.instagramHandle}/`];
+  const ig = instagramUrl(business.instagramHandle);
+  if (ig) bakeryLd.sameAs = [ig];
 
   return (
     <html

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@pdp/domain";
 import { FULFILLMENT_LABELS, dateMX, dateTimeMX, hourRange, money } from "@/lib/format";
 import { getOrderByFolio, mercadoPagoAvailable } from "@/lib/orders";
-import { getBusiness, whatsappLink } from "@/lib/site";
+import { getBusiness, instagramUrl, whatsappLink } from "@/lib/site";
 import { retryPaymentAction } from "./actions";
 
 type Props = {
@@ -71,6 +71,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const mp = typeof sp.mp === "string" ? sp.mp : null;
   const isNew = sp.nuevo === "1";
   const wa = whatsappLink(business, `Hola, tengo una duda sobre mi pedido ${order.folio}`);
+  const ig = instagramUrl(business.instagramHandle);
   const mpAvailable = mercadoPagoAvailable(business.flags);
   const payable =
     ["new", "payment_pending"].includes(order.status) &&
@@ -348,9 +349,9 @@ export default async function OrderPage({ params, searchParams }: Props) {
                   WhatsApp
                 </a>
               )}
-              {business.instagramHandle && (
+              {ig && (
                 <a
-                  href={`https://www.instagram.com/${business.instagramHandle}/`}
+                  href={ig}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-secondary"

@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Undo2, Check } from "lucide-react";
+import { Undo2, Check, Minus, Plus } from "lucide-react";
 import {
   produceAction,
+  reduceProductionAction,
   undoProductionAction,
   type ProduceResult,
 } from "@/app/(app)/produccion/actions";
@@ -18,7 +19,8 @@ export type BoardProduct = {
   has_recipe: boolean;
 };
 
-const QUICK = [1, 5, 10, 20] as const;
+// +1 vive en el stepper (− cantidad +); estos son los atajos de lote grande.
+const QUICK = [5, 10, 20] as const;
 const UNDO_SECONDS = 120;
 
 type LastBatch = ProduceResult & { product_id: string; product_name: string; qty: number };
@@ -94,6 +96,29 @@ export function ProductionBoard({
       setManual((m) => ({ ...m, [p.id]: "" }));
       setLast({ ...r.data, product_id: p.id, product_name: p.name, qty });
       showFlash(p.id, `+${qty} · ${r.data.lot_code}`);
+    });
+  };
+
+  /** Operación inversa: resta del día. El tope real lo valida SQL; aquí solo se evita el envío obvio. */
+  const reduce = (p: BoardProduct, qty: number) => {
+    if (!canWrite || busy || !(qty > 0)) return;
+    setBusy(p.id);
+    setError(null);
+    startTransition(async () => {
+      const r = await reduceProductionAction({ product_id: p.id, qty });
+      setBusy(null);
+      if (!r.ok) {
+        setError(`${p.name}: ${r.error}`);
+        return;
+      }
+      setTotals((t) => ({
+        ...t,
+        [p.id]: { produced_today: r.data.produced_today, on_hand: r.data.on_hand },
+      }));
+      setManual((m) => ({ ...m, [p.id]: "" }));
+      // El banner "Deshacer" apunta a un lote que la resta pudo consumir: se retira para no mentir.
+      setLast(null);
+      showFlash(p.id, `−${qty}`);
     });
   };
 
@@ -185,6 +210,9 @@ export function ProductionBoard({
               const t = totals[p.id] ?? { produced_today: 0, on_hand: 0 };
               const low = t.on_hand <= threshold;
               const isBusy = busy === p.id;
+              const manualQty = Number(manual[p.id] ?? "");
+              const canManualAdd = canWrite && busy === null && manualQty > 0;
+              const canManualSub = canManualAdd && manualQty <= t.produced_today;
               return (
                 <article
                   key={p.id}
@@ -203,14 +231,7 @@ export function ProductionBoard({
                       {p.variant_label && <span className="text-muted"> · {p.variant_label}</span>}
                     </h3>
                     <p className="mt-1 text-sm text-muted">
-                      Hoy:{" "}
-                      <span
-                        className="font-semibold tabular-nums text-ink"
-                        data-testid="produced-today"
-                      >
-                        {t.produced_today.toLocaleString("es-MX")}
-                      </span>{" "}
-                      · Stock:{" "}
+                      Stock:{" "}
                       <span
                         className={`font-semibold tabular-nums ${low ? "text-amber-d" : "text-ink"}`}
                         data-testid="on-hand"
@@ -222,7 +243,43 @@ export function ProductionBoard({
                       )}
                     </p>
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
+                  {/* Stepper: − producido hoy + (la cantidad es la del servidor, nunca un optimismo local) */}
+                  <div
+                    className="flex items-center gap-2"
+                    role="group"
+                    aria-label={`Producción de hoy de ${p.name}`}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-danger min-h-14 w-14 shrink-0 text-lg"
+                      onClick={() => reduce(p, 1)}
+                      disabled={!canWrite || busy !== null || t.produced_today < 1}
+                      aria-label={`Restar 1 de ${p.name}`}
+                      data-testid="step-minus"
+                    >
+                      <Minus size={22} aria-hidden />
+                    </button>
+                    <div className="flex-1 text-center leading-tight">
+                      <span
+                        className="block text-2xl font-semibold tabular-nums text-ink"
+                        data-testid="produced-today"
+                      >
+                        {t.produced_today.toLocaleString("es-MX")}
+                      </span>
+                      <span className="text-xs text-muted">producido hoy</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary min-h-14 w-14 shrink-0 text-lg"
+                      onClick={() => produce(p, 1)}
+                      disabled={!canWrite || busy !== null}
+                      aria-label={`Registrar 1 de ${p.name}`}
+                      data-testid="step-plus"
+                    >
+                      <Plus size={22} aria-hidden />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
                     {QUICK.map((q) => (
                       <button
                         key={q}
@@ -237,7 +294,8 @@ export function ProductionBoard({
                     ))}
                   </div>
                   <form
-                    className="flex gap-2"
+                    className="flex flex-wrap gap-2"
+                    aria-label={`Otra cantidad de ${p.name}`}
                     onSubmit={(e) => {
                       e.preventDefault();
                       produce(p, Number(manual[p.id] ?? ""));
@@ -250,18 +308,34 @@ export function ProductionBoard({
                       max={9999}
                       step={1}
                       placeholder="Otra cantidad"
-                      className="input min-h-12"
+                      className="input min-h-12 w-full"
                       value={manual[p.id] ?? ""}
                       onChange={(e) => setManual((m) => ({ ...m, [p.id]: e.target.value }))}
                       disabled={!canWrite}
                       aria-label={`Cantidad manual de ${p.name}`}
+                      data-testid="manual-qty"
                     />
                     <button
                       type="submit"
-                      className="btn btn-secondary min-h-12 px-4"
-                      disabled={!canWrite || busy !== null || !(Number(manual[p.id]) > 0)}
+                      className="btn btn-secondary min-h-12 flex-1 px-4"
+                      disabled={!canManualAdd}
+                      data-testid="manual-add"
                     >
                       Registrar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger min-h-12 flex-1 px-4"
+                      onClick={() => reduce(p, manualQty)}
+                      disabled={!canManualSub}
+                      title={
+                        canManualAdd && !canManualSub
+                          ? "No puedes restar más de lo producido hoy"
+                          : undefined
+                      }
+                      data-testid="manual-sub"
+                    >
+                      Restar
                     </button>
                   </form>
                 </article>

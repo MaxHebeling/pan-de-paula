@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { WEEKDAY_LABELS, type BusinessHour } from "@pdp/domain";
 import { hourRange } from "@/lib/format";
-import type { PickupPoint } from "@/lib/site";
+import { instagramUrl, type PickupPoint } from "@/lib/site";
 import { Reveal } from "../Reveal";
 import { Arrow } from "./Button";
 import { statusDetail, type OpenStatus } from "./CinematicHero";
@@ -26,6 +26,7 @@ export function VisitUs({
   instagram: string | null;
 }) {
   const detail = statusDetail(status);
+  const igUrl = instagramUrl(instagram);
   const hasHours = hours.some((h) => h.isOpen && h.opensAt && h.closesAt);
   const placeAddress =
     point?.address && point.address !== "Dirección por configurar"
@@ -58,13 +59,8 @@ export function VisitUs({
                 <span>Cómo llegar</span>
                 <Arrow />
               </Link>
-              {instagram && (
-                <a
-                  href={`https://www.instagram.com/${instagram}/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cin-link"
-                >
+              {igUrl && (
+                <a href={igUrl} target="_blank" rel="noopener noreferrer" className="cin-link">
                   <span>Instagram @{instagram}</span>
                   <Arrow />
                 </a>

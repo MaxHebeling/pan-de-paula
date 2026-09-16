@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { WEEKDAY_LABELS } from "@pdp/domain";
 import { hourRange } from "@/lib/format";
-import { fullAddress, whatsappLink, type Business } from "@/lib/site";
+import { fullAddress, instagramUrl, whatsappLink, type Business } from "@/lib/site";
 import { Logo } from "./Logo";
 import { Reveal } from "./Reveal";
 
@@ -9,6 +9,7 @@ import { Reveal } from "./Reveal";
 export function Footer({ business }: { business: Business }) {
   const address = fullAddress(business);
   const wa = whatsappLink(business, "Hola, El Pan de Paula 👋");
+  const ig = instagramUrl(business.instagramHandle);
   const openDays = business.hours.filter((h) => h.isOpen && h.opensAt && h.closesAt);
   return (
     <footer className="mt-20 border-t border-line/70 bg-cream-2/60">
@@ -62,9 +63,9 @@ export function Footer({ business }: { business: Business }) {
             )}
           </address>
           <div className="mt-3 flex flex-wrap gap-3 text-sm font-medium">
-            {business.instagramHandle && (
+            {ig && (
               <a
-                href={`https://www.instagram.com/${business.instagramHandle}/`}
+                href={ig}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sage hover:underline"
