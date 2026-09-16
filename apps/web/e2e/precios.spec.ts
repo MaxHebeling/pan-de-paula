@@ -18,9 +18,12 @@ const SHOTS = process.env.SHOTS_DIR ?? path.join("test-results", "precios");
 let db: Database;
 let pool: { end: () => Promise<void> };
 
-test.beforeAll(() => {
+test.beforeAll(async () => {
   if (!process.env.DATABASE_URL) throw new Error("Falta DATABASE_URL para la prueba de precios");
   ({ db, pool } = createDb({ connectionString: process.env.DATABASE_URL, ssl: false, max: 2 }));
+  // El límite de peticiones se acumula entre corridas (misma IP): sin esto, una corrida previa puede
+  // agotar la cuota de `cart-check` y la revalidación no responde, con fallos que parecen del código.
+  await sql`truncate rate_limits`.execute(db);
 });
 test.afterAll(async () => {
   await db.destroy();
