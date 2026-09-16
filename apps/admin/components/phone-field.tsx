@@ -17,6 +17,18 @@ const noopSubscribe = () => () => {};
 const onClient = () => true;
 const onServer = () => false;
 
+/**
+ * En el CRM `.input` es CSS sin capa (`width: 100%`) y gana a las utilidades de Tailwind (`w-auto`,
+ * `flex-1`), así que los anchos de la fila se fijan en línea: el selector a su tamaño y el número
+ * ocupa el resto. Sin esto el botón se comía la fila y el número quedaba fuera de la pantalla.
+ */
+const FIXED = { width: "auto", flex: "none" } as const;
+const NATIVE_SELECT = { width: "8rem", flex: "none" } as const;
+const GROW = { width: "auto", minWidth: 0, flex: "1 1 0%" } as const;
+
+/** Sin JavaScript la ayuda no puede seguir al país elegido: se da la instrucción general. */
+const NO_JS_HINT = "Escribe tu número sin el prefijo del país.";
+
 type Props = {
   /** Nombre del campo del número. El país viaja en `<name>_country`. */
   name?: string;
@@ -160,7 +172,8 @@ export function PhoneField({
                 aria-expanded={open}
                 aria-label={`País del teléfono: ${country.name}, prefijo +${country.dial}`}
                 data-testid={testId ? `${testId}-country` : undefined}
-                className="input flex min-h-11 w-auto shrink-0 items-center gap-1.5 tabular-nums"
+                className="input flex min-h-11 items-center gap-1.5 tabular-nums"
+                style={FIXED}
               >
                 <span aria-hidden="true" className="text-lg leading-none">
                   {country.flag}
@@ -181,11 +194,12 @@ export function PhoneField({
                 emit(c, national);
               }}
               aria-label="País del teléfono"
-              className="input min-h-11 w-auto shrink-0"
+              className="input min-h-11"
+              style={NATIVE_SELECT}
             >
               {PHONE_COUNTRIES.map((c) => (
                 <option key={c.iso} value={c.iso}>
-                  {c.flag} {c.name} (+{c.dial})
+                  {c.flag} +{c.dial} {c.name}
                 </option>
               ))}
             </select>
@@ -197,11 +211,12 @@ export function PhoneField({
             inputMode="tel"
             autoComplete="tel-national"
             className="input min-h-11"
+            style={GROW}
             required={required}
             maxLength={24}
             value={national}
             onChange={(e) => typed(e.target.value)}
-            placeholder={country.example}
+            placeholder={enhanced ? country.example : undefined}
             aria-describedby={helpId}
             data-testid={testId}
           />
@@ -239,8 +254,10 @@ export function PhoneField({
           </ul>
         )}
       </div>
-      <p id={helpId} className="mt-1 text-xs text-muted">
-        {help ? `${help} ${phoneExample(country)}.` : `${phoneExample(country)}.`}
+      {/* Con la lista abierta la ayuda se atenúa (no se oculta: sigue siendo la descripción del input). */}
+      <p id={helpId} className={`mt-1 text-xs text-muted ${open ? "opacity-0" : ""}`}>
+        {help ? `${help} ` : ""}
+        {enhanced ? `${phoneExample(country)}.` : NO_JS_HINT}
       </p>
     </div>
   );

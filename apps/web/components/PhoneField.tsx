@@ -16,6 +16,9 @@ const noopSubscribe = () => () => {};
 const onClient = () => true;
 const onServer = () => false;
 
+/** Sin JavaScript la ayuda no puede seguir al país elegido: se da la instrucción general. */
+const NO_JS_HINT = "Escribe tu número sin el prefijo del país.";
+
 type Props = {
   /** Nombre del campo del número. El país viaja en `<name>_country`. */
   name?: string;
@@ -177,11 +180,11 @@ export function PhoneField({
                 emit(c, national);
               }}
               aria-label="País del teléfono"
-              className="input w-auto shrink-0 px-3"
+              className="input w-32 shrink-0 px-3"
             >
               {PHONE_COUNTRIES.map((c) => (
                 <option key={c.iso} value={c.iso}>
-                  {c.flag} {c.name} (+{c.dial})
+                  {c.flag} +{c.dial} {c.name}
                 </option>
               ))}
             </select>
@@ -192,12 +195,12 @@ export function PhoneField({
             type="tel"
             inputMode="tel"
             autoComplete="tel-national"
-            className="input"
+            className="input min-w-0 flex-1"
             required={required}
             maxLength={24}
             value={national}
             onChange={(e) => typed(e.target.value)}
-            placeholder={country.example}
+            placeholder={enhanced ? country.example : undefined}
             aria-describedby={helpId}
             aria-invalid={Boolean(error)}
             data-testid={testId}
@@ -236,8 +239,10 @@ export function PhoneField({
           </ul>
         )}
       </div>
-      <p id={helpId} className="help">
-        {help ? `${help} ${phoneExample(country)}.` : `${phoneExample(country)}.`}
+      {/* Con la lista abierta la ayuda se atenúa (no se oculta: sigue siendo la descripción del input). */}
+      <p id={helpId} className={`help ${open ? "opacity-0" : ""}`}>
+        {help ? `${help} ` : ""}
+        {enhanced ? `${phoneExample(country)}.` : NO_JS_HINT}
       </p>
       {error && (
         <p className="error" role="alert">

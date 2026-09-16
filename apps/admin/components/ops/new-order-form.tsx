@@ -233,7 +233,8 @@ export function NewOrderForm({
             </div>
           )}
           {(customerMode === "new" || customerMode === "none") && (
-            <div className="grid gap-3 sm:grid-cols-3">
+            // Dos columnas (no tres): el teléfono lleva selector de país y necesita ancho para el número.
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label={customerMode === "new" ? "Nombre *" : "Nombre"} htmlFor="customer_name">
                 <input
                   id="customer_name"
