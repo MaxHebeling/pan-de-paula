@@ -66,6 +66,20 @@ test.describe("teléfono con selector de país · sitio", () => {
     await expect(page.getByTestId("join-phone")).toHaveValue(phone);
     await page.getByTestId("join-submit").click();
     await expect(page.getByTestId("join-existing")).toBeVisible({ timeout: 20_000 });
+
+    // "Ya soy cliente" en el checkout (find_customer): lo encuentra escrito SIN "+" y con él.
+    await page.goto("/producto/concha-vainilla");
+    await page.getByTestId("add-to-cart").click();
+    await page.keyboard.press("Escape");
+    await page.goto("/checkout");
+    await page.getByText("Ya soy cliente del club").click();
+    for (const q of [`1${phone}`, `+1 ${phone}`]) {
+      await page.locator("#lookup").fill(q);
+      await page.getByRole("button", { name: "Buscar" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "¡Hola" }), q).toBeVisible({
+        timeout: 15_000,
+      });
+    }
   });
 
   test("/unete: longitud equivocada para el país elegido → error en español", async ({ page }) => {
