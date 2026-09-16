@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { formatLocalDate } from "@pdp/domain";
+import { DEFAULT_PHONE_COUNTRY, formatLocalDate, parsePhone } from "@pdp/domain";
 import { CartNotice } from "@/components/CartNotice";
+import { PhoneField } from "@/components/PhoneField";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/lib/cart/CartProvider";
 import { useCartRevalidation } from "@/lib/cart/useCartRevalidation";
@@ -68,6 +69,7 @@ export function CheckoutForm({
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY);
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [isMember, setIsMember] = useState(Boolean(cart.customerLookup));
@@ -145,8 +147,9 @@ export function CheckoutForm({
     if (!option) return setError({ field: "date", message: "Elige una fecha de recolección." });
     if (name.trim().length < 2)
       return setError({ field: "customer_name", message: "Escribe tu nombre completo." });
-    if (phone.replace(/\D/g, "").length < 10)
-      return setError({ field: "customer_phone", message: "Escribe un teléfono de 10 dígitos." });
+    // Adelanto del mismo criterio del servidor (que vuelve a validar y normalizar con parsePhone).
+    const parsedPhone = parsePhone(phoneCountry, phone);
+    if (!parsedPhone.ok) return setError({ field: "customer_phone", message: parsedPhone.error });
     if (isDelivery && street.trim().length < 3)
       return setError({
         field: "delivery_address",
@@ -166,6 +169,7 @@ export function CheckoutForm({
         : undefined,
       customer_name: name.trim(),
       customer_phone: phone.trim(),
+      customer_phone_country: phoneCountry,
       customer_email: email.trim() || undefined,
       customer_lookup: isMember && lookupHint ? lookup.trim() : null,
       coupon_code: cart.coupon?.code,
@@ -366,30 +370,18 @@ export function CheckoutForm({
                 </p>
               )}
             </div>
-            <div>
-              <label htmlFor="phone" className="label">
-                Teléfono (WhatsApp)
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                inputMode="numeric"
-                className="input"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                autoComplete="tel"
-                required
-                placeholder="10 dígitos"
-                aria-invalid={Boolean(err("customer_phone"))}
-                data-testid="phone"
-              />
-              <p className="help">Te avisamos por aquí cuando tu pedido esté listo.</p>
-              {err("customer_phone") && (
-                <p className="error" role="alert">
-                  {err("customer_phone")}
-                </p>
-              )}
-            </div>
+            <PhoneField
+              name="customer_phone"
+              label="Teléfono (WhatsApp)"
+              required
+              help="Te avisamos por aquí cuando tu pedido esté listo."
+              error={err("customer_phone")}
+              testId="phone"
+              onChange={(v) => {
+                setPhoneCountry(v.country);
+                setPhone(v.national);
+              }}
+            />
             <div>
               <label htmlFor="email" className="label">
                 Correo (opcional)

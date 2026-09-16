@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { customerRegistrationWithEmailSchema } from "@pdp/domain";
+import { customerRegistrationWithEmailSchema, parseOptionalPhone } from "@pdp/domain";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { findCustomer } from "@/lib/customers";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
@@ -11,6 +11,9 @@ import { getBusiness } from "@/lib/site";
 
 export type JoinValues = {
   full_name: string;
+  /** País (ISO) elegido en el selector; se repuebla tal cual si hay que mostrar un error. */
+  phone_country: string;
+  /** Número NACIONAL tal como lo escribió la persona (sin prefijo de país). */
   phone: string;
   email: string;
   birthday: string;
@@ -28,20 +31,28 @@ export type JoinState = {
 export async function joinClubAction(_prev: JoinState, formData: FormData): Promise<JoinState> {
   const raw = {
     full_name: String(formData.get("full_name") ?? ""),
-    phone: String(formData.get("phone") ?? ""), // phoneMX lo deja canónico
+    phone_country: String(formData.get("phone_country") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
     email: String(formData.get("email") ?? ""),
     birthday: String(formData.get("birthday") ?? ""),
     marketing_consent: formData.get("marketing_consent") === "on",
     source: "qr" as const,
   };
+  // El servidor manda: país + número se combinan aquí en el valor canónico que se guarda
+  // (10 dígitos si es México, "+<prefijo><nacional>" en cualquier otro país). El navegador no decide.
+  const phone = parseOptionalPhone(raw.phone_country, raw.phone);
+  if (!phone.ok) return { error: phone.error, field: "phone", values: { ...raw } };
   // Alta humana: el correo es obligatorio (es la llave de /portal). Mismo criterio en el servidor SQL.
-  const parsed = customerRegistrationWithEmailSchema.safeParse(raw);
+  const parsed = customerRegistrationWithEmailSchema.safeParse({
+    ...raw,
+    phone: phone.value ?? "",
+  });
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const field = issue?.path[0]?.toString();
     const msg =
       field === "phone"
-        ? "Escribe un teléfono válido de 10 dígitos."
+        ? "Escribe un teléfono válido."
         : field === "email"
           ? !raw.email
             ? "Necesitamos tu correo: con él entras a tu cuenta y te mandamos tu tarjeta."

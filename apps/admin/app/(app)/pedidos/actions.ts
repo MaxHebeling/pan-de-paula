@@ -5,6 +5,7 @@ import {
   containsPattern,
   ORDER_STATUSES,
   PAYMENT_METHOD_LABELS,
+  parseOptionalPhone,
   phoneMX,
   emailSchema,
 } from "@pdp/domain";
@@ -319,6 +320,13 @@ export async function createOrderAction(_prev: FormState, form: FormData): Promi
     return { error: "Productos inválidos" };
   }
   const opt = (k: string) => str(form, k) || undefined;
+  // El servidor manda: el país del selector y el número se combinan aquí en el valor canónico
+  // (10 dígitos si es México, "+<prefijo><nacional>" en el resto).
+  const phone = parseOptionalPhone(
+    str(form, "customer_phone_country"),
+    str(form, "customer_phone"),
+  );
+  if (!phone.ok) return { error: phone.error };
   const parsed = newOrderSchema.safeParse({
     channel: str(form, "channel"),
     fulfillment_type: str(form, "fulfillment_type"),
@@ -335,7 +343,7 @@ export async function createOrderAction(_prev: FormState, form: FormData): Promi
     customer_mode: str(form, "customer_mode") || "none",
     customer_id: opt("customer_id"),
     customer_name: opt("customer_name"),
-    customer_phone: opt("customer_phone"),
+    customer_phone: phone.value ?? undefined,
     customer_email: opt("customer_email"),
     items,
     coupon_code: opt("coupon_code"),

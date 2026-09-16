@@ -1,6 +1,6 @@
 /**
  * Auditoría del checkout web contra Postgres real (base `${DATABASE_URL_TEST}_web`).
- * Cubre: flag apagado, fecha/ventana inválida, teléfonos (9/10/11 dígitos, +52), correo, nombre Unicode,
+ * Cubre: flag apagado, fecha/ventana inválida, teléfonos (longitud, +52, país del selector), correo, nombre Unicode,
  * productos no vendibles, métodos de pago según configuración, cupones, precios del servidor,
  * idempotencia (replay y carrera), vínculo de cliente, comprobante sin Resend y rate limit (21.ª petición).
  * `next/headers` se simula para fijar la IP del rate limit.
@@ -184,19 +184,52 @@ describe("checkout web · validaciones del servidor", () => {
     expect(await orderCount()).toBe(0);
   });
 
-  it("teléfono: 9 dígitos falla; 10, 11 y +52 se aceptan y +52 se guarda como 10 dígitos", async () => {
-    expect(await placeOrderAction(base({ customer_phone: "664987654" }))).toMatchObject({
-      ok: false,
-      field: "customer_phone",
-    });
+  it("teléfono mexicano: 9 y 11 dígitos fallan; 10 y +52 se guardan como 10 dígitos", async () => {
+    for (const malo of ["664987654", "16649876543"]) {
+      expect(await placeOrderAction(base({ customer_phone: malo })), malo).toMatchObject({
+        ok: false,
+        field: "customer_phone",
+      });
+    }
     const r10 = await placeOrderAction(base({ customer_phone: "(664) 987-6543" }));
     expect(r10.ok).toBe(true);
     if (r10.ok) expect((await orderFromRedirect(r10.redirect)).customer_phone).toBe("6649876543");
     const r52 = await placeOrderAction(base({ customer_phone: "+52 664 111 2233" }));
     expect(r52.ok).toBe(true);
     if (r52.ok) expect((await orderFromRedirect(r52.redirect)).customer_phone).toBe("6641112233");
-    const r11 = await placeOrderAction(base({ customer_phone: "16649876543" }));
-    expect(r11.ok).toBe(true);
+    expect(await orderCount()).toBe(2);
+  });
+
+  it("teléfono de otro país: se guarda en E.164 con su prefijo", async () => {
+    // El país viene del selector del formulario y el servidor lo vuelve a validar.
+    const us = await placeOrderAction(
+      base({ customer_phone: "619 555 0100", customer_phone_country: "US" }),
+    );
+    expect(us.ok).toBe(true);
+    if (us.ok) expect((await orderFromRedirect(us.redirect)).customer_phone).toBe("+16195550100");
+
+    // Longitud equivocada para ese país: error claro y en español, sin crear el pedido.
+    const malo = await placeOrderAction(
+      base({ customer_phone: "619 555 010", customer_phone_country: "US" }),
+    );
+    expect(malo).toMatchObject({ ok: false, field: "customer_phone" });
+    if (!malo.ok) expect(malo.error).toContain("Estados Unidos");
+
+    // País desconocido: el servidor no confía en el navegador y cae a México.
+    const falso = await placeOrderAction(
+      base({ customer_phone: "664 111 2233", customer_phone_country: "ZZ" }),
+    );
+    expect(falso.ok).toBe(true);
+    if (falso.ok)
+      expect((await orderFromRedirect(falso.redirect)).customer_phone).toBe("6641112233");
+
+    // Pegar el internacional completo gana sobre el país seleccionado.
+    const pegado = await placeOrderAction(
+      base({ customer_phone: "+34 612 345 678", customer_phone_country: "MX" }),
+    );
+    expect(pegado.ok).toBe(true);
+    if (pegado.ok)
+      expect((await orderFromRedirect(pegado.redirect)).customer_phone).toBe("+34612345678");
     expect(await orderCount()).toBe(3);
   });
 

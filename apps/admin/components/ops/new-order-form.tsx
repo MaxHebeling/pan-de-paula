@@ -2,6 +2,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { formatMXN, PAYMENT_METHOD_LABELS, newIdempotencyKey } from "@pdp/domain";
+import { PhoneField } from "@/components/phone-field";
 import { ActionForm } from "@/components/ops/action-form";
 import { PendingButton } from "@/components/ops/pending-button";
 import { Field } from "@/components/ops/field";
@@ -242,19 +243,12 @@ export function NewOrderForm({
                   required={customerMode === "new"}
                 />
               </Field>
-              <Field
-                label={customerMode === "new" ? "Teléfono *" : "Teléfono"}
-                htmlFor="customer_phone"
-              >
-                <input
-                  id="customer_phone"
-                  name="customer_phone"
-                  type="tel"
-                  inputMode="tel"
-                  className="input min-h-11"
-                  placeholder="10 dígitos"
-                />
-              </Field>
+              <PhoneField
+                name="customer_phone"
+                label="Teléfono"
+                required={customerMode === "new"}
+                testId="order-customer-phone"
+              />
               <Field label="Email" htmlFor="customer_email">
                 <input
                   id="customer_email"

@@ -122,6 +122,60 @@ describe("/unete · registro", () => {
     expect(decodeURIComponent(to!.split("/")[2]!.split("?")[0]!)).toBe(c.rows[0]!.qr_token);
   });
 
+  it("país del selector: el teléfono extranjero se guarda en E.164 y el mexicano con 10 dígitos", async () => {
+    const to = await redirectOf(
+      joinClubAction(
+        null,
+        form({
+          full_name: "Sandra San Diego",
+          phone_country: "US",
+          phone: "619 555 0100",
+          email: "sandra@example.com",
+        }),
+      ),
+    );
+    expect(to).toMatch(/^\/mi-tarjeta\/.+\?bienvenida=1$/);
+    const c = await sql<{ phone: string }>`select phone from customers`.execute(db);
+    expect(c.rows[0]!.phone).toBe("+16195550100");
+    // Y se encuentra escribiéndolo con o sin "+" (find_customer, migración 0044).
+    expect((await findCustomer("+16195550100"))?.fullName).toBe("Sandra San Diego");
+    expect((await findCustomer("16195550100"))?.fullName).toBe("Sandra San Diego");
+  });
+
+  it("longitud equivocada para el país elegido → error en español en el campo teléfono", async () => {
+    const r = await joinClubAction(
+      null,
+      form({
+        full_name: "Sandra",
+        phone_country: "US",
+        phone: "619 555 010",
+        email: "sandra2@example.com",
+      }),
+    );
+    expect(r).toMatchObject({ field: "phone" });
+    expect(r?.error).toContain("Estados Unidos");
+    // El formulario se repuebla con el país elegido para no obligar a volver a escogerlo.
+    expect(r?.values?.phone_country).toBe("US");
+    const n = await sql<{ n: number }>`select count(*)::int n from customers`.execute(db);
+    expect(n.rows[0]!.n).toBe(0);
+  });
+
+  it("país desconocido → el servidor cae a México en vez de confiar en el navegador", async () => {
+    await redirectOf(
+      joinClubAction(
+        null,
+        form({
+          full_name: "Ana",
+          phone_country: "no-existe",
+          phone: "664 555 0102",
+          email: "ana3@example.com",
+        }),
+      ),
+    );
+    const c = await sql<{ phone: string }>`select phone from customers`.execute(db);
+    expect(c.rows[0]!.phone).toBe("6645550102");
+  });
+
   it("teléfono ya registrado → NO redirige a la tarjeta ajena, no la modifica y avisa sin revelar nada", async () => {
     await redirectOf(
       joinClubAction(

@@ -10,6 +10,7 @@ import {
   type FulfillmentOption,
   type LocalNow,
   type OrderingWindow,
+  phoneToE164Digits,
   type Weekday,
 } from "@pdp/domain";
 
@@ -171,12 +172,13 @@ export function fullAddress(b: Business): string | null {
   return parts.length ? parts.join(", ") : null;
 }
 
-/** Teléfono/WhatsApp a dígitos para enlaces wa.me / tel:. */
+/**
+ * Teléfono/WhatsApp a dígitos para enlaces wa.me / tel:. Misma regla que el CRM
+ * (`phoneToE164Digits` de `@pdp/domain`): México se marca con 52 + 10 dígitos y un número guardado
+ * en E.164 ya trae su prefijo.
+ */
 export function digits(s: string | null | undefined): string | null {
-  if (!s) return null;
-  const d = s.replace(/[^0-9]/g, "");
-  if (d.length < 10) return null;
-  return d.length === 10 ? `52${d}` : d;
+  return phoneToE164Digits(s);
 }
 
 /**

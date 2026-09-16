@@ -1,6 +1,6 @@
 "use server";
 
-import { webCheckoutSchema } from "@pdp/domain";
+import { parsePhone, webCheckoutSchema } from "@pdp/domain";
 import { callFn, db, dbErrorMessage, sql } from "@/lib/db";
 import { listProductsByIds } from "@/lib/catalog";
 import { availability } from "@/lib/availability";
@@ -46,7 +46,10 @@ export type CheckoutPayload = {
   pickup_point_id?: string;
   delivery_address?: { street: string; neighborhood?: string; references_note?: string };
   customer_name: string;
+  /** Número NACIONAL escrito por la persona (sin prefijo de país). */
   customer_phone: string;
+  /** País (ISO) elegido en el selector; el servidor lo combina con el número. */
+  customer_phone_country?: string;
   customer_email?: string;
   customer_lookup?: string | null;
   coupon_code?: string;
@@ -108,7 +111,12 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     const window = business.windows.find((w) => w.id === option.windowId)!;
     const isDelivery = window.fulfillmentType === "delivery";
 
-    // 2) Validación del payload con el esquema compartido.
+    // 2) El servidor manda: país + número se combinan y se normalizan aquí (10 dígitos si es México,
+    // "+<prefijo><nacional>" en cualquier otro país). Nada de esto depende del navegador.
+    const phone = parsePhone(payload.customer_phone_country, payload.customer_phone ?? "");
+    if (!phone.ok) return { ok: false, field: "customer_phone", error: phone.error };
+
+    // 3) Validación del payload con el esquema compartido.
     const parsed = webCheckoutSchema.safeParse({
       items: payload.items,
       fulfillment_type: window.fulfillmentType,
@@ -116,7 +124,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       scheduled_date: option.date,
       pickup_point_id: isDelivery ? undefined : payload.pickup_point_id,
       customer_name: payload.customer_name,
-      customer_phone: payload.customer_phone, // phoneMX lo deja canónico (canonicalPhone)
+      customer_phone: phone.value, // ya canónico
       customer_email: payload.customer_email ?? "",
       delivery_address: isDelivery ? payload.delivery_address : undefined,
       coupon_code: payload.coupon_code ?? "",
@@ -130,7 +138,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       const field = issue?.path[0]?.toString();
       const msg =
         field === "customer_phone"
-          ? "Escribe un teléfono válido de 10 dígitos."
+          ? "Escribe un teléfono válido."
           : field === "customer_name"
             ? "Escribe tu nombre completo."
             : field === "customer_email"
@@ -147,7 +155,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       return { ok: false, field: "delivery_address", error: "Completa la dirección de entrega." };
     }
 
-    // 3) Productos: existen, se venden en web y están disponibles.
+    // 4) Productos: existen, se venden en web y están disponibles.
     const products = await listProductsByIds(data.items.map((i) => i.product_id));
     for (const item of data.items) {
       const p = products.find((x) => x.id === item.product_id);
@@ -165,7 +173,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
         };
     }
 
-    // 4) Método de pago permitido según flags/configuración.
+    // 5) Método de pago permitido según flags/configuración.
     const mpOk = mercadoPagoAvailable(business.flags);
     const transferOk = Boolean(business.policies.transfer_instructions);
     if (data.payment_method === "mercadopago" && !mpOk)
@@ -181,7 +189,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
         error: "La transferencia no está disponible ahora. Elige otro método.",
       };
 
-    // 5) Punto de retiro (si aplica).
+    // 6) Punto de retiro (si aplica).
     let pickupPointId: string | undefined;
     if (!isDelivery) {
       const point =
@@ -191,7 +199,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       pickupPointId = point?.id;
     }
 
-    // 6) Cliente: vínculo explícito ("ya soy cliente") o por teléfono. Nunca se revela nada al cliente aquí.
+    // 7) Cliente: vínculo explícito ("ya soy cliente") o por teléfono. Nunca se revela nada al cliente aquí.
     let customerId: string | null = null;
     const lookup = payload.customer_lookup?.trim();
     if (lookup) customerId = (await findCustomer(lookup))?.id ?? null;
@@ -214,7 +222,7 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       customerId = reg.customer_id;
     }
 
-    // 7) Crear pedido (precios del servidor, canal web).
+    // 8) Crear pedido (precios del servidor, canal web).
     const scheduledFor = zonedToUtc(option.date, option.from ?? "00:00", business.timezone);
     const deliveryFee = isDelivery ? (business.policies.delivery_fee_cents ?? 0) : 0;
     const orderId = await createWebOrder({
