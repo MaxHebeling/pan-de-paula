@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { PhoneField } from "@/components/PhoneField";
 import { joinClubAction, type JoinState } from "./actions";
 
 export function JoinForm() {
@@ -31,29 +32,17 @@ export function JoinForm() {
           </p>
         )}
       </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label htmlFor="phone" className="label">
-            Teléfono (opcional)
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            defaultValue={v?.phone}
-            inputMode="numeric"
-            className="input"
-            autoComplete="tel"
-            placeholder="10 dígitos"
-            aria-invalid={Boolean(err("phone"))}
-            data-testid="join-phone"
-          />
-          {err("phone") && (
-            <p className="error" role="alert">
-              {err("phone")}
-            </p>
-          )}
-        </div>
+      {/* Teléfono y correo en filas completas: el selector de país necesita el ancho para que el número
+          de 10 dígitos se lea entero también en escritorio. */}
+      <div className="grid gap-5">
+        <PhoneField
+          name="phone"
+          label="Teléfono (opcional)"
+          defaultCountry={v?.phone_country}
+          defaultValue={v?.phone}
+          error={err("phone")}
+          testId="join-phone"
+        />
         <div>
           <label htmlFor="email" className="label">
             Correo electrónico

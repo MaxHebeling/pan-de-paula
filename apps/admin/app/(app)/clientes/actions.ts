@@ -2,7 +2,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { customerRegistrationWithEmailSchema, emailSchema, phoneMX } from "@pdp/domain";
+import {
+  customerRegistrationWithEmailSchema,
+  emailSchema,
+  parseOptionalPhone,
+  phoneMX,
+} from "@pdp/domain";
 import { createCustomerAccessToken } from "@pdp/auth/customer";
 import { isEmailConfigured, sendPortalAccessEmail } from "@pdp/integrations";
 import { requireSession, clientIp } from "@/lib/auth";
@@ -27,10 +32,14 @@ const tagsSchema = z
 
 export async function createCustomerAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
+  // El servidor manda: el país del selector y el número se combinan aquí en el valor canónico
+  // (10 dígitos si es México, "+<prefijo><nacional>" en el resto). Ver docs/DATABASE.md.
+  const phone = parseOptionalPhone(str(fd, "phone_country"), str(fd, "phone"));
+  if (!phone.ok) return { error: phone.error };
   // Alta humana desde el CRM: el correo es obligatorio (es la llave del portal del cliente).
   const parsed = customerRegistrationWithEmailSchema.safeParse({
     full_name: str(fd, "full_name"),
-    phone: str(fd, "phone"),
+    phone: phone.value ?? "",
     email: str(fd, "email"),
     birthday: str(fd, "birthday"),
     marketing_consent: bool(fd, "marketing_consent"),
@@ -90,10 +99,12 @@ const updateSchema = z.object({
 
 export async function updateCustomerAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
+  const phone = parseOptionalPhone(str(fd, "phone_country"), str(fd, "phone"));
+  if (!phone.ok) return { error: phone.error };
   const parsed = updateSchema.safeParse({
     id: str(fd, "id"),
     full_name: str(fd, "full_name"),
-    phone: str(fd, "phone"),
+    phone: phone.value ?? "",
     email: str(fd, "email"),
     birthday: str(fd, "birthday"),
     notes: str(fd, "notes"),

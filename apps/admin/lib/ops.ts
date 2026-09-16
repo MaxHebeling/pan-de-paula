@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "@pdp/db";
+import { phoneToE164Digits } from "@pdp/domain";
 import type { StaffSession } from "@pdp/auth";
 import { dbErrorMessage } from "@pdp/db";
 
@@ -52,12 +53,11 @@ export function localDateTimeToSql(value: string): string | null {
   return value.replace("T", " ");
 }
 
-/** Normaliza un teléfono MX para wa.me (52 + 10 dígitos). */
+/**
+ * Número para wa.me. México (10 dígitos guardados) se marca como 52 + 10; un teléfono guardado en
+ * E.164 ("+16195550100") ya trae su prefijo y se usa tal cual. La regla vive en `@pdp/domain`
+ * (`phoneToE164Digits`) para que el sitio y el CRM armen el mismo enlace.
+ */
 export function whatsappNumber(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  const d = phone.replace(/[^0-9]/g, "");
-  if (d.length === 10) return `52${d}`;
-  if (d.length === 12 && d.startsWith("52")) return d;
-  if (d.length === 13 && d.startsWith("521")) return `52${d.slice(3)}`;
-  return d.length >= 10 ? d : null;
+  return phoneToE164Digits(phone);
 }

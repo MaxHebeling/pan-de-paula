@@ -1,4 +1,5 @@
 import type { ActionState } from "@/lib/action-state";
+import { PhoneField } from "@/components/phone-field";
 import { ActionForm } from "./action-form";
 
 type Values = {
@@ -45,19 +46,12 @@ export function CustomerForm({
             autoComplete="off"
           />
         </div>
-        <div>
-          <label className="label" htmlFor="phone">
-            Teléfono (10 dígitos)
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            className="input"
-            inputMode="tel"
-            defaultValue={values.phone ?? ""}
-            placeholder="6641234567"
-          />
-        </div>
+        <PhoneField
+          name="phone"
+          label="Teléfono"
+          storedValue={values.phone}
+          testId="customer-phone"
+        />
         <div>
           <label className="label" htmlFor="email">
             Correo electrónico {emailRequired ? "*" : ""}

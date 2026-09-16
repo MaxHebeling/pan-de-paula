@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { customerRegistrationSchema } from "@pdp/domain";
+import { customerRegistrationSchema, parseOptionalPhone } from "@pdp/domain";
 import { db, callFn, withStaff } from "@/lib/db";
 import {
   apiSession,
@@ -40,8 +40,17 @@ export async function POST(req: Request) {
   const auth = await apiSession("pos.sell");
   if (!auth.ok) return auth.response;
   const body = await readJson(req);
+  const raw = typeof body === "object" && body ? (body as Record<string, unknown>) : {};
+  // El servidor manda: país + número se combinan aquí en el valor canónico que se guarda
+  // (10 dígitos si es México, "+<prefijo><nacional>" en el resto).
+  const phone = parseOptionalPhone(
+    typeof raw.phone_country === "string" ? raw.phone_country : null,
+    typeof raw.phone === "string" ? raw.phone : "",
+  );
+  if (!phone.ok) return jsonError(400, phone.error, "VALIDATION");
   const parsed = quickSchema.safeParse({
-    ...(typeof body === "object" && body ? body : {}),
+    ...raw,
+    phone: phone.value ?? "",
     source: "pos",
   });
   if (!parsed.success) {

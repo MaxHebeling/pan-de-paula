@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { Cake, QrCode, UserPlus, X } from "lucide-react";
+import { DEFAULT_PHONE_COUNTRY } from "@pdp/domain";
+import { PhoneField } from "@/components/phone-field";
 import { apiFetch, NetworkError, postJson } from "./api";
 import { hasBarcodeDetector, QrScanner } from "./qr-scanner";
 import type { PosCustomer } from "./types";
@@ -25,7 +27,12 @@ export function CustomerPanel({
   const [mode, setMode] = useState<"search" | "new">("search");
   const [scanning, setScanning] = useState(false);
   const canScan = useSyncExternalStore(noopSubscribe, hasBarcodeDetector, () => false);
-  const [form, setForm] = useState({ full_name: "", phone: "", email: "" });
+  const [form, setForm] = useState({
+    full_name: "",
+    phone: "",
+    phone_country: DEFAULT_PHONE_COUNTRY,
+    email: "",
+  });
   const inputRef = useRef<HTMLInputElement>(null);
 
   const search = useCallback(
@@ -85,7 +92,7 @@ export function CustomerPanel({
       }
       if (r.data.customer) {
         onSelect(r.data.customer);
-        setForm({ full_name: "", phone: "", email: "" });
+        setForm({ full_name: "", phone: "", phone_country: DEFAULT_PHONE_COUNTRY, email: "" });
         setMode("search");
       }
     } catch (e) {
@@ -246,14 +253,14 @@ export function CustomerPanel({
             minLength={2}
             autoFocus
           />
-          <input
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            placeholder="Teléfono (10 dígitos)"
-            aria-label="Teléfono del cliente"
-            className="input min-h-11"
-            inputMode="tel"
+          <PhoneField
+            name="pos_phone"
+            label="Teléfono del cliente"
             required
+            defaultCountry={form.phone_country}
+            defaultValue={form.phone}
+            testId="pos-phone"
+            onChange={(v) => setForm({ ...form, phone: v.national, phone_country: v.country })}
           />
           {/* Opcional a propósito: en mostrador no se frena la venta por el correo (ver migración 0043).
               Si el cliente lo da aquí, ya puede entrar a su portal sin pasar por el sitio. */}
