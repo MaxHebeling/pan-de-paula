@@ -2,8 +2,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { customerRegistrationSchema, phoneMX, emailSchema } from "@pdp/domain";
-import { requireSession } from "@/lib/auth";
+import { customerRegistrationWithEmailSchema, phoneMX, requiredEmailSchema } from "@pdp/domain";
+import { createCustomerAccessToken } from "@pdp/auth/customer";
+import { isEmailConfigured, sendPortalAccessEmail } from "@pdp/integrations";
+import { requireSession, clientIp } from "@/lib/auth";
 import { db, sql, callFn, withStaff, dbErrorMessage } from "@/lib/db";
 import { bool, optStr, str, type ActionState } from "@/lib/action-state";
 
@@ -25,7 +27,8 @@ const tagsSchema = z
 
 export async function createCustomerAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const s = await requireSession("customers.write");
-  const parsed = customerRegistrationSchema.safeParse({
+  // Alta humana desde el CRM: el correo es obligatorio (es la llave del portal del cliente).
+  const parsed = customerRegistrationWithEmailSchema.safeParse({
     full_name: str(fd, "full_name"),
     phone: str(fd, "phone"),
     email: str(fd, "email"),
@@ -58,6 +61,8 @@ export async function createCustomerAction(_prev: ActionState, fd: FormData): Pr
     created = r.created;
   } catch (e) {
     console.error("[clientes] alta falló", e);
+    if ((e as { code?: string }).code === "23505")
+      return { error: "Ese correo ya está registrado." };
     return { error: dbErrorMessage(e).message };
   }
   revalidatePath("/clientes");
@@ -68,7 +73,7 @@ const updateSchema = z.object({
   id: uuid,
   full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
   phone: phoneMX.optional().or(z.literal("").transform(() => undefined)),
-  email: emailSchema.optional().or(z.literal("").transform(() => undefined)),
+  email: requiredEmailSchema,
   birthday: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -94,7 +99,6 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
     operational_consent: bool(fd, "operational_consent"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
-  if (!parsed.data.phone && !parsed.data.email) return { error: "Se requiere teléfono o email" };
   const d = parsed.data;
   try {
     await withStaff(db(), s.staff.id, (trx) =>
@@ -106,6 +110,15 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
     );
   } catch (e) {
     console.error("[clientes] edición falló", e);
+    if ((e as { code?: string }).code === "23505") {
+      const constraint = (e as { constraint?: string }).constraint;
+      return {
+        error:
+          constraint === "customers_phone_idx"
+            ? "Ese teléfono ya está registrado en otro cliente."
+            : "Ese correo ya está registrado en otro cliente.",
+      };
+    }
     return { error: dbErrorMessage(e).message };
   }
   revalidatePath(`/clientes/${d.id}`);
@@ -337,4 +350,77 @@ export async function markEventHandledAction(
     console.error("[clientes] evento falló", e);
     return { error: dbErrorMessage(e).message };
   }
+}
+
+/**
+ * Genera un enlace de acceso al portal del cliente (`/portal`) para dárselo en el mostrador o por
+ * WhatsApp. Mismo patrón que el restablecimiento de contraseña del staff y que el saludo de cumpleaños:
+ * el sistema prepara, una persona con permiso aprueba y entrega.
+ *
+ * Existe porque HOY el proveedor de correo (Resend) no está configurado en producción: sin esto, un
+ * cliente que no puede recibir el correo se quedaría fuera de su propia cuenta. Si el correo sí está
+ * configurado y el cliente tiene uno, además se lo enviamos.
+ *
+ * El enlace se devuelve en `data` (no se guarda en claro en ningún lado) y queda auditado en
+ * `audit_logs` como CUSTOMER_ACCESS_LINK con el staff que lo generó.
+ */
+export async function generatePortalLinkAction(
+  _prev: ActionState,
+  fd: FormData,
+): Promise<ActionState> {
+  const s = await requireSession("customers.write");
+  const p = z.object({ id: uuid }).safeParse({ id: str(fd, "id") });
+  if (!p.success) return { error: "Datos inválidos" };
+  const c = await sql<{
+    id: string;
+    full_name: string;
+    email: string | null;
+  }>`select id, full_name, email from customers
+      where id = ${p.data.id} and deleted_at is null and merged_into_id is null`.execute(db());
+  const customer = c.rows[0];
+  if (!customer) return { error: "El cliente no existe." };
+
+  let link: string;
+  let minutes: number;
+  try {
+    const ip = await clientIp();
+    const r = await withStaff(db(), s.staff.id, (trx) =>
+      createCustomerAccessToken(trx, {
+        customerId: customer.id,
+        requestedBy: "staff",
+        staffId: s.staff.id,
+        ip,
+      }),
+    );
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    link = `${base}/portal/acceso?t=${encodeURIComponent(r.token)}`;
+    minutes = Math.max(1, Math.round((r.expiresAt.getTime() - Date.now()) / 60_000));
+  } catch (e) {
+    console.error("[clientes] no se pudo generar el enlace del portal", e);
+    return { error: dbErrorMessage(e).message };
+  }
+
+  let mailed = false;
+  if (customer.email && isEmailConfigured()) {
+    const biz = await sql<{ name: string }>`select name from business_settings where id = 1`.execute(
+      db(),
+    );
+    const r = await sendPortalAccessEmail(customer.email, {
+      businessName: biz.rows[0]?.name ?? "El Pan de Paula",
+      firstName: customer.full_name.split(/\s+/)[0] ?? customer.full_name,
+      link,
+      minutes,
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    });
+    mailed = Boolean(r.sent);
+    if (!r.sent) console.error("[clientes] el enlace del portal no se pudo enviar", r.error);
+  }
+
+  revalidatePath(`/clientes/${customer.id}`);
+  return {
+    ok: mailed
+      ? `Enlace enviado a ${customer.email}. Vence en ${minutes} minutos y sirve una sola vez; cópialo abajo si además quieres dárselo a mano.`
+      : `Enlace listo. Vence en ${minutes} minutos y sirve una sola vez: compártelo solo con el cliente.`,
+    data: { link, minutes, mailed },
+  };
 }

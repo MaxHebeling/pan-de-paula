@@ -168,6 +168,10 @@ export default async function CardPage({ params, searchParams }: Props) {
         )}
       </div>
       <p className="mt-8 text-center text-sm text-ink-2">
+        <Link href="/portal/entrar" className="text-sage underline">
+          Entrar a mi cuenta
+        </Link>{" "}
+        para ver tus compras y tus movimientos de puntos ·{" "}
         <Link href="/menu" className="text-sage underline">
           Ver menú y pedir
         </Link>

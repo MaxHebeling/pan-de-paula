@@ -478,6 +478,56 @@ export async function sendOrderStatusEmail(
   });
 }
 
+// ── Acceso al portal del cliente ────────────────────────────────────────────
+// Enlace de un solo uso para entrar a /portal. Lo dispara el propio cliente desde /portal/entrar
+// o el staff desde la ficha del CRM. Usa el mismo maquetado que el resto de los correos.
+
+export type PortalAccessData = {
+  businessName: string;
+  /** Nombre de pila para el saludo. */
+  firstName: string;
+  /** URL absoluta con el token (https). */
+  link: string;
+  /** Minutos que le quedan de vida al enlace. */
+  minutes: number;
+  logoUrl?: string | null;
+  siteUrl?: string | null;
+};
+
+export function renderPortalAccessHtml(data: PortalAccessData): string {
+  const inner = `
+<h1 style="font-family:Georgia,serif;font-weight:normal;font-size:22px;margin:0 0 4px;">Entra a tu cuenta</h1>
+<p style="margin:16px 0 8px;">Hola ${escapeHtml(data.firstName)}, este es tu enlace para ver tus puntos, tus compras y tu QR del club de ${escapeHtml(data.businessName)}.</p>
+${button(data.link, "Entrar a mi cuenta")}
+<div style="font-size:12px;color:${C.ink2};text-align:center;">Si el botón no funciona, copia este enlace:<br><a href="${safeUrl(data.link) ?? "#"}" style="color:${C.wine};word-break:break-all;">${escapeHtml(data.link)}</a></div>
+<p style="margin:16px 0 0;font-size:12px;color:${C.ink2};">El enlace caduca en ${escapeHtml(data.minutes)} minutos y sirve una sola vez. Es personal: no lo compartas. Si no lo pediste, ignora este correo.</p>`;
+  return layout(
+    { businessName: data.businessName, logoUrl: data.logoUrl, siteUrl: data.siteUrl },
+    `Entra a tu cuenta · ${data.businessName}`,
+    inner,
+    "Tu enlace para entrar al club",
+  );
+}
+
+/**
+ * Envía el enlace de acceso al portal. Sin proveedor configurado devuelve `{sent:false}` y quien llama
+ * decide qué hacer (hoy: el CRM entrega el enlace a mano). SIN `idempotencyKey`: cada solicitud genera
+ * un token nuevo y el cliente debe recibir el último, no una copia deduplicada del anterior.
+ */
+export async function sendPortalAccessEmail(
+  to: string,
+  data: PortalAccessData,
+): Promise<EmailResult> {
+  if (!isEmailConfigured()) return { sent: false, skipped: "not_configured" };
+  if (!safeUrl(data.link)) return { sent: false, error: "Enlace inválido" };
+  return sendEmail({
+    to,
+    subject: `Entra a tu cuenta · ${data.businessName}`,
+    html: renderPortalAccessHtml(data),
+    text: `Hola ${data.firstName}, entra a tu cuenta del club de ${data.businessName}: ${data.link}\nEl enlace caduca en ${data.minutes} minutos y sirve una sola vez.`,
+  });
+}
+
 // ── Saludo de cumpleaños ────────────────────────────────────────────────────
 // El texto lo arma @pdp/domain (birthdayGreetingMessage) y llega aquí ya redactado y aprobado por
 // el staff: este módulo solo lo maqueta. Nunca se envía solo — lo dispara una acción del CRM.
