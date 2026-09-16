@@ -1,7 +1,9 @@
 "use server";
 
 import { callFn, db, dbErrorMessage } from "@/lib/db";
+import { availability } from "@/lib/availability";
 import { listProductsByIds } from "@/lib/catalog";
+import type { ServerProduct } from "@/lib/cart/reconcile";
 import { findCustomer } from "@/lib/customers";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
@@ -76,6 +78,61 @@ export async function validateCouponAction(input: {
     };
   } catch (e) {
     console.error("[validateCouponAction]", e);
+    return { ok: false, error: dbErrorMessage(e).message };
+  }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type CartCheckItem = { product_id: string; qty: number };
+export type CartCheckResult =
+  { ok: true; products: ServerProduct[] } | { ok: false; error: string };
+
+/**
+ * Revalida el carrito del navegador: devuelve, para cada producto, el precio web vigente, su nombre,
+ * su disponibilidad y si sigue visible en la tienda. Los productos que ya no se venden en línea
+ * simplemente no vienen en la respuesta.
+ *
+ * Seguridad: del cliente solo se leen los `product_id` (se descarta cualquier otro campo, incluido
+ * cualquier precio que mande). El precio sale siempre de `current_price_cents(product, 'web')`, la
+ * misma fuente que usa `create_order`. La respuesta es informativa: no reserva nada ni fija precios.
+ */
+export async function revalidateCartAction(items: CartCheckItem[]): Promise<CartCheckResult> {
+  const ids = Array.from(
+    new Set(
+      (items ?? [])
+        .map((i) => (typeof i?.product_id === "string" ? i.product_id : ""))
+        .filter((id) => UUID.test(id)),
+    ),
+  ).slice(0, 50);
+  if (ids.length === 0) return { ok: true, products: [] };
+  try {
+    const rl = await rateLimit("cart-check", { max: 120 });
+    if (!rl.allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
+    const products = await listProductsByIds(ids);
+    return {
+      ok: true,
+      products: products.flatMap<ServerProduct>((p) => {
+        if (p.priceCents === null) return [];
+        const a = availability(p);
+        return [
+          {
+            productId: p.id,
+            slug: p.slug,
+            name: p.name,
+            variantLabel: p.variantLabel,
+            unitPriceCents: p.priceCents,
+            imageUrl: p.primaryImageUrl,
+            categorySlug: p.categorySlug,
+            canAdd: a.canAdd,
+            soldOut: a.soldOut,
+            note: a.note,
+          },
+        ];
+      }),
+    };
+  } catch (e) {
+    console.error("[revalidateCartAction]", e);
     return { ok: false, error: dbErrorMessage(e).message };
   }
 }

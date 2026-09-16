@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { formatLocalDate } from "@pdp/domain";
+import { CartNotice } from "@/components/CartNotice";
 import { ProductArt } from "@/components/ProductArt";
 import { useCart } from "@/lib/cart/CartProvider";
+import { useCartRevalidation } from "@/lib/cart/useCartRevalidation";
 import {
   cartSignature,
   clearIdempotencyKey,
@@ -45,6 +47,9 @@ export function CheckoutForm({
   const cart = useCart();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Revalidación de precios: una al cargar y otra justo antes de enviar el pedido.
+  const { changes, checking, check } = useCartRevalidation();
+  const [needsConfirm, setNeedsConfirm] = useState(false);
   // Clave de idempotencia ligada al contenido del carrito y persistida en sessionStorage: un refresh o un
   // "atrás" a mitad del envío reutiliza la misma clave y el servidor devuelve el pedido ya creado.
   const signature = cartSignature(cart.lines);
@@ -84,12 +89,15 @@ export function CheckoutForm({
 
   if (cart.lines.length === 0) {
     return (
-      <div className="card mt-8 p-10 text-center">
-        <p className="font-display text-2xl text-ink">Tu carrito está vacío</p>
-        <Link href="/menu" className="btn btn-primary mt-6">
-          Ver menú
-        </Link>
-      </div>
+      <>
+        <CartNotice changes={changes} className="mt-6" />
+        <div className="card mt-8 p-10 text-center">
+          <p className="font-display text-2xl text-ink">Tu carrito está vacío</p>
+          <Link href="/menu" className="btn btn-primary mt-6">
+            Ver menú
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -133,6 +141,7 @@ export function CheckoutForm({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNeedsConfirm(false);
     if (!option) return setError({ field: "date", message: "Elige una fecha de recolección." });
     if (name.trim().length < 2)
       return setError({ field: "customer_name", message: "Escribe tu nombre completo." });
@@ -166,6 +175,11 @@ export function CheckoutForm({
       idempotency_key: getOrCreateIdempotencyKey(safeSessionStorage(), signature),
     };
     startTransition(async () => {
+      // Último vistazo a los precios: si algo cambió no se crea el pedido en silencio.
+      if (await check()) {
+        setNeedsConfirm(true);
+        return;
+      }
       const r = await placeOrderAction(payload);
       if (!r.ok) {
         setError({ message: r.error, field: r.field });
@@ -589,17 +603,32 @@ export function CheckoutForm({
               {summaryError}
             </p>
           )}
+          <CartNotice
+            changes={changes}
+            tone={needsConfirm ? "alert" : "status"}
+            footer={
+              needsConfirm
+                ? "Revisa el total y vuelve a confirmar tu pedido."
+                : "Estos son los precios con los que se registrará tu pedido."
+            }
+            testId="checkout-cart-changes"
+            className="mt-4"
+          />
           <button
             type="submit"
             className="btn btn-primary btn-lg mt-5 w-full"
-            disabled={pending}
+            disabled={pending || checking}
             data-testid="place-order"
           >
             {pending
               ? "Registrando tu pedido…"
-              : method === "mercadopago"
-                ? "Continuar al pago"
-                : "Confirmar pedido"}
+              : checking
+                ? "Revisando precios…"
+                : needsConfirm
+                  ? "Confirmar con el precio vigente"
+                  : method === "mercadopago"
+                    ? "Continuar al pago"
+                    : "Confirmar pedido"}
           </button>
           <p className="mt-3 text-center text-xs text-ink-2">
             Al confirmar aceptas nuestros{" "}
