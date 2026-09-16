@@ -114,10 +114,12 @@ describe("restar producción (reduce_production)", () => {
   });
 
   it("abarca varios lotes del más nuevo al más viejo", async () => {
+    // Segundos, no horas: con horas, una corrida de madrugada dejaba el lote más viejo en el día local
+    // ANTERIOR (reduce_production solo toca los de hoy) y la prueba fallaba según la hora del reloj.
     const now = Date.now();
-    await produce(5, new Date(now - 3 * 3600_000).toISOString());
-    await produce(4, new Date(now - 2 * 3600_000).toISOString());
-    await produce(3, new Date(now - 1 * 3600_000).toISOString());
+    await produce(5, new Date(now - 3_000).toISOString());
+    await produce(4, new Date(now - 2_000).toISOString());
+    await produce(3, new Date(now - 1_000).toISOString());
     const r = await reduce(8);
     expect(r).toMatchObject({ produced_today: 4, on_hand: 4, batches_affected: 3 });
     const rows = await batches();
