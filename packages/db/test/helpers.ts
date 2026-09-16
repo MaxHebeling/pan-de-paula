@@ -12,7 +12,7 @@ export async function truncateAll(db: Database) {
       refunds, returns, receipts, payments, sales, order_status_history, order_items, orders,
       register_sessions, inventory_movements, inventory_levels, production_batches, waste_records,
       stock_count_items, stock_counts, ingredient_movements, loyalty_transactions, reward_redemptions,
-      coupon_redemptions, coupons, rewards, customer_events, customer_addresses, customers,
+      coupon_redemptions, coupons, rewards, customer_events, birthday_greetings, customer_addresses, customers,
       recipe_items, recipes, ingredient_prices, ingredients, suppliers, product_prices, product_images, products, categories,
       webhook_events, notifications, domain_events, audit_logs, leads, instagram_messages, instagram_conversations,
       loyalty_product_bonuses, staff_sessions, staff_users, import_rows, import_batches, rate_limits
