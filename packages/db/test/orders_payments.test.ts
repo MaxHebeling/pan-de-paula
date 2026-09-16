@@ -241,7 +241,9 @@ describe("pedidos web + Mercado Pago", () => {
     }>`select id from find_customer(${a.public_code.toLowerCase()})`.execute(db);
     expect(byCode.rows[0]!.id).toBe(a.customer_id);
     await expect(
-      callFn(db, "register_customer", [JSON.stringify({ full_name: "X" })]),
+      callFn(db, "register_customer", [
+        JSON.stringify({ full_name: "X", allow_without_email: true }),
+      ]),
     ).rejects.toThrow(/teléfono o email/);
   });
 

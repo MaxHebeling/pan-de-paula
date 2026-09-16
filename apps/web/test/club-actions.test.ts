@@ -63,16 +63,37 @@ beforeEach(async () => {
 });
 
 describe("/unete · registro", () => {
-  it("sin teléfono ni correo → error claro en el campo teléfono", async () => {
+  it("sin correo → error claro en el campo correo (el correo es obligatorio desde 0043)", async () => {
     const r = await joinClubAction(null, form({ full_name: "Solo Nombre" }));
-    expect(r).toMatchObject({ field: "phone", error: expect.stringMatching(/teléfono/i) });
+    expect(r).toMatchObject({ field: "email", error: expect.stringMatching(/correo/i) });
+    // Tampoco basta con el teléfono: el correo es la llave del portal.
+    const soloTel = await joinClubAction(
+      null,
+      form({ full_name: "Solo Teléfono", phone: "6645551111" }),
+    );
+    expect(soloTel).toMatchObject({ field: "email", error: expect.stringMatching(/correo/i) });
     expect((await sql`select 1 from customers`.execute(db)).rows).toHaveLength(0);
   });
 
+  it("el teléfono pasa a ser opcional: con nombre y correo alcanza", async () => {
+    const to = await redirectOf(
+      joinClubAction(null, form({ full_name: "Sin Teléfono", email: "sinte@example.com" })),
+    );
+    expect(to).toMatch(/^\/mi-tarjeta\/.+\?bienvenida=1$/);
+    const c = await sql<{
+      phone: string | null;
+      email: string;
+    }>`select phone, email from customers`.execute(db);
+    expect(c.rows[0]).toMatchObject({ phone: null, email: "sinte@example.com" });
+  });
+
   it("teléfono inválido y correo inválido se rechazan con su campo", async () => {
-    expect(await joinClubAction(null, form({ full_name: "Ana", phone: "12345" }))).toMatchObject({
-      field: "phone",
-    });
+    expect(
+      await joinClubAction(
+        null,
+        form({ full_name: "Ana", phone: "12345", email: "ana@example.com" }),
+      ),
+    ).toMatchObject({ field: "phone" });
     expect(await joinClubAction(null, form({ full_name: "Ana", email: "ana@" }))).toMatchObject({
       field: "email",
     });
@@ -103,7 +124,10 @@ describe("/unete · registro", () => {
 
   it("teléfono ya registrado → NO redirige a la tarjeta ajena, no la modifica y avisa sin revelar nada", async () => {
     await redirectOf(
-      joinClubAction(null, form({ full_name: "Titular Real", phone: "6645550202" })),
+      joinClubAction(
+        null,
+        form({ full_name: "Titular Real", phone: "6645550202", email: "titular.real@example.com" }),
+      ),
     );
     const before =
       await sql`select full_name, email, birthday, marketing_consent from customers`.execute(db);
@@ -142,12 +166,19 @@ describe("/unete · registro", () => {
       const to = await redirectOf(
         joinClubAction(
           null,
-          form({ full_name: `P ${i}`, phone: `66400000${String(i).padStart(2, "0")}` }),
+          form({
+            full_name: `P ${i}`,
+            phone: `66400000${String(i).padStart(2, "0")}`,
+            email: `p${i}@example.com`,
+          }),
         ),
       );
       expect(to).toMatch(/^\/mi-tarjeta\//);
     }
-    const r = await joinClubAction(null, form({ full_name: "Bloqueado", phone: "6640009999" }));
+    const r = await joinClubAction(
+      null,
+      form({ full_name: "Bloqueado", phone: "6640009999", email: "bloqueado@example.com" }),
+    );
     expect(r).toMatchObject({ error: expect.stringMatching(/demasiados intentos/i) });
   });
 });

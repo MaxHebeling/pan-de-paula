@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { customerRegistrationSchema } from "@pdp/domain";
+import { customerRegistrationWithEmailSchema } from "@pdp/domain";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { findCustomer } from "@/lib/customers";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
@@ -34,20 +34,21 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
     marketing_consent: formData.get("marketing_consent") === "on",
     source: "qr" as const,
   };
-  const parsed = customerRegistrationSchema.safeParse(raw);
+  // Alta humana: el correo es obligatorio (es la llave de /portal). Mismo criterio en el servidor SQL.
+  const parsed = customerRegistrationWithEmailSchema.safeParse(raw);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const field = issue?.path[0]?.toString();
     const msg =
-      field === "phone" && !raw.phone && !raw.email
-        ? "Necesitamos tu teléfono (o tu correo) para crear tu tarjeta."
-        : field === "phone"
-          ? "Escribe un teléfono válido de 10 dígitos."
-          : field === "email"
-            ? "Ese correo no parece válido."
-            : field === "full_name"
-              ? "Escribe tu nombre."
-              : (issue?.message ?? "Revisa los datos.");
+      field === "phone"
+        ? "Escribe un teléfono válido de 10 dígitos."
+        : field === "email"
+          ? !raw.email
+            ? "Necesitamos tu correo: con él entras a tu cuenta y te mandamos tu tarjeta."
+            : "Ese correo no parece válido."
+          : field === "full_name"
+            ? "Escribe tu nombre."
+            : (issue?.message ?? "Revisa los datos.");
     return { error: msg, field, values: { ...raw } };
   }
   let token: string;
@@ -79,6 +80,12 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
     }
     token = r.qr_token;
   } catch (e) {
+    // 23505: dos altas simultáneas con el mismo correo/teléfono. Mismo trato que "ya existe" para no
+    // confirmarle a nadie que un correo ajeno está registrado.
+    if ((e as { code?: string }).code === "23505") {
+      console.info("[club] alta simultánea con datos ya registrados; respuesta genérica");
+      return { notice: "existing", emailSent: false, values: { ...raw } };
+    }
     console.error("[joinClubAction]", e);
     return { error: dbErrorMessage(e).message, values: { ...raw } };
   }

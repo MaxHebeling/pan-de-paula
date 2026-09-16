@@ -34,7 +34,7 @@ export function JoinForm() {
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="phone" className="label">
-            Teléfono (WhatsApp)
+            Teléfono (opcional)
           </label>
           <input
             id="phone"
@@ -56,7 +56,7 @@ export function JoinForm() {
         </div>
         <div>
           <label htmlFor="email" className="label">
-            Correo (opcional)
+            Correo electrónico
           </label>
           <input
             id="email"
@@ -65,12 +65,18 @@ export function JoinForm() {
             defaultValue={v?.email}
             className="input"
             autoComplete="email"
+            inputMode="email"
+            required
+            maxLength={254}
             aria-invalid={Boolean(err("email"))}
+            data-testid="join-email"
           />
-          {err("email") && (
+          {err("email") ? (
             <p className="error" role="alert">
               {err("email")}
             </p>
+          ) : (
+            <p className="help">Con él entras a tu cuenta y te enviamos tu tarjeta.</p>
           )}
         </div>
       </div>
@@ -110,12 +116,17 @@ export function JoinForm() {
           role="status"
           data-testid="join-existing"
         >
-          <p className="font-medium">Ese teléfono o correo ya tiene una tarjeta del club.</p>
+          <p className="font-medium">Ese correo o teléfono ya tiene una tarjeta del club.</p>
           <p className="mt-1 text-ink-2">
             Para proteger tus datos no la mostramos aquí.{" "}
             {state.emailSent
               ? "Te enviamos el enlace de tu tarjeta al correo registrado."
-              : "Pídela en la panadería con tu teléfono o escríbenos y te la reenviamos."}
+              : "Pídela en la panadería o escríbenos y te la reenviamos."}{" "}
+            También puedes{" "}
+            <a href="/portal/entrar" className="underline">
+              entrar a tu cuenta
+            </a>{" "}
+            con tu correo.
           </p>
         </div>
       )}
@@ -127,6 +138,13 @@ export function JoinForm() {
       >
         {pending ? "Creando tu tarjeta…" : "Crear mi tarjeta"}
       </button>
+      <p className="text-sm text-ink-2">
+        ¿Ya tienes tarjeta?{" "}
+        <a href="/portal/entrar" className="text-sage underline">
+          Entra a tu cuenta
+        </a>
+        .
+      </p>
       <p className="text-xs text-ink-2">
         Al registrarte aceptas el{" "}
         <a href="/privacidad" className="underline">

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createDb, sql } from "@pdp/db";
 
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@elpandepaula.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "CambiaEstaClave!2026";
@@ -66,6 +67,8 @@ test.describe("Clientes, fidelización, cupones y reportes", () => {
     await open(page, "/clientes/nuevo");
     await fillField(page, "#full_name", name);
     await fillField(page, "#phone", phone);
+    // Desde la migración 0043 el correo es obligatorio en las altas humanas del CRM.
+    await fillField(page, "#email", `e2e-cliente-${phone}@example.com`);
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await page.waitForURL(/\/clientes\/[0-9a-f-]{36}/, { timeout: 20_000 });
     customerUrl = new URL(page.url()).pathname;
@@ -84,6 +87,47 @@ test.describe("Clientes, fidelización, cupones y reportes", () => {
     await page.getByRole("button", { name: "Aplicar ajuste" }).click();
     await expect(page.getByRole("status")).toContainText("Nuevo saldo: 25", { timeout: 15_000 });
     await expect(page.getByText("Ajuste manual: Cortesía E2E")).toBeVisible();
+  });
+
+  test("cliente histórico sin correo: se puede editar sin quedar bloqueado, y su correo no se borra", async ({
+    page,
+  }) => {
+    const { db, pool } = createDb({
+      connectionString: process.env.DATABASE_URL,
+      ssl: false,
+      max: 2,
+    });
+    try {
+      // Alta como la del POS/importación: sin correo (excepción documentada de register_customer).
+      const r = await sql<{ r: { customer_id: string } }>`select register_customer(${JSON.stringify(
+        {
+          full_name: `E2E Historico ${stamp}`,
+          phone: `665${stamp}`,
+          allow_without_email: true,
+        },
+      )}::jsonb) as r`.execute(db);
+      const id = r.rows[0]!.r.customer_id;
+
+      await login(page);
+      await open(page, `/clientes/${id}/editar`);
+      // El campo no exige correo y explica por qué conviene capturarlo.
+      await expect(page.locator("#email")).not.toHaveAttribute("required", /.*/);
+      await fillField(page, "#notes", "Nota sin correo");
+      await page.getByRole("button", { name: "Guardar cambios" }).click();
+      await page.waitForURL(new RegExp(`/clientes/${id}(\\?|$)`), { timeout: 20_000 });
+      await expect(page.getByText("Nota sin correo")).toBeVisible();
+
+      // Con correo capturado ya es obligatorio: no se puede dejar sin acceso al portal.
+      await open(page, `/clientes/${id}/editar`);
+      await fillField(page, "#email", `historico-${stamp}@example.com`);
+      await page.getByRole("button", { name: "Guardar cambios" }).click();
+      await page.waitForURL(new RegExp(`/clientes/${id}(\\?|$)`), { timeout: 20_000 });
+      await open(page, `/clientes/${id}/editar`);
+      await expect(page.locator("#email")).toHaveAttribute("required", /.*/);
+    } finally {
+      await db.destroy();
+      await pool.end().catch(() => {});
+    }
   });
 
   test("crear cupón y probarlo", async ({ page }) => {

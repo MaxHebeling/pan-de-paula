@@ -29,20 +29,47 @@ export const phoneMX = z
 
 export const emailSchema = z.string().trim().toLowerCase().email("Email inválido").max(254);
 
-export const customerRegistrationSchema = z
-  .object({
-    full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
-    phone: phoneMX.optional().or(z.literal("").transform(() => undefined)),
-    email: emailSchema.optional().or(z.literal("").transform(() => undefined)),
-    birthday: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional()
-      .or(z.literal("").transform(() => undefined)),
-    marketing_consent: z.boolean().default(false),
-    source: z.enum(["pos", "web", "qr", "instagram", "import", "admin"]).default("qr"),
-  })
-  .refine((v) => v.phone || v.email, { message: "Se requiere teléfono o email", path: ["phone"] });
+/**
+ * Correo OBLIGATORIO: mismo formato que `emailSchema` pero distingue "lo dejaste vacío" de
+ * "está mal escrito" para poder dar un mensaje claro en el formulario.
+ */
+export const requiredEmailSchema = z
+  .string({ message: "El correo electrónico es obligatorio" })
+  .trim()
+  .min(1, "El correo electrónico es obligatorio")
+  .toLowerCase()
+  .email("Ese correo no parece válido")
+  .max(254);
+
+const customerRegistrationFields = z.object({
+  full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
+  phone: phoneMX.optional().or(z.literal("").transform(() => undefined)),
+  email: emailSchema.optional().or(z.literal("").transform(() => undefined)),
+  birthday: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  marketing_consent: z.boolean().default(false),
+  source: z.enum(["pos", "web", "qr", "instagram", "import", "admin"]).default("qr"),
+});
+
+/**
+ * Alta con correo opcional. Solo para los flujos con la excepción documentada de
+ * `register_customer(allow_without_email)`: alta rápida del POS, importación histórica y seeds.
+ */
+export const customerRegistrationSchema = customerRegistrationFields.refine(
+  (v) => v.phone || v.email,
+  { message: "Se requiere teléfono o email", path: ["phone"] },
+);
+
+/**
+ * Alta humana (sitio `/unete` y CRM): el correo es obligatorio porque es la llave del portal
+ * del cliente (`/portal`). El teléfono sigue siendo opcional.
+ */
+export const customerRegistrationWithEmailSchema = customerRegistrationFields.extend({
+  email: requiredEmailSchema,
+});
 
 export const cartItemSchema = z.object({
   product_id: z.string().uuid(),

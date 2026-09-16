@@ -104,6 +104,11 @@ export function Footer({ business }: { business: Business }) {
               </Link>
             </li>
             <li>
+              <Link href="/portal/entrar" className="hover:text-sage">
+                Mi cuenta
+              </Link>
+            </li>
+            <li>
               <Link href="/nosotros" className="hover:text-sage">
                 Nosotros
               </Link>

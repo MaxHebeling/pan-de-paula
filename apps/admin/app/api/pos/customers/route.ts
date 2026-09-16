@@ -28,7 +28,14 @@ export async function GET(req: Request) {
 
 const quickSchema = customerRegistrationSchema;
 
-/** POST {full_name, phone?, email?} → alta rápida desde POS (deduplica por teléfono/email). */
+/**
+ * POST {full_name, phone?, email?} → alta rápida desde POS (deduplica por teléfono/email).
+ *
+ * Excepción documentada al correo obligatorio (migración 0043): esta alta ocurre en el mostrador con
+ * fila detrás; exigir el correo para poder cobrar frenaría la venta. El panel del POS sí ofrece el
+ * campo de correo (opcional) porque es la llave del portal del cliente, y si el cliente lo da ahí
+ * queda listo; si no, el CRM puede completarlo después sin duplicar el registro.
+ */
 export async function POST(req: Request) {
   const auth = await apiSession("pos.sell");
   if (!auth.ok) return auth.response;
@@ -44,7 +51,7 @@ export async function POST(req: Request) {
   try {
     const r = await withStaff(db(), auth.session.staff.id, (trx) =>
       callFn<{ customer_id: string; created: boolean }>(trx, "register_customer", [
-        JSON.stringify(parsed.data),
+        JSON.stringify({ ...parsed.data, allow_without_email: true }),
       ]),
     );
     const customer = await getCustomer(r.customer_id);

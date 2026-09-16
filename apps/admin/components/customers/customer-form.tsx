@@ -23,6 +23,9 @@ export function CustomerForm({
   submitLabel: string;
 }) {
   const editing = Boolean(values.id);
+  // El correo es obligatorio en el alta y en cualquier cliente que ya lo tenga (es su acceso al portal).
+  // A un cliente histórico sin correo se le puede guardar el resto sin quedar bloqueado.
+  const emailRequired = !editing || Boolean(values.email);
   return (
     <ActionForm action={action} submitLabel={submitLabel} className="max-w-2xl">
       {values.id && <input type="hidden" name="id" value={values.id} />}
@@ -57,16 +60,23 @@ export function CustomerForm({
         </div>
         <div>
           <label className="label" htmlFor="email">
-            Email
+            Correo electrónico {emailRequired ? "*" : ""}
           </label>
           <input
             id="email"
             name="email"
             type="email"
             className="input"
+            required={emailRequired}
             defaultValue={values.email ?? ""}
             placeholder="nombre@correo.com"
+            aria-describedby={emailRequired ? undefined : "email-help"}
           />
+          {!emailRequired && (
+            <p id="email-help" className="help">
+              Este cliente se registró sin correo. Al capturarlo podrá entrar a su portal.
+            </p>
+          )}
         </div>
         <div>
           <label className="label" htmlFor="birthday">

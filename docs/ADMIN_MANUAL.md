@@ -50,6 +50,25 @@
 | `/cupones`      | `customers.read` / `loyalty.write` | Cupones: %/monto/producto gratis, vigencia, canales, usos, segmento (solo nuevos, niveles)                                                                   | Cupones vencidos inactivos; `uses_count` vs `max_uses`                         |
 | `/instagram`    | `marketing.*`                      | Conversaciones y mensajes de Instagram, leads, respuestas (bot si el flag está activo)                                                                       | Leads convertidos enlazados a pedido                                           |
 
+#### Correo obligatorio y acceso del cliente a su cuenta
+
+Desde septiembre de 2026 el correo es **obligatorio** al dar de alta o editar un cliente en el CRM y en
+`/unete` del sitio: es la llave con la que el cliente entra a su propia cuenta (`/portal`) y ve su nivel,
+sus puntos, su QR y todas sus compras. No lo piden la alta rápida del POS ni la captura de un pedido
+manual (ahí lo que importa es cobrar o registrar el pedido); en esos casos el correo queda opcional y se
+puede completar después desde la ficha, sin duplicar al cliente ni perder puntos, QR ni historial.
+
+**Los clientes de siempre no se tocan.** Los que llegaron sin correo (importación, mostrador) siguen
+exactamente igual. Cuando te den su correo, edítalo en su ficha y listo.
+
+**Darle acceso a su cuenta**: ficha del cliente → **Acceso a su cuenta en el sitio** →
+_Generar enlace de acceso_. Sirve una sola vez, vence en una hora y se copia con un botón para
+mandárselo por WhatsApp o dárselo en el mostrador. Requiere permiso de edición de clientes y queda
+registrado en la auditoría.
+
+> Hoy hace falta hacerlo a mano porque el envío de correos todavía no está configurado en producción.
+> Cuando se active, el propio cliente podrá pedirse el enlace desde el sitio y además se lo enviaremos.
+
 #### Cumpleaños y saludos
 
 **Dónde**: `/fidelizacion` → pestaña **Tablero** → tarjeta **🎂 Cumpleaños de hoy** (cantidad, nombre, fecha,

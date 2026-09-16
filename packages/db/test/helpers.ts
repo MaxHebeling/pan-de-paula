@@ -63,11 +63,26 @@ export async function createProduct(
   return id;
 }
 
-export async function createCustomer(db: Database, name = "Ana López", phone = "6641234567") {
+/**
+ * Cliente de pruebas. Sin `email` usa la excepción documentada `allow_without_email` (migración 0043):
+ * la mayoría de las suites solo necesitan un cliente con teléfono y así no se altera lo que ya probaban.
+ */
+export async function createCustomer(
+  db: Database,
+  name = "Ana López",
+  phone = "6641234567",
+  email?: string,
+) {
   const r = await callFn<{ customer_id: string; public_code: string; qr_token: string }>(
     db,
     "register_customer",
-    [JSON.stringify({ full_name: name, phone })],
+    [
+      JSON.stringify(
+        email
+          ? { full_name: name, phone, email }
+          : { full_name: name, phone, allow_without_email: true },
+      ),
+    ],
   );
   return r;
 }
