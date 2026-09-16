@@ -101,12 +101,16 @@ export default async function ProductPricesPage({
       />
       {sp.error && (
         <div className="mb-4">
-          <Alert tone="red">{sp.error.slice(0, 300)}</Alert>
+          <Alert tone="red" role="alert">
+            {sp.error.slice(0, 300)}
+          </Alert>
         </div>
       )}
       {sp.ok === "promo-terminada" && (
         <div className="mb-4">
-          <Alert tone="green">Promoción terminada. El precio regular vuelve a estar vigente.</Alert>
+          <Alert tone="green" role="status">
+            Promoción terminada. El precio regular vuelve a estar vigente.
+          </Alert>
         </div>
       )}
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">

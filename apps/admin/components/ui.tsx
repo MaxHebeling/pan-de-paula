@@ -138,8 +138,21 @@ export function LinkButton({
   );
 }
 
-export function Alert({ tone = "blue", children }: { tone?: Tone; children: ReactNode }) {
-  return <div className={`st-${tone} rounded-[var(--r-card)] px-4 py-3 text-sm`}>{children}</div>;
+export function Alert({
+  tone = "blue",
+  role,
+  children,
+}: {
+  tone?: Tone;
+  /** "alert" para errores, "status" para confirmaciones; igual que FormMessage. */
+  role?: "alert" | "status";
+  children: ReactNode;
+}) {
+  return (
+    <div role={role} className={`st-${tone} rounded-[var(--r-card)] px-4 py-3 text-sm`}>
+      {children}
+    </div>
+  );
 }
 
 export function Table({ children, className = "" }: { children: ReactNode; className?: string }) {
