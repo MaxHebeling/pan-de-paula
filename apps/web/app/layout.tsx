@@ -33,7 +33,15 @@ export const metadata: Metadata = {
   openGraph: { type: "website", locale: "es_MX", siteName: "El Pan de Paula" },
   twitter: { card: "summary_large_image" },
   robots: { index: true, follow: true },
-  icons: { icon: "/brand/logo-192.png", apple: "/brand/apple-icon.png" },
+  icons: {
+    // .ico (16/32/48) para la pestaña y PNG de 96 para pantallas densas. El .svg del paquete original
+    // no era vectorial (traía un PNG de 2020 px incrustado, 112 KB) y no se usa.
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/brand/favicon-96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: "/brand/apple-icon.png",
+  },
 };
 
 export const viewport: Viewport = { themeColor: "#f7f3ec", width: "device-width", initialScale: 1 };
