@@ -68,6 +68,45 @@ export async function produceAction(input: unknown): Promise<ActionResult<Produc
   }
 }
 
+const reduceSchema = z.object({
+  product_id: z.string().uuid(),
+  qty: z.number().positive().max(9999),
+  notes: z.string().trim().max(200).optional(),
+});
+
+/**
+ * Resta producción del día (reduce_production). Operación inversa de `produceAction`:
+ * consume los lotes de hoy del más nuevo al más viejo y nunca deja producción negativa
+ * (el límite lo impone SQL, no el cliente).
+ */
+export async function reduceProductionAction(
+  input: unknown,
+): Promise<ActionResult<{ produced_today: number; on_hand: number; batches_affected: number }>> {
+  const session = await requireSession("production.write");
+  const parsed = reduceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Cantidad o producto inválidos" };
+  const { product_id, qty, notes } = parsed.data;
+  try {
+    const r = await withStaff(db(), session.staff.id, (trx) =>
+      callFn<{ produced_today: number; on_hand: number; batches_affected: number }>(
+        trx,
+        "reduce_production",
+        [product_id, qty, notes ?? null],
+      ),
+    );
+    return {
+      ok: true,
+      data: {
+        produced_today: Number(r.produced_today),
+        on_hand: Number(r.on_hand),
+        batches_affected: Number(r.batches_affected),
+      },
+    };
+  } catch (e) {
+    return fail(e, "reduce_production");
+  }
+}
+
 /** Deshace el último lote (ventana de 2 minutos, validada en SQL). */
 export async function undoProductionAction(
   input: unknown,
