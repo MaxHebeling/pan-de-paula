@@ -8,6 +8,7 @@ export * from "./greetings.ts";
 export * from "./orders.ts";
 export * from "./cart.ts";
 export * from "./inventory.ts";
+export * from "./phone.ts";
 export * from "./validation.ts";
 export * from "./ids.ts";
 export * from "./text.ts";

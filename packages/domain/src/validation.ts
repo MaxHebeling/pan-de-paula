@@ -10,6 +10,11 @@ z.config({ jitless: true });
  * números mexicanos ("+52 664 123 4567", "52 664…", "+521…", "01 664…") → 10 dígitos;
  * otros internacionales con "+" se conservan en E.164. Así "6641234567" y "+526641234567"
  * son el mismo cliente (espejo de normalize_mx_phone en SQL).
+ *
+ * Es la forma "a ciegas" (sin saber el país) que usan el POS, el importador y las búsquedas. Cuando
+ * el formulario SÍ dice el país —selector con bandera— la función correcta es `parsePhone()` de
+ * `./phone.ts`, que valida la longitud nacional y da un error en español. Las dos escriben el mismo
+ * valor canónico: 10 dígitos para México, "+<prefijo><nacional>" para el resto.
  */
 export function canonicalPhone(raw: string): string {
   const s = raw.replace(/[^0-9+]/g, "");
@@ -25,7 +30,7 @@ export const phoneMX = z
   .string()
   .trim()
   .transform(canonicalPhone)
-  .refine((s) => /^\+?\d{10,15}$/.test(s), "Teléfono inválido (10 dígitos)");
+  .refine((s) => /^\+?\d{10,15}$/.test(s), "Teléfono inválido");
 
 export const emailSchema = z.string().trim().toLowerCase().email("Email inválido").max(254);
 
