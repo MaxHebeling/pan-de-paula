@@ -45,19 +45,20 @@
 
 ## Módulos (packages/db/migrations)
 
-| Archivo                   | Contenido                                                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0001_foundation           | extensiones, `business_settings`, `feature_flags`, roles/permisos, staff + sesiones, auditoría (trigger genérico), `domain_events`, notificaciones, `job_runs`              |
-| 0002_catalog              | categorías, productos (variantes = productos hijos), imágenes, precios con historial, `current_price_cents`, vista `catalog_products`                                       |
-| 0003_ingredients_recipes  | proveedores, ingredientes, `ingredient_prices` (historial), recetas, `product_cost_cents`, vista `recipe_costing`                                                           |
-| 0004_customers_loyalty    | clientes (código + QR), direcciones, niveles, programa de puntos, ledger, recompensas, canjes, cupones, eventos de cliente                                                  |
-| 0005_commerce             | puntos de retiro, horarios, ventanas de pedido, excepciones de calendario, pedidos, ítems, historial de estado, caja, ventas, pagos, reembolsos, devoluciones, comprobantes |
-| 0006_inventory_production | movimientos (append-only), niveles, lotes de producción, mermas, conteos, movimientos de insumos, vista `stock_status`                                                      |
-| 0007_ops_integrations     | `webhook_events`, Instagram (conversaciones/mensajes), leads, campañas, importaciones con trazabilidad                                                                      |
-| 0008_transactions         | todas las funciones transaccionales de negocio                                                                                                                              |
-| 0009_security             | rol `pdp_app`, revocaciones, RLS en todo                                                                                                                                    |
-| 0043_customer_portal      | correo obligatorio en `register_customer` (con excepción documentada), `customer_access_tokens`, `customer_sessions`                                                        |
-| 0044_phone_international  | `normalize_phone_digits`; `find_customer` y `register_customer` comparan teléfonos con o sin `+` (México igual que antes; sin migrar datos, ver `DATABASE.md` → Teléfonos)  |
+| Archivo                   | Contenido                                                                                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0001_foundation           | extensiones, `business_settings`, `feature_flags`, roles/permisos, staff + sesiones, auditoría (trigger genérico), `domain_events`, notificaciones, `job_runs`                   |
+| 0002_catalog              | categorías, productos (variantes = productos hijos), imágenes, precios con historial, `current_price_cents`, vista `catalog_products`                                            |
+| 0003_ingredients_recipes  | proveedores, ingredientes, `ingredient_prices` (historial), recetas, `product_cost_cents`, vista `recipe_costing`                                                                |
+| 0004_customers_loyalty    | clientes (código + QR), direcciones, niveles, programa de puntos, ledger, recompensas, canjes, cupones, eventos de cliente                                                       |
+| 0005_commerce             | puntos de retiro, horarios, ventanas de pedido, excepciones de calendario, pedidos, ítems, historial de estado, caja, ventas, pagos, reembolsos, devoluciones, comprobantes      |
+| 0006_inventory_production | movimientos (append-only), niveles, lotes de producción, mermas, conteos, movimientos de insumos, vista `stock_status`                                                           |
+| 0007_ops_integrations     | `webhook_events`, Instagram (conversaciones/mensajes), leads, campañas, importaciones con trazabilidad                                                                           |
+| 0008_transactions         | todas las funciones transaccionales de negocio                                                                                                                                   |
+| 0009_security             | rol `pdp_app`, revocaciones, RLS en todo                                                                                                                                         |
+| 0017_productos_especiales | `products.is_temporary` (+ índice parcial): marca los productos especiales/temporales. No agrega modelo: el precio sigue en `product_prices` y el stock en `inventory_movements` |
+| 0043_customer_portal      | correo obligatorio en `register_customer` (con excepción documentada), `customer_access_tokens`, `customer_sessions`                                                             |
+| 0044_phone_international  | `normalize_phone_digits`; `find_customer` y `register_customer` comparan teléfonos con o sin `+` (México igual que antes; sin migrar datos, ver `DATABASE.md` → Teléfonos)       |
 
 ## Flujos críticos
 
