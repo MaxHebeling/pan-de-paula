@@ -122,7 +122,13 @@ export function Receipt({ r }: { r: ReceiptView }) {
             <tr key={idx}>
               <td>
                 {PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}
-                {p.reference ? <div className="muted">ref. {p.reference}</div> : null}
+                {/* La referencia contable se imprime junto a SU pago (en un cobro dividido, una por parte).
+                    En efectivo no existe y se calla; en los demás métodos se espera, así que faltando sale "—". */}
+                {p.reference || p.method !== "cash" ? (
+                  <div className="muted" data-testid="payment-reference">
+                    ref. {p.reference ?? "—"}
+                  </div>
+                ) : null}
               </td>
               <td className="r">{formatMXN(p.amountCents)}</td>
             </tr>

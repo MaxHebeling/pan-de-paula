@@ -6,6 +6,7 @@ import {
   ORDER_STATUSES,
   PAYMENT_METHOD_LABELS,
   parseOptionalPhone,
+  paymentReferenceSchema,
   phoneMX,
   emailSchema,
 } from "@pdp/domain";
@@ -88,7 +89,7 @@ export async function paymentAction(_prev: FormState, form: FormData): Promise<F
       method: z.enum(METHODS),
       amount_cents: z.number().int().positive("El monto debe ser mayor a cero"),
       tendered_cents: z.number().int().positive().nullable(),
-      reference: z.string().trim().max(80).optional(),
+      reference: paymentReferenceSchema.optional(),
       idempotency_key: z.string().min(8).max(80),
     })
     .safeParse({
@@ -133,6 +134,44 @@ export async function paymentAction(_prev: FormState, form: FormData): Promise<F
     };
   } catch (e) {
     return fail(e, "record_payment");
+  }
+}
+
+/**
+ * Corrige (o captura después) la REFERENCIA CONTABLE de un pago ya registrado: la clave de rastreo de la
+ * transferencia, el folio de autorización de la terminal o el id del depósito con el que se concilia.
+ *
+ * Mismo permiso que registrar el pago (`orders.write`): quien cobra es quien teclea la referencia y quien
+ * corrige el dedazo. Solo escribe `payments.reference`; `external_id`, `external_status`, `idempotency_key`
+ * y `metadata` (los identificadores del proveedor) son intocables desde aquí. El trigger de auditoría de
+ * `payments` deja el rastro de quién la cambió y qué decía antes.
+ */
+export async function updatePaymentReferenceAction(
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const session = await requireSession("orders.write");
+  const parsed = z
+    .object({ payment_id: uuid, reference: paymentReferenceSchema })
+    .safeParse({ payment_id: str(form, "payment_id"), reference: str(form, "reference") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Referencia inválida" };
+  try {
+    const r = await withStaff(db(), session.staff.id, (trx) =>
+      callFn<{ changed: boolean; reference: string | null }>(trx, "set_payment_reference", [
+        parsed.data.payment_id,
+        parsed.data.reference || null,
+      ]),
+    );
+    return {
+      ok: true,
+      message: !r.changed
+        ? "La referencia no cambió"
+        : r.reference
+          ? `Referencia guardada: ${r.reference}`
+          : "Referencia borrada",
+    };
+  } catch (e) {
+    return fail(e, "set_payment_reference");
   }
 }
 

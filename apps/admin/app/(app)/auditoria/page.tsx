@@ -33,6 +33,9 @@ const ENTITY_LABEL: Record<string, string> = {
   calendar_exceptions: "Calendario",
   orders: "Pedidos",
   customers: "Clientes",
+  // Los pagos se auditan desde 0005 (trg_audit_payments): corregir la referencia contable de un pago
+  // aparece aquí como UPDATE de `payments` con el valor anterior y el nuevo.
+  payments: "Pagos",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -156,7 +159,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </Select>
         <TextInput label="Desde" name="desde" type="date" defaultValue={desde} />
         <TextInput label="Hasta" name="hasta" type="date" defaultValue={hasta} />
-        <TextInput label="Buscar (id o texto)" name="q" defaultValue={q} />
+        <TextInput
+          label="Buscar (id, texto o referencia)"
+          name="q"
+          defaultValue={q}
+          placeholder="BANORTE-839201"
+        />
         <div className="flex gap-2">
           <button className="btn btn-secondary" type="submit">
             Filtrar

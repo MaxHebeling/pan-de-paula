@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { getRegisterSummary } from "@/lib/pos";
+import { methodLabel, NO_REFERENCE } from "@/components/ops/payment-lines";
 import { RECEIPT_CSS } from "@/components/pos/receipt";
 import { PrintBar } from "@/components/pos/print-bar";
 
@@ -24,15 +25,30 @@ export default async function CortePage({
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) notFound();
   const s = await getRegisterSummary(sessionId);
   if (!s) notFound();
-  const meta = await sql<{
-    opened_by: string;
-    closed_by: string | null;
-    notes: string | null;
-    name: string;
-  }>`
+  const [meta, movements] = await Promise.all([
+    sql<{
+      opened_by: string;
+      closed_by: string | null;
+      notes: string | null;
+      name: string;
+    }>`
     select o.full_name as opened_by, c.full_name as closed_by, rs.notes, bs.name
     from register_sessions rs join staff_users o on o.id = rs.opened_by left join staff_users c on c.id = rs.closed_by
-    cross join business_settings bs where rs.id = ${sessionId}::uuid`.execute(db());
+    cross join business_settings bs where rs.id = ${sessionId}::uuid`.execute(db()),
+    // Movimientos del turno, uno por PAGO (no por venta): en un cobro dividido cada parte trae su propio
+    // método, monto y referencia contable, que es justo lo que se coteja contra el banco y la terminal.
+    sql<{
+      id: string;
+      folio: string;
+      method: string;
+      amount_cents: number;
+      reference: string | null;
+    }>`
+    select p.id, o.folio, p.method::text as method, p.amount_cents, p.reference
+    from payments p join orders o on o.id = p.order_id
+    where p.register_session_id = ${sessionId}::uuid and p.status in ('paid','partially_refunded','refunded')
+    order by p.created_at limit 300`.execute(db()),
+  ]);
   const m = meta.rows[0]!;
   const line = (label: string, value: string, strong = false) => (
     <tr key={label}>
@@ -102,6 +118,27 @@ export default async function CortePage({
               {line("Artículos", String(Number(s.items_count)))}
             </tbody>
           </table>
+          {movements.rows.length > 0 && (
+            <>
+              <hr />
+              <div className="c">MOVIMIENTOS Y REFERENCIAS</div>
+              <table data-testid="corte-movimientos">
+                <tbody>
+                  {movements.rows.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        {p.folio}
+                        <div className="muted">
+                          {methodLabel(p.method)} · ref. {p.reference ?? NO_REFERENCE}
+                        </div>
+                      </td>
+                      <td className="r">{formatMXN(p.amount_cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
           {m.notes && (
             <>
               <hr />

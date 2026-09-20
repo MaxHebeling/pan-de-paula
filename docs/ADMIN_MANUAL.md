@@ -141,13 +141,34 @@ el real del programa de puntos (`loyalty_program.birthday_multiplier`), y solo s
 
 ### Analítica y sistema
 
-| Ruta              | Permiso               | Qué hace                                                                                                                                                                                                        |
-| ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/reportes`       | `reports.read/export` | Ventas por día/producto/canal, rentabilidad (precio vs costo snapshot), mermas, conciliación de inventario, caja, clientes; exportar                                                                            |
-| `/notificaciones` | —                     | Avisos internos: nuevo pedido pagado, pago rechazado, stock bajo/agotado, nuevo VIP, cumpleaños                                                                                                                 |
-| `/configuracion`  | `settings.write`      | Datos del negocio, zona horaria, IVA (`prices_include_tax`, `tax_rate_bps`), stock negativo, umbral de stock bajo, horarios, ventanas de pedido, excepciones de calendario, puntos de retiro, **feature flags** |
-| `/usuarios`       | `staff.write`         | Staff, roles, activar/desactivar, restablecer contraseña                                                                                                                                                        |
-| `/auditoria`      | `audit.read`          | Quién cambió qué y cuándo (`audit_logs`: productos, precios, clientes, pedidos, pagos, caja, configuración, flags)                                                                                              |
+| Ruta              | Permiso               | Qué hace                                                                                                                                                                                                          |
+| ----------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/reportes`       | `reports.read/export` | Ventas por día/producto/canal, rentabilidad (precio vs costo snapshot), mermas, conciliación de inventario, caja, clientes y **pagos y referencias** (un renglón por cobro, con su referencia contable); exportar |
+| `/notificaciones` | —                     | Avisos internos: nuevo pedido pagado, pago rechazado, stock bajo/agotado, nuevo VIP, cumpleaños                                                                                                                   |
+| `/configuracion`  | `settings.write`      | Datos del negocio, zona horaria, IVA (`prices_include_tax`, `tax_rate_bps`), stock negativo, umbral de stock bajo, horarios, ventanas de pedido, excepciones de calendario, puntos de retiro, **feature flags**   |
+| `/usuarios`       | `staff.write`         | Staff, roles, activar/desactivar, restablecer contraseña                                                                                                                                                          |
+| `/auditoria`      | `audit.read`          | Quién cambió qué y cuándo (`audit_logs`: productos, precios, clientes, pedidos, pagos, caja, configuración, flags)                                                                                                |
+
+## Referencia contable de los pagos
+
+Cada **pago** puede llevar el número o código con el que se concilia contra el banco o la terminal
+(`TRX-8493021`, `BANORTE-483920`, `MP-92847591`). Se guarda tal cual se escribe y se conserva para siempre.
+
+- **Es por pago, no por venta.** En un cobro dividido cada parte lleva la suya: si $80 entraron por
+  transferencia y $100 por terminal, son dos referencias distintas y nunca se mezclan.
+- **No es el identificador del proveedor.** El id de Mercado Pago (y el estado que manda el proveedor) se
+  guardan aparte, los escribe la integración y no se editan a mano; en el CRM aparecen etiquetados como
+  "ID Mercado Pago" y en el CSV tienen su propia columna.
+- **Dónde se captura:** al cobrar en el POS (pestañas Transferencia y Tarjeta, y por cada parte del pago
+  dividido) y en "Registrar pago manual" del detalle del pedido.
+- **Dónde se corrige:** en el detalle del pedido, botón "Editar referencia" de cada pago (permiso
+  `orders.write`). Queda en `/auditoria` con el valor anterior y quién lo cambió. Dejarla vacía la borra.
+- **Dónde se ve:** dashboard ("Cobros de hoy"), detalle del pedido, `/pos/ventas`, caja del turno y corte
+  imprimible, historial del cliente, recibos e impresiones, y el reporte "Pagos y referencias". Donde no
+  hay referencia se muestra `—`: los pagos anteriores a esta práctica se quedan sin ella, no se inventa.
+- **Cómo se busca:** pega la referencia en el buscador del CRM (⌘K o `/buscar`) y llegas al pedido. También
+  filtra `/pedidos` y `/pos/ventas` (que además traen filtro por método de pago) y el reporte de pagos.
+  Quien no puede ver pedidos (`orders.read`) no recibe resultados por referencia.
 
 ## Hoja de costos y fórmulas
 

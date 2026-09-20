@@ -272,7 +272,10 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
             method: "transfer",
             status: "pending",
             amount_cents: row.total_cents,
-            reference: row.folio,
+            // El folio es el CONCEPTO que el cliente pone en la transferencia, no la clave de rastreo del
+            // banco: va en metadata y `reference` queda libre para que la panadería capture la clave real
+            // al conciliar (ver 0033_payment_reference.sql).
+            metadata: { concepto: row.folio },
             idempotency_key: `web-transfer-${orderId}`,
           }),
         ]);

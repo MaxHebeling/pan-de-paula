@@ -10,6 +10,7 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_TONE,
   OPEN_ORDER_STATUSES,
+  PAYMENT_METHOD_LABELS,
   containsPattern,
   type OrderStatus,
 } from "@pdp/domain";
@@ -52,6 +53,7 @@ const FULFILLMENT: Record<string, string> = {
   delivery: "Entrega",
   preorder: "Preventa",
 };
+const METHODS = Object.keys(PAYMENT_METHOD_LABELS);
 const isDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 export default async function PedidosPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -65,7 +67,9 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
   const canal = sp.canal && sp.canal in CHANNELS ? sp.canal : null;
   const entrega = isDate(sp.entrega) ? sp.entrega : null;
   const pago = sp.pago && sp.pago in PAYMENT_LABELS ? sp.pago : null;
-  const q = (sp.q ?? "").trim();
+  // Método de pago del cobro (efectivo, terminal, transferencia…), distinto de `pago` = estado del pedido.
+  const metodo = METHODS.includes(sp.metodo ?? "") ? sp.metodo! : null;
+  const q = (sp.q ?? "").trim().slice(0, 80);
   const page = Math.max(1, Number(sp.pagina ?? 1) || 1);
   const limit = 50;
   const openStatuses = OPEN_ORDER_STATUSES.map((s) => s as string);
@@ -98,7 +102,10 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
        and (${canal}::text is null or o.channel::text = ${canal}::text)
        and (${pago}::text is null or o.payment_status::text = ${pago}::text)
        and (${entrega}::date is null or (o.scheduled_for at time zone (select timezone from business_settings where id = 1))::date = ${entrega}::date)
+       and (${metodo}::text is null or exists (select 1 from payments pm where pm.order_id = o.id and pm.method::text = ${metodo}::text
+                                                 and pm.status in ('paid','partially_refunded','refunded')))
        and (${q} = '' or o.folio ilike ${containsPattern(q)} or o.customer_name ilike ${containsPattern(q)}
+            or exists (select 1 from payments pm where pm.order_id = o.id and pm.reference ilike ${containsPattern(q)})
             or regexp_replace(coalesce(o.customer_phone,''), '[^0-9]', '', 'g') like '%' || regexp_replace(${q}, '[^0-9]', '', 'g') || '%' and regexp_replace(${q}, '[^0-9]', '', 'g') <> '')
      order by case when ${vista} in ('hoy','proximos') then o.scheduled_for end asc nulls last, o.placed_at desc
      limit ${limit + 1} offset ${(page - 1) * limit}`.execute(db());
@@ -110,6 +117,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
     canal: canal ?? "",
     entrega: entrega ?? "",
     pago: pago ?? "",
+    metodo: metodo ?? "",
     q,
   };
   const href = (extra: Record<string, string>) => {
@@ -158,7 +166,8 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
             type="search"
             className="input min-h-11"
             defaultValue={q}
-            placeholder="Folio, teléfono o nombre"
+            placeholder="Folio, teléfono, nombre o referencia"
+            maxLength={80}
           />
         </Field>
         <Field label="Estado" htmlFor="estado">
@@ -187,6 +196,16 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
             {Object.entries(PAYMENT_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Método de pago" htmlFor="metodo">
+          <select id="metodo" name="metodo" className="input min-h-11" defaultValue={metodo ?? ""}>
+            <option value="">Todos</option>
+            {METHODS.map((m) => (
+              <option key={m} value={m}>
+                {PAYMENT_METHOD_LABELS[m as keyof typeof PAYMENT_METHOD_LABELS]}
               </option>
             ))}
           </select>

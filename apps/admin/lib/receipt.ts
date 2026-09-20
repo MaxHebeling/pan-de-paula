@@ -26,8 +26,8 @@ export async function receiptData(orderId: string): Promise<ReceiptData | null> 
       select product_name, qty::text, unit_price_cents, total_cents from order_items where order_id = ${orderId} order by sort_order`.execute(
       d,
     ),
-    sql<{ method: string; amount_cents: number }>`
-      select method::text, amount_cents from payments where order_id = ${orderId} and status in ('paid','partially_refunded','refunded') order by created_at`.execute(
+    sql<{ method: string; amount_cents: number; reference: string | null }>`
+      select method::text, amount_cents, reference from payments where order_id = ${orderId} and status in ('paid','partially_refunded','refunded') order by created_at`.execute(
       d,
     ),
     sql<{ earned: number; balance: number }>`
@@ -49,9 +49,11 @@ export async function receiptData(orderId: string): Promise<ReceiptData | null> 
     subtotalCents: order.subtotal_cents,
     discountCents: order.discount_cents,
     totalCents: order.total_cents,
+    // La referencia contable viaja junto a su método y su monto: en un pago dividido cada parte trae la suya.
     payments: payments.rows.map((p) => ({
       method: PAYMENT_METHOD_LABELS[p.method as keyof typeof PAYMENT_METHOD_LABELS] ?? p.method,
       amountCents: p.amount_cents,
+      reference: p.reference,
     })),
     customerName: order.customer_name,
     pointsEarned: loyalty.rows[0]?.earned ?? 0,

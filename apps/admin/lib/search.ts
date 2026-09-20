@@ -22,6 +22,8 @@ export type SearchResults = {
     placed_at: Date;
     customer_name: string | null;
     customer_phone: string | null;
+    /** Referencia contable del pago que hizo coincidir el pedido (null si coincidió por folio/nombre/teléfono). */
+    payment_reference: string | null;
   }>;
   products: Array<{
     id: string;
@@ -47,8 +49,12 @@ export function searchScope(can: (permission: string) => boolean): SearchScope {
 const EMPTY = { rows: [] as never[] };
 
 /**
- * Búsqueda global: clientes (nombre/teléfono/email/código), pedidos (folio/teléfono/cliente) y productos (nombre).
- * Solo consulta las entidades que el `scope` permite: un rol sin `customers.read` nunca recibe datos de clientes.
+ * Búsqueda global: clientes (nombre/teléfono/email/código), pedidos (folio/teléfono/cliente/REFERENCIA CONTABLE
+ * de sus pagos) y productos (nombre).
+ *
+ * Los pagos NO son una categoría aparte: pegar "BANORTE-839201" devuelve el PEDIDO donde se cobró con esa
+ * referencia, que es a donde quiere llegar quien concilia. Por eso viaja dentro del ámbito `orders`: un rol
+ * sin `orders.read` no recibe nada de pagos, igual que no recibe pedidos.
  */
 export async function globalSearch(
   q: string,
@@ -70,9 +76,11 @@ export async function globalSearch(
     !scope.orders
       ? EMPTY
       : sql<SearchResults["orders"][number]>`
-      select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.total_cents, o.placed_at, o.customer_name, o.customer_phone
+      select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.total_cents, o.placed_at, o.customer_name, o.customer_phone,
+             (select p.reference from payments p where p.order_id = o.id and p.reference ilike ${like} order by p.created_at limit 1) as payment_reference
       from orders o
       where o.folio ilike ${like} or o.customer_name ilike ${like}
+         or exists (select 1 from payments p where p.order_id = o.id and p.reference ilike ${like})
          ${digits.length >= 4 ? sql`or regexp_replace(coalesce(o.customer_phone, ''), '\\D', '', 'g') like ${"%" + digits + "%"}` : sql``}
       order by o.placed_at desc limit ${limit}`.execute(d),
     !scope.products
