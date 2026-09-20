@@ -331,6 +331,12 @@ test("stock en cero: el producto queda agotado sin reglas nuevas", async ({ page
     db,
   );
   expect(p.rows[0]).toEqual({ on_hand: 0, track_stock: true, allow_preorder: false });
+
+  // La suite del sitio público corre después contra ESTA misma base: un especial agotado y activo
+  // seguiría saliendo en /menu como "No disponible". Se desactiva al terminar (la regla de agotado
+  // ya quedó verificada arriba y en apps/web/e2e/productos-especiales.spec.ts).
+  await page.getByTestId(`especial-activo-${id}`).click();
+  await esperarActivo(id, false);
 });
 
 test("sin catalog.write no se puede crear ni editar", async ({ page }) => {

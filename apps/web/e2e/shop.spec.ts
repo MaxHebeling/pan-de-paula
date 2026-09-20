@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { createDb, sql } from "@pdp/db";
 
 /**
  * Flujo de compra completo: home → menú → producto → carrito → checkout (pago al recoger) → página del pedido.
@@ -80,10 +81,40 @@ test.describe("tienda", () => {
   test("producto agotado sin preventa no se puede agregar (regla de disponibilidad)", async ({
     page,
   }) => {
-    // El seed no tiene productos agotados sin preventa; se verifica la regla vía UI de "No disponible" ausente.
-    await page.goto("/menu");
-    await expect(page.getByTestId("product-card").first()).toBeVisible();
-    const disabled = page.getByText("No disponible");
-    expect(await disabled.count()).toBe(0);
+    // La base es compartida (el CRM crea y agota productos especiales en su propia suite), así que la
+    // regla se mide contra los datos y no contra el seed: en el menú hay exactamente tantos
+    // "No disponible" como productos agotados sin preventa. El menú solo lista productos con precio
+    // web, así que ese es el único motivo posible (apps/web/lib/availability.ts).
+    const { db, pool } = createDb({
+      connectionString: process.env.DATABASE_URL,
+      ssl: false,
+      max: 2,
+    });
+    try {
+      const agotados = (
+        await sql<{ n: number }>`
+          select count(*)::int as n
+            from products p
+            left join categories c on c.id = p.category_id and c.deleted_at is null
+            left join inventory_levels l on l.product_id = p.id
+           where p.deleted_at is null and p.is_active and p.show_on_web and p.parent_id is null
+             and (p.category_id is null or (c.id is not null and c.is_active))
+             and current_price_cents(p.id, 'web') is not null
+             and p.track_stock and not p.allow_preorder and coalesce(l.on_hand, 0) <= 0`.execute(db)
+      ).rows[0]!.n;
+
+      await page.goto("/menu");
+      await expect(page.getByTestId("product-card").first()).toBeVisible();
+      const disabled = page.getByText("No disponible");
+      expect(await disabled.count()).toBe(agotados);
+      // Y donde dice "No disponible" no hay manera de agregar al carrito.
+      const tarjetas = page.getByTestId("product-card").filter({ hasText: "No disponible" });
+      expect(await tarjetas.count()).toBe(agotados);
+      for (let i = 0; i < agotados; i++)
+        await expect(tarjetas.nth(i).getByRole("button", { name: /Agregar/ })).toHaveCount(0);
+    } finally {
+      await db.destroy();
+      await pool.end().catch(() => {});
+    }
   });
 });
