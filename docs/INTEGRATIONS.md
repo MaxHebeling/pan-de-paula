@@ -79,6 +79,28 @@ Estados de MP que maneja `apply_mercadopago_payment`: `approved→paid`, `author
 
 ### 1.5 Point y QR (POS) — API de Órdenes
 
+> **Verificado en la cuenta real el 2026-09-20 (KIOWO ARTS, MLM, id 225718186): con la terminal
+> Point Blue NO se puede integrar.** El dispositivo `NEWLAND_ME30SU__Q7B605352721` aparece en
+> `GET /point/integration-api/devices` en modo `STANDALONE`; pasarlo a `PDV` responde
+> `403 error 113 "Device is not allowed to perform this action"` (con la terminal encendida), el id no
+> pasa la validación de `PATCH /terminals/v1/setup` y `GET /terminals/v1/list` reporta `total: 1` pero
+> devuelve la lista vacía. La Point Blue es un lector **Bluetooth** que cobra desde la app de Mercado
+> Pago en un celular: no corre el modo PDV. La integración por API pide una **Point Smart**.
+>
+> El **QR dinámico tampoco es una salida aparte**: en esta cuenta una orden `type: "qr"` es de _retiro
+> de efectivo_ (exige `transactions.cash_outs` y rechaza `transactions.payments`), y el QR dinámico de
+> cobro se emite como orden de **Point** con `config.point.terminal_id` obligatorio. Sin Point Smart no
+> hay Point ni QR dinámico: los flags `mercadopago_point` y `mercadopago_qr` deben quedar **apagados**.
+>
+> **Mientras tanto** se cobra con la Point Blue desde la app de Mercado Pago y en el POS se registra el
+> método **Tarjeta** capturando el número de operación en la **referencia** del pago
+> (`0033_payment_reference.sql`). La conciliación la hace la persona, no el sistema. La cuenta ya tiene
+> sucursal `PANDEPAULA` y caja `PANDEPAULAQR1` con QR fijo imprimible, utilizable igual: cobro manual +
+> referencia. Los pagos **en línea** (Checkout Pro + webhook) sí están activos y probados en vivo.
+>
+> El código de §1.5 queda tal cual: al conseguir una Point Smart basta cargar su id en
+> `MERCADOPAGO_POINT_DEVICE_ID`, ponerla en modo PDV y encender el flag.
+
 Ambos usan `POST https://api.mercadopago.com/v1/orders` con `X-Idempotency-Key` (documentación: [Point](https://www.mercadopago.com.mx/developers/en/reference/in-person-payments/point/orders/create-order/post), [QR](https://www.mercadopago.com.mx/developers/en/reference/in-person-payments/qr-code/orders/create-order/post)). Montos como **string decimal** (`"120.00"`).
 
 - **Point** (`createPointOrder`): `type: "point"`, `config.point.terminal_id = MERCADOPAGO_POINT_DEVICE_ID`, `print_on_terminal`, `transactions.payments[{amount}]`, `expiration_time PT15M`. **Requisitos en cuenta real (verificar)**: terminal vinculada a la cuenta, en modo **PDV** (`PATCH /terminals`), id según `GET /terminals`; Point **no** funciona con credenciales de prueba (se prueba con cobros reales mínimos y se reembolsan). El resultado llega por webhook (`orders`/`point_integration_wh`) o `fetchMercadoPagoOrder(id)`.

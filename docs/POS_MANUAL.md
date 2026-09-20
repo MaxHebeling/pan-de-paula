@@ -27,7 +27,10 @@
 4. **Recompensa**: si el cliente tiene un canje emitido, selecciónalo y el descuento se aplica.
 5. **Cobrar**: elige método.
    - **Efectivo**: captura lo recibido; el sistema calcula el cambio. No acepta menos que el total.
-   - **Terminal / Mercado Pago Point / QR**: si el flag está activo, se dispara el cobro y se espera confirmación.
+   - **Tarjeta**: se cobra en la terminal (con la Point Blue, desde la app de Mercado Pago en el celular) y
+     se captura el número de operación en la **referencia** del pago, que es lo que liga el cobro con la venta.
+   - **Mercado Pago Point / QR**: si el flag está activo, se dispara el cobro y se espera confirmación. Requiere
+     una terminal **Point Smart** en modo PDV; con la Point Blue no aparecen (ver `docs/INTEGRATIONS.md` §1.5).
    - **Transferencia**: captura la referencia.
    - Se pueden combinar métodos (pago parcial + efectivo); la venta se cierra cuando la suma llega al total.
      Un pago que exceda el total se rechaza.
