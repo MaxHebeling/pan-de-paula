@@ -51,7 +51,10 @@ describe("franjas del día", () => {
 describe("lugar a partir de la zona horaria", () => {
   it("las zonas de casa se leen bien, con acentos", () => {
     expect(lugarDeZonaHoraria("America/Tijuana")).toEqual({ ciudad: "Tijuana", pais: "México" });
-    expect(lugarDeZonaHoraria("America/Monterrey")).toEqual({ ciudad: "Monterrey", pais: "México" });
+    expect(lugarDeZonaHoraria("America/Monterrey")).toEqual({
+      ciudad: "Monterrey",
+      pais: "México",
+    });
     expect(lugarDeZonaHoraria("America/Mexico_City")).toEqual({
       ciudad: "Ciudad de México",
       pais: "México",
