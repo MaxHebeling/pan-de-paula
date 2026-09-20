@@ -30,6 +30,10 @@ test.skip(() => test.info().project.name !== "desktop", "basta un proyecto");
 
 test.beforeAll(async () => {
   if (!process.env.DATABASE_URL) throw new Error("Falta DATABASE_URL para la prueba de especiales");
+  // Repetible sobre una base ya usada: los especiales de corridas anteriores se retiran (soft delete)
+  // para que el buscador de duplicados no compare contra ellos. En una base recién sembrada no hay ninguno.
+  await sql`update products set deleted_at = now(), is_active = false
+            where is_temporary and deleted_at is null`.execute(db);
   const hash = await hashPassword(HORNEADOR.password);
   await sql`insert into staff_users(email, full_name, password_hash, role_key, is_active, must_change_password)
             values (${HORNEADOR.email}, 'Horneador E2E', ${hash}, 'production', true, false)
@@ -94,6 +98,24 @@ const filaDe = (page: Page, nombre: string): Locator =>
 
 const idDeFila = async (fila: Locator) =>
   (await fila.getAttribute("data-testid"))!.replace("especial-row-", "");
+
+/**
+ * El interruptor es optimista (pinta el estado nuevo antes de que responda el servidor): para no
+ * navegar en medio de la escritura, se espera a que la base lo confirme.
+ */
+async function esperarActivo(id: string, activo: boolean) {
+  await expect
+    .poll(
+      async () =>
+        (
+          await sql<{
+            is_active: boolean;
+          }>`select is_active from products where id = ${id}::uuid`.execute(db)
+        ).rows[0]?.is_active,
+      { timeout: 15_000 },
+    )
+    .toBe(activo);
+}
 
 /** Capturas a 390 y 1280 px para revisar la sección en móvil y en escritorio. */
 async function capturar(page: Page, nombre: string) {
@@ -238,6 +260,7 @@ test("alta, edición en línea, venta en POS, desactivar y reactivar", async ({ 
   await expect(page.getByTestId(`especial-activo-${id}`)).toHaveText("Inactivo", {
     timeout: 15_000,
   });
+  await esperarActivo(id, false);
   await page.goto("/produccion");
   await expect(
     page.locator(`[data-testid^="product-card-"][data-product-name="${ROSCA_NUEVA}"]`),
@@ -259,18 +282,28 @@ test("alta, edición en línea, venta en POS, desactivar y reactivar", async ({ 
   await page.getByTestId("especial-reactivar").click();
   await expect(page.getByText("se reactivó")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId(`especial-activo-${id}`)).toHaveText("Activo", { timeout: 15_000 });
+  await esperarActivo(id, true);
   const total = await sql<{ n: string }>`
     select count(*)::text as n from products where name = ${ROSCA_NUEVA}`.execute(db);
   expect(total.rows[0]!.n).toBe("1"); // se reactivó el mismo, no se duplicó
 
-  // ── Los productos permanentes siguen intactos (no regresión) ────────────
-  const permanentes = await sql<{ n: string }>`
-    select count(*)::text as n from products where not is_temporary and deleted_at is null`.execute(
+  // ── Los productos permanentes siguen intactos y fuera de la lista (no regresión) ──
+  const conteos = await sql<{ permanentes: string; especiales: string }>`
+    select (select count(*) from products where not is_temporary and deleted_at is null)::text as permanentes,
+           (select count(*) from products where is_temporary and deleted_at is null)::text as especiales`.execute(
     db,
   );
-  expect(Number(permanentes.rows[0]!.n)).toBeGreaterThan(0);
+  expect(Number(conteos.rows[0]!.permanentes)).toBeGreaterThan(0);
   await especiales(page);
-  await expect(page.locator('[data-testid^="especial-row-"]')).toHaveCount(1);
+  await expect(page.locator('[data-testid^="especial-row-"]')).toHaveCount(
+    Number(conteos.rows[0]!.especiales),
+  );
+  await expect(
+    page.locator('[data-testid^="especial-row-"][data-product-name="Concha de vainilla"]'),
+  ).toHaveCount(0);
+  // Y el catálogo completo los sigue mostrando a todos.
+  await page.goto("/productos?q=Concha de vainilla");
+  await expect(page.getByRole("link", { name: "Concha de vainilla" }).first()).toBeVisible();
 });
 
 test("stock en cero: el producto queda agotado sin reglas nuevas", async ({ page }) => {
