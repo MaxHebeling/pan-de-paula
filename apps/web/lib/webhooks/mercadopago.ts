@@ -1,13 +1,19 @@
 /**
  * Procesamiento idempotente de notificaciones de Mercado Pago.
- * Flujo: webhook_events (unique provider+external_id) → claim atómico → GET /v1/payments/{id}
- * → external_reference = orders.id → apply_mercadopago_payment (transaccional en SQL) → processed.
- * Nunca se confía en el payload: el estado del pago se consulta a la API.
+ * Flujo `payment` (Checkout Pro): webhook_events (unique provider+external_id) → claim atómico
+ * → GET /v1/payments/{id} → external_reference = orders.id → apply_mercadopago_payment (SQL) → processed.
+ * Flujo `order` (Point/QR, API de Órdenes): … → GET /v1/orders/{id} → external_reference = orders.id
+ * → apply_mercadopago_payment con external_id = id de la orden MP (el mismo con el que el POS registró el
+ * pago `pending`), así la transición pending → paid cierra la venta y los reenvíos son idempotentes.
+ * Nunca se confía en el payload: el estado se consulta a la API.
  */
 import { callFn, sql, type Database } from "@pdp/db";
 import {
   createLogger,
+  fetchMercadoPagoOrder,
   fetchMercadoPagoPayment,
+  mpOrderStatusToPaymentStatus,
+  type MpOrder,
   type MpPayment,
   type MpWebhookNotification,
 } from "@pdp/integrations";
@@ -19,7 +25,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 export type MpProcessDeps = {
   fetchPayment?: (paymentId: string) => Promise<MpPayment>;
+  fetchOrder?: (orderId: string) => Promise<MpOrder>;
 };
+
+/** Tipos de notificación de la API de Órdenes (Point/QR). `order` es el vigente; `orders` por compatibilidad. */
+const MP_ORDER_TYPES = new Set(["order", "orders"]);
 
 /**
  * Un evento en `processing` más viejo que esto se considera huérfano (la función murió: timeout de Vercel,
@@ -127,13 +137,14 @@ async function handle(
   deps: MpProcessDeps,
 ): Promise<MpProcessResult> {
   const type = ev.event_type ?? ev.payload?.query?.type ?? ev.payload?.query?.topic ?? null;
-  if (type !== "payment") return { status: "ignored", reason: `type=${type ?? "unknown"}` };
   const body = ev.payload?.body ?? null;
   const dataId =
     ev.payload?.query?.["data.id"] ??
     ((body?.data as { id?: unknown } | undefined)?.id !== undefined
       ? String((body!.data as { id: unknown }).id)
       : null);
+  if (type && MP_ORDER_TYPES.has(type)) return handleOrder(db, dataId, deps);
+  if (type !== "payment") return { status: "ignored", reason: `type=${type ?? "unknown"}` };
   if (!dataId || !/^[0-9]+$/.test(dataId)) return { status: "ignored", reason: "data.id inválido" };
 
   const fetchPayment = deps.fetchPayment ?? fetchMercadoPagoPayment;
@@ -170,6 +181,63 @@ async function handle(
     detail: {
       paymentId: payment.id,
       mpStatus: payment.status,
+      orderId,
+      folio: order.rows[0].folio,
+      applied,
+    },
+  };
+}
+
+/**
+ * Cobro presencial (Point/QR). La orden MP se consulta a la API; su `external_reference` es el `orders.id` que
+ * el POS mandó al crearla. Se aplica UNA vez por orden MP (external_id = id de la orden): el POS ya dejó un pago
+ * `pending` con ese id, y apply_mercadopago_payment lo pasa a `paid` y ejecuta finalize_sale en la misma
+ * transacción. Los ids de pago de la orden (`PAY01…`) quedan en metadata para conciliar con el panel de MP.
+ */
+async function handleOrder(
+  db: Database,
+  dataId: string | null,
+  deps: MpProcessDeps,
+): Promise<MpProcessResult> {
+  if (!dataId || !/^[A-Za-z0-9_-]{1,64}$/.test(dataId))
+    return { status: "ignored", reason: "data.id inválido" };
+  const fetchOrder = deps.fetchOrder ?? fetchMercadoPagoOrder;
+  const mpOrder = await fetchOrder(dataId); // lanza → failed (reintento)
+
+  const orderId = mpOrder.externalReference;
+  if (!orderId || !UUID_RE.test(orderId))
+    return { status: "ignored", reason: "external_reference no es un pedido" };
+  const order = await sql<{
+    id: string;
+    folio: string;
+  }>`select id, folio from orders where id = ${orderId}::uuid`.execute(db);
+  if (!order.rows[0]) return { status: "ignored", reason: "pedido no existe" };
+
+  const mpStatus = mpOrderStatusToPaymentStatus(mpOrder.status);
+  // Estados intermedios (created/at_terminal/action_required) no tocan la base: el POS ya tiene el pago pending.
+  if (mpStatus === "pending")
+    return { status: "ignored", reason: `orden en estado ${mpOrder.status}` };
+
+  const applied = await callFn<Record<string, unknown>>(db, "apply_mercadopago_payment", [
+    JSON.stringify({
+      order_id: orderId,
+      external_id: mpOrder.orderId,
+      mp_status: mpStatus,
+      amount_cents: mpOrder.totalPaidAmountCents || mpOrder.totalAmountCents,
+      raw: {
+        mp_order_status: mpOrder.status,
+        status_detail: mpOrder.statusDetail,
+        mp_order_type: mpOrder.type,
+        mp_payment_ids: mpOrder.paymentIds,
+      },
+    }),
+  ]);
+  return {
+    status: "processed",
+    detail: {
+      mpOrderId: mpOrder.orderId,
+      mpOrderStatus: mpOrder.status,
+      mpStatus,
       orderId,
       folio: order.rows[0].folio,
       applied,
