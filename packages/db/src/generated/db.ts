@@ -734,6 +734,10 @@ export interface Products {
   id: Generated<string>;
   is_active: Generated<boolean>;
   is_featured: Generated<boolean>;
+  /**
+   * Producto especial o temporal (navideño, de temporada, edición limitada). Solo lo marca para la sección "Especiales" de Producción: no cambia ninguna regla de venta, catálogo, inventario ni reportes. Retirarlo = is_active = false (nunca borrar).
+   */
+  is_temporary: Generated<boolean>;
   name: string;
   parent_id: string | null;
   pos_favorite: Generated<boolean>;
