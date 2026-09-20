@@ -1,14 +1,17 @@
-import { requireSession } from "@/lib/auth";
+import Link from "next/link";
+import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { PageHeader, Stat, Card, Table, Badge, Money, LinkButton } from "@/components/ui";
-import { qty } from "@/lib/format";
+import { fmtDate, qty } from "@/lib/format";
+import { methodLabel, NO_REFERENCE } from "@/components/ops/payment-lines";
 
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  await requireSession("dashboard.read");
+  const session = await requireSession("dashboard.read");
+  const canSeeOrders = hasPermission(session, "orders.read");
   const d = db();
-  const [today, month, open, stock, top, lowStock] = await Promise.all([
+  const [today, month, open, stock, top, lowStock, cobros] = await Promise.all([
     sql<{ total: number; n: number; ticket: number; cost: number | null }>`
       select coalesce(sum(total_cents),0)::int as total, count(*)::int as n, coalesce(avg(total_cents),0)::int as ticket, sum(cost_cents)::int as cost
       from sales where voided_at is null and (sold_at at time zone (select timezone from business_settings where id=1))::date = (now() at time zone (select timezone from business_settings where id=1))::date`.execute(
@@ -40,6 +43,24 @@ export default async function DashboardPage() {
     }>`select name, on_hand, level from stock_status where track_stock and level <> 'ok' order by on_hand asc limit 6`.execute(
       d,
     ),
+    // Cobros del día, uno por PAGO: método + monto + referencia contable juntos, que es como se concilia.
+    // Requiere orders.read (marketing ve el dashboard pero no el detalle de los pedidos).
+    !canSeeOrders
+      ? { rows: [] as Array<never> }
+      : sql<{
+          id: string;
+          order_id: string;
+          folio: string;
+          method: string;
+          amount_cents: number;
+          reference: string | null;
+          created_at: Date;
+        }>`
+      select p.id, p.order_id, o.folio, p.method::text as method, p.amount_cents, p.reference, p.created_at
+      from payments p join orders o on o.id = p.order_id cross join business_settings bs
+      where p.status in ('paid','partially_refunded','refunded')
+        and (p.created_at at time zone bs.timezone)::date = (now() at time zone bs.timezone)::date
+      order by p.created_at desc limit 12`.execute(d),
   ]);
   const t = today.rows[0]!;
   const m = month.rows[0] ?? { total: 0, n: 0, cost: null, refunded: 0 };
@@ -83,6 +104,57 @@ export default async function DashboardPage() {
           tone={o.pending_payment ? "amber" : undefined}
         />
       </div>
+      {canSeeOrders && (
+        <div className="mt-4">
+          <Card
+            title="Cobros de hoy"
+            action={
+              <LinkButton href="/pos/ventas" variant="secondary" size="sm">
+                Ventas
+              </LinkButton>
+            }
+          >
+            {cobros.rows.length === 0 ? (
+              <p className="text-sm text-muted">Aún no hay cobros registrados hoy.</p>
+            ) : (
+              <Table className="!shadow-none !border-0">
+                <thead>
+                  <tr>
+                    <th>Pedido</th>
+                    {/* En móvil la hora cede su lugar: método + referencia + monto es lo que se concilia. */}
+                    <th className="hidden sm:table-cell">Hora</th>
+                    <th>Método</th>
+                    <th>Referencia</th>
+                    <th className="text-right">Monto</th>
+                  </tr>
+                </thead>
+                <tbody data-testid="cobros-hoy">
+                  {cobros.rows.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <Link
+                          href={`/pedidos/${p.order_id}`}
+                          className="font-mono text-xs text-teal-d hover:underline"
+                        >
+                          {p.folio}
+                        </Link>
+                      </td>
+                      <td className="hidden sm:table-cell">{fmtDate(p.created_at, "time")}</td>
+                      <td>{methodLabel(p.method)}</td>
+                      <td className={p.reference ? "font-mono text-xs" : "text-muted"}>
+                        {p.reference ?? NO_REFERENCE}
+                      </td>
+                      <td className="text-right">
+                        <Money cents={p.amount_cents} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card>
+        </div>
+      )}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card
           title="Productos más vendidos (30 días)"

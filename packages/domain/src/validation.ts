@@ -76,6 +76,26 @@ export const customerRegistrationWithEmailSchema = customerRegistrationFields.ex
   email: requiredEmailSchema,
 });
 
+/**
+ * Referencia CONTABLE de un pago: lo que el negocio escribe para conciliar con el banco o la terminal
+ * ("TRX-8493021", "BANORTE-483920", "MP-92847591"). Se guarda tal cual se escribe (sin mayúsculas
+ * forzadas ni reformateo) en `payments.reference`, una por cada pago — en un pago dividido, una por parte.
+ *
+ * NO es un identificador del proveedor: `payments.external_id` (id de Mercado Pago), `external_status`,
+ * `idempotency_key` y `metadata` los escribe la integración y nunca se editan a mano.
+ *
+ * Validación: hasta 80 caracteres y sin caracteres de control ni `<>` (espejo de `set_payment_reference`
+ * en SQL, migración 0033). Deliberadamente permisiva: un número de referencia del banco puede traer
+ * letras, dígitos, guiones, diagonales, puntos o espacios y rechazarlo costaría la conciliación.
+ */
+export const PAYMENT_REFERENCE_MAX = 80;
+export const paymentReferenceSchema = z
+  .string()
+  .trim()
+  .max(PAYMENT_REFERENCE_MAX, `La referencia no puede pasar de ${PAYMENT_REFERENCE_MAX} caracteres`)
+  // eslint-disable-next-line no-control-regex
+  .regex(/^[^\u0000-\u001F\u007F<>]*$/, "La referencia tiene caracteres no permitidos");
+
 export const cartItemSchema = z.object({
   product_id: z.string().uuid(),
   qty: z.number().int().positive().max(500),
@@ -134,7 +154,8 @@ export const posCheckoutSchema = z.object({
       method: z.enum(["cash", "mercadopago", "card_terminal", "transfer", "other"]),
       amount_cents: z.number().int().positive(),
       tendered_cents: z.number().int().positive().optional(),
-      reference: z.string().trim().max(80).optional(),
+      // Referencia contable de ESTA parte del cobro (en pago dividido, una por parte).
+      reference: paymentReferenceSchema.optional(),
       external_id: z.string().trim().max(80).optional(),
     }),
   ),

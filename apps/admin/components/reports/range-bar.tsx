@@ -19,6 +19,7 @@ export function RangeBar({
   to,
   canExport,
   reportKey,
+  exportParams = "",
 }: {
   kinds: Kind[];
   today: string;
@@ -26,6 +27,8 @@ export function RangeBar({
   to: string;
   canExport: boolean;
   reportKey: string;
+  /** Filtros extra del reporte (ya codificados, p. ej. "&metodo=transfer&ref=BANORTE") para que el CSV salga igual que la pantalla. */
+  exportParams?: string;
 }) {
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -106,7 +109,7 @@ export function RangeBar({
           {canExport && (
             <a
               className="btn btn-secondary"
-              href={`/api/reports/export?report=${reportKey}&from=${from}&to=${to}&format=csv`}
+              href={`/api/reports/export?report=${reportKey}&from=${from}&to=${to}&format=csv${exportParams}`}
               download
             >
               <Download size={16} aria-hidden /> CSV

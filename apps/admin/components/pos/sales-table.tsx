@@ -130,9 +130,13 @@ function SaleDetail({ s, canRefund }: { s: SaleRow; canRefund: boolean }) {
               <li key={p.id} className="flex justify-between gap-2 py-0.5">
                 <span>
                   {PAYMENT_METHOD_LABELS[p.method as PaymentMethod] ?? p.method}
-                  {p.reference ? (
-                    <span className="text-xs text-muted"> · ref {p.reference}</span>
-                  ) : null}
+                  <span className="text-xs text-muted"> · ref. </span>
+                  <span
+                    className={p.reference ? "font-mono text-xs" : "text-xs text-muted"}
+                    data-testid="payment-reference"
+                  >
+                    {p.reference ?? "—"}
+                  </span>
                   {p.status !== "paid" && <span className="text-xs text-muted"> · {p.status}</span>}
                 </span>
                 <span className="tabular-nums">{formatMXN(p.amountCents)}</span>

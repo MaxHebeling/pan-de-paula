@@ -241,7 +241,8 @@ export type ReceiptData = {
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  payments: Array<{ method: string; amountCents: number }>;
+  /** `reference` = referencia CONTABLE capturada por el negocio (clave de rastreo, folio de terminal). */
+  payments: Array<{ method: string; amountCents: number; reference?: string | null }>;
   customerName?: string | null;
   pointsEarned?: number;
   pointsBalance?: number;
@@ -264,7 +265,7 @@ export function renderReceiptHtml(data: ReceiptData): string {
   const payments = data.payments
     .map(
       (p) =>
-        `<tr><td style="padding:3px 0;color:${C.ink2};">${escapeHtml(METHOD_LABEL[p.method] ?? p.method)}</td><td align="right" style="padding:3px 0;">${formatMoney(p.amountCents)}</td></tr>`,
+        `<tr><td style="padding:3px 0;color:${C.ink2};">${escapeHtml(METHOD_LABEL[p.method] ?? p.method)}${p.reference ? `<br><span style="font-size:12px;">ref. ${escapeHtml(p.reference)}</span>` : ""}</td><td align="right" style="padding:3px 0;">${formatMoney(p.amountCents)}</td></tr>`,
     )
     .join("");
   const points =
@@ -302,7 +303,8 @@ export function renderReceiptText(data: ReceiptData): string {
     ...(data.discountCents > 0 ? [`Descuento: -${formatMoney(data.discountCents)}`] : []),
     `Total: ${formatMoney(data.totalCents)}`,
     ...data.payments.map(
-      (p) => `Pago ${METHOD_LABEL[p.method] ?? p.method}: ${formatMoney(p.amountCents)}`,
+      (p) =>
+        `Pago ${METHOD_LABEL[p.method] ?? p.method}: ${formatMoney(p.amountCents)}${p.reference ? ` (ref. ${p.reference})` : ""}`,
     ),
   ];
   if (data.pointsEarned !== undefined) lines.push(`Puntos ganados: ${data.pointsEarned}`);

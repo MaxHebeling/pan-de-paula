@@ -16,6 +16,7 @@ import {
   ORDER_STATUS_LABELS,
 } from "@/lib/customers";
 import { ActionForm } from "@/components/customers/action-form";
+import { methodLabel, NO_REFERENCE } from "@/components/ops/payment-lines";
 import { PortalLinkButton } from "@/components/customers/portal-link";
 import {
   adjustPointsAction,
@@ -568,6 +569,18 @@ export default async function CustomerPage({
                       </span>
                     </div>
                     <div className="text-xs text-muted">{fmtDate(o.placed_at, "datetime")}</div>
+                    {(o.payments ?? []).length > 0 && (
+                      <ul className="text-xs text-muted" data-testid="payment-lines">
+                        {(o.payments ?? []).map((p) => (
+                          <li key={p.id}>
+                            {methodLabel(p.method)} <Money cents={p.amountCents} compact /> · ref.{" "}
+                            <span className={p.reference ? "font-mono text-ink" : ""}>
+                              {p.reference ?? NO_REFERENCE}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -19,6 +19,7 @@ type Results = {
     status: string;
     total_cents: number;
     customer_name: string | null;
+    payment_reference: string | null;
   }>;
   products: Array<{
     id: string;
@@ -46,7 +47,7 @@ function toItems(r: Results): Item[] {
       key: `o-${o.id}`,
       href: `/pedidos?q=${encodeURIComponent(o.folio)}`,
       title: o.folio,
-      sub: `${o.customer_name ?? "sin nombre"} · ${mxn(o.total_cents)} · ${o.status}`,
+      sub: `${o.customer_name ?? "sin nombre"} · ${mxn(o.total_cents)} · ${o.status}${o.payment_reference ? ` · ref. ${o.payment_reference}` : ""}`,
       group: "Pedidos",
     })),
     ...r.products.map((p) => ({
@@ -59,7 +60,7 @@ function toItems(r: Results): Item[] {
   ];
 }
 
-/** Búsqueda global (⌘K / Ctrl+K): clientes, pedidos y productos vía GET /api/search. */
+/** Búsqueda global (⌘K / Ctrl+K): clientes, pedidos (folio o referencia contable) y productos vía GET /api/search. */
 export function GlobalSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -149,7 +150,7 @@ export function GlobalSearch() {
         type="button"
         className="btn btn-secondary btn-sm"
         aria-label="Buscar (⌘K)"
-        title="Buscar clientes, pedidos y productos (⌘K)"
+        title="Buscar clientes, pedidos, productos y referencias de pago (⌘K)"
         onClick={() => setOpen(true)}
       >
         <Icon name="🔍" size={16} />
@@ -175,7 +176,7 @@ export function GlobalSearch() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onInputKey}
-                placeholder="Cliente, teléfono, código PDP, folio o producto…"
+                placeholder="Cliente, teléfono, código PDP, folio, producto o referencia…"
                 className="w-full bg-transparent py-3 text-base outline-none"
                 role="combobox"
                 aria-expanded={visible.length > 0}

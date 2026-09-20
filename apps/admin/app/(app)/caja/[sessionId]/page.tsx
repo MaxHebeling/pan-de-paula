@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@pdp/domain";
 import { requireSession } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { getRegisterSummary } from "@/lib/pos";
+import type { PaymentLine } from "@/lib/payments";
 import { Alert, Badge, Card, Money, PageHeader, Table } from "@/components/ui";
+import { methodLabel, NO_REFERENCE } from "@/components/ops/payment-lines";
 import { RegisterSummaryTable } from "@/components/pos/register-summary";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,13 @@ export default async function CajaDetallePage({
       sold_at: Date;
       total_cents: number;
       voided_at: Date | null;
-      methods: string[] | null;
+      payments: PaymentLine[] | null;
     }>`
       select s.order_id, o.folio, s.sold_at, s.total_cents, s.voided_at,
-             (select array_agg(distinct p.method::text) from payments p where p.order_id = o.id and p.status in ('paid','partially_refunded','refunded')) as methods
+             (select jsonb_agg(jsonb_build_object('id', p.id, 'method', p.method::text, 'status', p.status::text,
+                                                  'amountCents', p.amount_cents, 'reference', p.reference, 'externalId', p.external_id)
+                               order by p.created_at)
+                from payments p where p.order_id = o.id and p.status in ('paid','partially_refunded','refunded')) as payments
       from sales s join orders o on o.id = s.order_id
       where s.register_session_id = ${sessionId}::uuid order by s.sold_at desc`.execute(db()),
   ]);
@@ -94,8 +98,9 @@ export default async function CajaDetallePage({
               <thead>
                 <tr>
                   <th>Folio</th>
-                  <th>Hora</th>
-                  <th>Método</th>
+                  {/* En móvil la hora cede su lugar a método + referencia, que es lo que se concilia. */}
+                  <th className="hidden sm:table-cell">Hora</th>
+                  <th>Método y referencia</th>
                   <th className="text-right">Total</th>
                 </tr>
               </thead>
@@ -110,11 +115,23 @@ export default async function CajaDetallePage({
                         {r.folio}
                       </Link>
                     </td>
-                    <td>{fmtDate(r.sold_at, "time")}</td>
+                    <td className="hidden sm:table-cell">{fmtDate(r.sold_at, "time")}</td>
                     <td>
-                      {(r.methods ?? [])
-                        .map((x) => PAYMENT_METHOD_LABELS[x as PaymentMethod] ?? x)
-                        .join(" + ") || "—"}
+                      {(r.payments ?? []).length === 0 ? (
+                        "—"
+                      ) : (
+                        <ul data-testid="payment-lines">
+                          {(r.payments ?? []).map((p) => (
+                            <li key={p.id} className="break-words">
+                              {methodLabel(p.method)} <Money cents={p.amountCents} compact />
+                              <span className="text-muted"> · ref. </span>
+                              <span className={p.reference ? "font-mono text-xs" : "text-muted"}>
+                                {p.reference ?? NO_REFERENCE}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </td>
                     <td className="text-right">
                       <Money cents={r.total_cents} />

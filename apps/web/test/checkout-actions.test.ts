@@ -440,8 +440,22 @@ describe("checkout web · métodos de pago", () => {
       method: string;
       status: string;
       amount_cents: number;
-    }>`select method, status, amount_cents from payments where order_id = ${o.id}`.execute(db);
-    expect(pay.rows).toEqual([{ method: "transfer", status: "pending", amount_cents: 5000 }]);
+      reference: string | null;
+      metadata: Record<string, unknown>;
+    }>`select method, status, amount_cents, reference, metadata from payments where order_id = ${o.id}`.execute(
+      db,
+    );
+    // El folio va como CONCEPTO de la transferencia; `reference` (clave contable del banco) queda libre
+    // para que la panadería la capture al conciliar.
+    expect(pay.rows).toEqual([
+      {
+        method: "transfer",
+        status: "pending",
+        amount_cents: 5000,
+        reference: null,
+        metadata: { concepto: o.folio },
+      },
+    ]);
   });
 
   it("Mercado Pago con flag apagado, o encendido sin token → mensaje claro y cero pedidos huérfanos", async () => {
