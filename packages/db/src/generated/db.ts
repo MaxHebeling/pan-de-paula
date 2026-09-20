@@ -262,6 +262,13 @@ export interface CustomerEvents {
   payload: Generated<Json>;
 }
 
+export interface CustomerNotificationPrefs {
+  customer_id: string;
+  order_updates: Generated<boolean>;
+  promotions: Generated<boolean>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface CustomerNotifications {
   body: string | null;
   created_at: Generated<Timestamp>;
@@ -269,6 +276,11 @@ export interface CustomerNotifications {
   id: Generated<string>;
   kind: string;
   order_id: string | null;
+  push_error: string | null;
+  /**
+   * Momento en que se RECLAMÓ el aviso para mandarlo por push. Se fija con un update condicional: dos procesos simultáneos no pueden enviar el mismo aviso dos veces.
+   */
+  pushed_at: Timestamp | null;
   read_at: Timestamp | null;
   status_history_id: Int8 | null;
   title: string;
@@ -770,6 +782,19 @@ export interface Products {
   variant_label: string | null;
 }
 
+export interface PushSubscriptions {
+  auth: string;
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  disabled_at: Timestamp | null;
+  endpoint: string;
+  fail_count: Generated<number>;
+  id: Generated<string>;
+  last_used_at: Timestamp | null;
+  p256dh: string;
+  user_agent: string | null;
+}
+
 export interface RateLimits {
   hits: Generated<number>;
   key: string;
@@ -1057,6 +1082,7 @@ export interface DB {
   customer_access_tokens: CustomerAccessTokens;
   customer_addresses: CustomerAddresses;
   customer_events: CustomerEvents;
+  customer_notification_prefs: CustomerNotificationPrefs;
   customer_notifications: CustomerNotifications;
   customer_sessions: CustomerSessions;
   customers: Customers;
@@ -1093,6 +1119,7 @@ export interface DB {
   product_prices: ProductPrices;
   production_batches: ProductionBatches;
   products: Products;
+  push_subscriptions: PushSubscriptions;
   rate_limits: RateLimits;
   receipts: Receipts;
   recipe_costing: RecipeCosting;

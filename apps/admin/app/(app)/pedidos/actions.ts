@@ -10,7 +10,7 @@ import {
   phoneMX,
   emailSchema,
 } from "@pdp/domain";
-import { isEmailConfigured, sendReceiptEmail } from "@pdp/integrations";
+import { deliverPendingPushes, isEmailConfigured, sendReceiptEmail } from "@pdp/integrations";
 import { requireSession } from "@/lib/auth";
 import { db, sql, callFn, withStaff } from "@/lib/db";
 import { fail, parseMoneyCents, str, type ActionResult } from "@/lib/ops";
@@ -54,6 +54,17 @@ export async function changeStatusAction(_prev: FormState, form: FormData): Prom
     await withStaff(db(), session.staff.id, (trx) =>
       callFn(trx, "change_order_status", [order_id, to_status, note ?? null]),
     );
+    /*
+     * El aviso al cliente ya lo creó la base (disparador de order_status_history, migración 0046).
+     * Aquí solo se ENTREGA por push, y en el acto: esperar al cron de 15 min para decirle que su pan
+     * está listo no sirve de nada. El envío se reclama con `pushed_at`, así que si el cron coincide
+     * no se manda dos veces. Si el push falla, el estado ya cambió: no se revierte nada por eso.
+     */
+    try {
+      await deliverPendingPushes(db(), { orderId: order_id });
+    } catch (e) {
+      console.error("[pedidos] el aviso push no salió", e);
+    }
     return { ok: true, message: "Estado actualizado" };
   } catch (e) {
     return fail(e, "change_order_status");

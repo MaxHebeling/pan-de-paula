@@ -215,6 +215,68 @@ Por orden de fiabilidad, nunca por el nombre (hay homónimos):
 Da igual por dónde entre el pedido (sitio, portal, teléfono, mostrador): es el mismo `orders` y el
 mismo `customer_id`, así que aparece en su portal sin que nadie lo vincule a mano.
 
+## La aplicación instalable y los avisos al teléfono
+
+### Instalarla
+
+El portal es una **PWA real**, no una imitación: manifiesto (`app/manifest.ts`) con `display:
+standalone`, iconos de 192, 512 y maskable, y un **service worker** en `public/sw.js`. Chrome exige
+las dos cosas para ofrecer la instalación; sin service worker no hay botón.
+
+`start_url` apunta a `/portal` porque eso es lo que el cliente instala: su cuenta, sus pedidos y su
+QR a un toque. Quien no tenga sesión cae en `/portal/entrar`, que es justo donde debe empezar.
+
+El ofrecimiento de instalar (`AppBanners`) aparece cuando el navegador dice que se puede
+(`beforeinstallprompt`, que se intercepta para ofrecerlo nosotros y no cuando el navegador quiera) y
+desaparece en cuanto está instalada (`display-mode: standalone`). **En iPhone no existe ese diálogo**:
+se explica el camino real —Compartir → Agregar a pantalla de inicio— y solo cuando tiene sentido.
+"Ahora no" se recuerda 30 días.
+
+### Qué cachea el service worker (y qué no)
+
+Solo lo estático con huella (`/_next/static`, `/brand`) y la página `/offline`. **Las páginas con
+datos nunca se cachean**: el estado de un pedido cambia solo, y enseñar una copia vieja como si fuera
+la de ahora es peor que no enseñar nada. Sin conexión se ve `/offline`, que lo dice con todas sus
+letras.
+
+### Avisos al teléfono (Web Push)
+
+Web Push estándar con VAPID: es lo que ya hablan Chrome, Edge, Firefox y Safari (iOS 16.4+), sin
+meter otro servicio ni otro SDK. **En iPhone solo funciona con la aplicación agregada a la pantalla
+de inicio** — es una limitación de iOS, y el portal lo dice en vez de fingir que falló algo.
+
+Configuración (una sola vez, en Vercel):
+
+| Variable                       | Qué es                                           |
+| ------------------------------ | ------------------------------------------------ |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Clave pública; viaja al navegador, no es secreta |
+| `VAPID_PRIVATE_KEY`            | Clave privada del servidor                       |
+| `VAPID_SUBJECT`                | `mailto:` de contacto que exige el estándar      |
+
+Sin ellas el portal funciona igual: simplemente no se ofrecen avisos.
+
+**El permiso no se pide al entrar.** Se ofrece en "Mis pedidos" —donde el cliente ya está pendiente
+de su pan— con una explicación y una salida clara; el diálogo del navegador solo aparece después de
+que él toca "Activar avisos". Un permiso pedido a destiempo se deniega para siempre.
+
+**Cómo se entrega.** El aviso ya existe en `customer_notifications` (lo creó el disparador de 0046).
+`deliverPendingPushes` lo **reclama** con un update condicional sobre `pushed_at` y solo el que gana
+envía: si el cron y la acción del CRM coinciden, o un reintento repite la llamada, el segundo no
+encuentra nada. El CRM lo llama en el acto al cambiar el estado —esperar 15 minutos para decir que el
+pan está listo no sirve— y el cron `/api/cron/push-pendientes` es la red de seguridad de lo que no
+pasó por ahí (un pago confirmado por webhook). Solo entran avisos de la última hora: un pedido de
+ayer no es noticia que despertar.
+
+**Dispositivos.** Un cliente puede tener varios; la llave es el `endpoint` del navegador, así que
+re-suscribirse actualiza y no duplica. Un 404/410 al enviar significa que ese dispositivo ya no
+existe: se desactiva en vez de reintentarlo para siempre. Cerrar sesión retira el dispositivo actual
+—importa en un teléfono prestado—, y si algo falla al hacerlo la sesión se cierra igual.
+
+**Preferencias** (`/portal/avisos/ajustes`), en dos planos que no se mezclan: la **cuenta** (avisos de
+pedidos / promociones) y **este dispositivo** (encender o apagar solo aquí). Aceptar los avisos de un
+pedido **no** es consentimiento para publicidad: el consentimiento comercial sigue viviendo en
+`customers.marketing_consent`.
+
 ## Pruebas
 
 | Archivo                                              | Qué cubre                                                                                                                                                                                                                |
@@ -228,3 +290,5 @@ mismo `customer_id`, así que aparece en su portal sin que nadie lo vincule a ma
 | `packages/db/test/customer_notifications.test.ts`    | Los avisos cuelgan del historial: uno por transición, imposible duplicarlos, ninguno para pedidos sin cliente, ninguno cruzado entre clientes, ninguno por importación histórica                                         |
 | `packages/domain/test/portal_timeline.test.ts`       | Cada estado cae en su hito, la hora sale de la primera vez que pasó por ahí, el pedido cancelado deja de avanzar                                                                                                         |
 | `apps/web/e2e/pedidos-vivo.spec.ts`                  | El flujo completo en el navegador: el pedido aparece, el CRM lo mueve y el portal se actualiza sin recargar, con aviso, campana y línea de tiempo; y el pedido ajeno da 404                                              |
+| `packages/integrations/test/push.test.ts`            | La entrega: un aviso no se manda dos veces, llega a todos sus dispositivos, un dispositivo muerto se desactiva, se respeta lo que el cliente pidió y un aviso viejo no despierta a nadie                                 |
+| `apps/web/e2e/pwa-push.spec.ts`                      | Manifiesto y service worker reales, el permiso no se pide al entrar, la suscripción queda en la cuenta correcta, cerrar sesión la retira y las preferencias separan pedidos de promociones                               |

@@ -18,11 +18,13 @@
     "@anthropic-ai/sdk": "0.125.0",
     "@pdp/db": "workspace:*",
     "@pdp/domain": "workspace:*",
+    "web-push": "3.6.7",
     "zod": "4.6.2"
   },
   "devDependencies": {
     "@pdp/config": "workspace:*",
     "@types/node": "22.20.2",
+    "@types/web-push": "3.6.4",
     "eslint": "9.39.5",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
