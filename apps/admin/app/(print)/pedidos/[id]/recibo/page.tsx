@@ -82,7 +82,12 @@ export default async function ReciboPage({ params }: { params: Promise<{ id: str
             </dd>
             {data.payments.map((p, i) => (
               <Fragment key={i}>
-                <dt>{p.method}</dt>
+                <dt>
+                  {p.method}
+                  <div className="text-[11px] text-muted" data-testid="payment-reference">
+                    ref. {p.reference ?? "—"}
+                  </div>
+                </dt>
                 <dd className="text-right tabular-nums">{formatMXN(p.amountCents)}</dd>
               </Fragment>
             ))}

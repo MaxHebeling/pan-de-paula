@@ -1,6 +1,7 @@
 import "server-only";
 import { canonicalPhone, containsPattern, isCustomerCode } from "@pdp/domain";
 import { db, sql } from "./db";
+import type { PaymentLine } from "./payments";
 
 export type CustomerRow = {
   id: string;
@@ -214,9 +215,14 @@ export async function customer360(id: string) {
       voided_at: Date | null;
       points: number;
       summary: string | null;
+      payments: PaymentLine[] | null;
     }>`select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.payment_status::text as payment_status,
                 o.total_cents, o.placed_at, coalesce((select sum(qty) from order_items where order_id = o.id), 0)::numeric as items,
                 s.voided_at,
+                (select jsonb_agg(jsonb_build_object('id', p.id, 'method', p.method::text, 'status', p.status::text,
+                                                     'amountCents', p.amount_cents, 'reference', p.reference, 'externalId', p.external_id)
+                                  order by p.created_at)
+                   from payments p where p.order_id = o.id and p.status in ('paid','partially_refunded','refunded')) as payments,
                 coalesce((select sum(points) from loyalty_transactions where sale_id = s.id and kind = 'earn'), 0)::int as points,
                 (select string_agg(product_name || ' ×' || trim(to_char(qty, 'FM9999990.###')), ', ' order by sort_order) from order_items where order_id = o.id) as summary
          from orders o left join sales s on s.order_id = o.id
