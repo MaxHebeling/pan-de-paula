@@ -121,7 +121,8 @@ export default async function DashboardPage() {
                 <thead>
                   <tr>
                     <th>Pedido</th>
-                    <th>Hora</th>
+                    {/* En móvil la hora cede su lugar: método + referencia + monto es lo que se concilia. */}
+                    <th className="hidden sm:table-cell">Hora</th>
                     <th>Método</th>
                     <th>Referencia</th>
                     <th className="text-right">Monto</th>
@@ -138,7 +139,7 @@ export default async function DashboardPage() {
                           {p.folio}
                         </Link>
                       </td>
-                      <td>{fmtDate(p.created_at, "time")}</td>
+                      <td className="hidden sm:table-cell">{fmtDate(p.created_at, "time")}</td>
                       <td>{methodLabel(p.method)}</td>
                       <td className={p.reference ? "font-mono text-xs" : "text-muted"}>
                         {p.reference ?? NO_REFERENCE}

@@ -166,7 +166,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
             type="search"
             className="input min-h-11"
             defaultValue={q}
-            placeholder="Folio, teléfono, nombre o referencia de pago"
+            placeholder="Folio, teléfono, nombre o referencia"
             maxLength={80}
           />
         </Field>

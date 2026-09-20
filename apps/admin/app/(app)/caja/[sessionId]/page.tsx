@@ -98,7 +98,8 @@ export default async function CajaDetallePage({
               <thead>
                 <tr>
                   <th>Folio</th>
-                  <th>Hora</th>
+                  {/* En móvil la hora cede su lugar a método + referencia, que es lo que se concilia. */}
+                  <th className="hidden sm:table-cell">Hora</th>
                   <th>Método y referencia</th>
                   <th className="text-right">Total</th>
                 </tr>
@@ -114,14 +115,14 @@ export default async function CajaDetallePage({
                         {r.folio}
                       </Link>
                     </td>
-                    <td>{fmtDate(r.sold_at, "time")}</td>
+                    <td className="hidden sm:table-cell">{fmtDate(r.sold_at, "time")}</td>
                     <td>
                       {(r.payments ?? []).length === 0 ? (
                         "—"
                       ) : (
                         <ul data-testid="payment-lines">
                           {(r.payments ?? []).map((p) => (
-                            <li key={p.id} className="whitespace-nowrap">
+                            <li key={p.id} className="break-words">
                               {methodLabel(p.method)} <Money cents={p.amountCents} compact />
                               <span className="text-muted"> · ref. </span>
                               <span className={p.reference ? "font-mono text-xs" : "text-muted"}>

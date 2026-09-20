@@ -90,19 +90,23 @@ export default async function PaymentsReport({
           <Table className="!border-0 !shadow-none">
             <thead>
               <tr>
-                <th>Fecha</th>
+                {/* En móvil la fecha viaja bajo el folio y se ocultan las columnas de apoyo:
+                    caben método + referencia + monto, que es lo que se está cotejando. */}
+                <th className="hidden sm:table-cell">Fecha</th>
                 <th>Folio</th>
                 <th>Método</th>
                 <th>Referencia</th>
                 <th className="text-right">Monto</th>
-                <th className="text-right">Reembolsado</th>
-                <th>Registró</th>
+                <th className="hidden text-right sm:table-cell">Reembolsado</th>
+                <th className="hidden lg:table-cell">Registró</th>
               </tr>
             </thead>
             <tbody data-testid="payments-report">
               {rows.map((r) => (
                 <tr key={r.id} className={r.voided_at ? "text-muted line-through" : ""}>
-                  <td className="whitespace-nowrap">{fmtDate(r.created_at, "datetime")}</td>
+                  <td className="hidden whitespace-nowrap sm:table-cell">
+                    {fmtDate(r.created_at, "datetime")}
+                  </td>
                   <td>
                     <Link
                       href={`/pedidos/${r.order_id}`}
@@ -110,6 +114,9 @@ export default async function PaymentsReport({
                     >
                       {r.folio}
                     </Link>
+                    <div className="text-xs text-muted sm:hidden">
+                      {fmtDate(r.created_at, "datetime")}
+                    </div>
                   </td>
                   <td>{PAYMENT_LABELS[r.method] ?? r.method}</td>
                   <td
@@ -121,14 +128,14 @@ export default async function PaymentsReport({
                   <td className="text-right">
                     <Money cents={r.amount_cents} />
                   </td>
-                  <td className="text-right">
+                  <td className="hidden text-right sm:table-cell">
                     {r.refunded_cents ? (
                       <Money cents={r.refunded_cents} className="text-red-d" />
                     ) : (
                       "—"
                     )}
                   </td>
-                  <td className="text-xs text-muted">{r.staff_name ?? "—"}</td>
+                  <td className="hidden text-xs text-muted lg:table-cell">{r.staff_name ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
