@@ -82,6 +82,10 @@ export function SpecialProductForm({
   }, [state, router]);
 
   const dup = duplicateOf(state);
+  // React limpia el formulario al terminar la acción; con lo capturado que devuelve el servidor
+  // como valor por defecto, un error no borra lo que la persona escribió.
+  const typed = (k: string, fallback = "") =>
+    typeof state.data?.[k] === "string" ? (state.data[k] as string) : fallback;
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-3">
@@ -94,6 +98,7 @@ export function SpecialProductForm({
           maxLength={120}
           placeholder="Rosca de Reyes"
           autoComplete="off"
+          defaultValue={typed("form_name")}
         />
         <MoneyInput
           label="Precio (MXN)"
@@ -101,6 +106,7 @@ export function SpecialProductForm({
           id="especial-precio"
           required
           hint="Queda como precio regular en todos los canales."
+          defaultValue={typed("form_price")}
         />
         <TextInput
           label="Stock inicial"
@@ -111,7 +117,7 @@ export function SpecialProductForm({
           min={0}
           max={100000}
           step={1}
-          defaultValue={0}
+          defaultValue={typed("form_stock", "0")}
           disabled={!canStock}
           hint={
             canStock

@@ -21,8 +21,12 @@ import { requireSession, hasPermission } from "@/lib/auth";
 import { cents, failure, num, str, zCents, zId, zodMessage } from "@/lib/forms";
 import type { ActionState } from "@/lib/action-state";
 
-/** Dos nombres distintos que se parecen tanto probablemente son el mismo producto. */
-const SIMILAR_THRESHOLD = 0.82;
+/**
+ * Dos nombres distintos que se parecen tanto probablemente son el mismo producto. Un poco más
+ * estricto que la importación del Sheets (0.7) porque aquí frena un alta: "Rosca de Reyes grande"
+ * avisa (0.81) y "Rosca de Reyes chica" vs "grande" no (0.70), que sí son productos distintos.
+ */
+const SIMILAR_THRESHOLD = 0.8;
 
 /**
  * Lo que el alta rápida fija por su cuenta. El resto de `products` (descripción, imagen, categoría,
@@ -136,25 +140,34 @@ export async function createSpecialProduct(
   form: FormData,
 ): Promise<ActionState> {
   const s = await requireSession("catalog.write");
+  // React limpia el formulario al terminar la acción: lo capturado se devuelve en `data` y la
+  // pantalla lo vuelve a poner como valor por defecto, para que un error no borre lo que escribieron
+  // (y para que "crear de todos modos" reenvíe lo mismo).
+  const typed = {
+    form_name: str(form, "name") ?? "",
+    form_price: str(form, "price") ?? "",
+    form_stock: str(form, "initial_stock") ?? "",
+  };
   const parsed = specialSchema.safeParse({
     name: str(form, "name") ?? "",
     price_cents: cents(form, "price"),
     initial_stock: num(form, "initial_stock") ?? 0,
   });
-  if (!parsed.success) return { error: zodMessage(parsed.error) };
+  if (!parsed.success) return { error: zodMessage(parsed.error), data: { ...typed } };
   const { name, price_cents, initial_stock } = parsed.data;
   // El stock inicial es una corrección de inventario: exige el mismo permiso que /inventario.
   if (initial_stock > 0 && !hasPermission(s, "inventory.write"))
     return {
       error:
         "No tienes permiso para ajustar inventario (inventory.write). Crea el producto con stock 0 y pide el ajuste a producción.",
+      data: { ...typed },
     };
 
   const confirmSimilar = str(form, "confirm_similar") === "1";
   const dup = await findEquivalent(name);
   // Un nombre idéntico nunca se duplica. Un simple parecido sí, pero solo si lo confirman.
   if (dup && (dup.duplicate_kind === "exact" || !confirmSimilar))
-    return { error: duplicateMessage(dup), data: { ...dup } };
+    return { error: duplicateMessage(dup), data: { ...dup, ...typed } };
 
   let id: string;
   try {
@@ -183,7 +196,7 @@ export async function createSpecialProduct(
       return p.id;
     });
   } catch (e) {
-    return failure("especiales.create", e);
+    return { ...failure("especiales.create", e), data: { ...typed } };
   }
   revalidate(id);
   return {
