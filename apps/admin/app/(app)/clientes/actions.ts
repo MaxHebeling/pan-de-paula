@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
-  customerRegistrationWithEmailSchema,
+  birthdaySchema,
+  customerRegistrationCompleteSchema,
   emailSchema,
   parseOptionalPhone,
   phoneMX,
@@ -36,8 +37,8 @@ export async function createCustomerAction(_prev: ActionState, fd: FormData): Pr
   // (10 dígitos si es México, "+<prefijo><nacional>" en el resto). Ver docs/DATABASE.md.
   const phone = parseOptionalPhone(str(fd, "phone_country"), str(fd, "phone"));
   if (!phone.ok) return { error: phone.error };
-  // Alta humana desde el CRM: el correo es obligatorio (es la llave del portal del cliente).
-  const parsed = customerRegistrationWithEmailSchema.safeParse({
+  // Alta humana desde el CRM: nombre, celular, correo y fecha de nacimiento son obligatorios (0045).
+  const parsed = customerRegistrationCompleteSchema.safeParse({
     full_name: str(fd, "full_name"),
     phone: phone.value ?? "",
     email: str(fd, "email"),
@@ -74,8 +75,61 @@ export async function createCustomerAction(_prev: ActionState, fd: FormData): Pr
       return { error: "Ese correo ya está registrado." };
     return { error: dbErrorMessage(e).message };
   }
+  // El cliente nuevo queda listo para su portal en el mismo acto: se le manda su enlace de acceso.
+  // No es un segundo sistema de autenticación — es el mismo enlace de un solo uso de `@pdp/auth/customer`.
+  let invited = false;
+  if (created) {
+    const inv = await invitePortal(id, s.staff.id, await clientIp());
+    invited = inv.mailed;
+    if (inv.error) console.error("[clientes] no se pudo invitar al portal", inv.error);
+  }
   revalidatePath("/clientes");
-  redirect(`/clientes/${id}${created ? "?creado=1" : "?existente=1"}`);
+  redirect(
+    `/clientes/${id}${created ? `?creado=1${invited ? "&invitado=1" : ""}` : "?existente=1"}`,
+  );
+}
+
+/**
+ * Prepara el acceso al portal de un cliente y, si hay correo configurado, se lo envía.
+ *
+ * Centraliza lo que antes solo hacía el botón del CRM para poder usarlo también en el alta. Nunca
+ * devuelve el enlace a quien no lo pidió explícitamente (el alta no lo necesita) y nunca lo escribe
+ * en logs: solo dice si salió el correo.
+ */
+async function invitePortal(
+  customerId: string,
+  staffId: string,
+  ip: string | null,
+): Promise<{ mailed: boolean; error?: unknown }> {
+  const c = await sql<{ full_name: string; email: string | null }>`
+    select full_name, email::text as email from customers
+     where id = ${customerId} and deleted_at is null and merged_into_id is null`.execute(db());
+  const customer = c.rows[0];
+  if (!customer?.email || !isEmailConfigured()) return { mailed: false };
+  try {
+    const r = await withStaff(db(), staffId, (trx) =>
+      createCustomerAccessToken(trx, {
+        customerId,
+        requestedBy: "staff",
+        staffId,
+        ip,
+      }),
+    );
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const biz = await sql<{
+      name: string;
+    }>`select name from business_settings where id = 1`.execute(db());
+    const sent = await sendPortalAccessEmail(customer.email, {
+      businessName: biz.rows[0]?.name ?? "El Pan de Paula",
+      firstName: customer.full_name.split(/\s+/)[0] ?? customer.full_name,
+      link: `${base}/portal/acceso?t=${encodeURIComponent(r.token)}`,
+      minutes: Math.max(1, Math.round((r.expiresAt.getTime() - Date.now()) / 60_000)),
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    });
+    return { mailed: Boolean(sent.sent), error: sent.error };
+  } catch (e) {
+    return { mailed: false, error: e };
+  }
 }
 
 const updateSchema = z.object({
@@ -86,11 +140,9 @@ const updateSchema = z.object({
   // abajo (no se puede borrar), y si es un cliente histórico sin correo se puede guardar el resto sin
   // quedar bloqueado. El alta sí lo exige siempre.
   email: emailSchema.optional().or(z.literal("").transform(() => undefined)),
-  birthday: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  // Misma validación que el alta (no futura, no anterior a 1900) cuando trae valor; un cliente
+  // histórico sin fecha puede guardarse sin ella.
+  birthday: birthdaySchema.optional().or(z.literal("").transform(() => undefined)),
   notes: z.string().trim().max(2000).optional(),
   tags: tagsSchema,
   marketing_consent: z.boolean(),
@@ -115,21 +167,42 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   const d = parsed.data;
   // Un cliente que ya tiene correo no puede quedarse sin él: es su acceso al portal.
-  const actual = await sql<{ email: string | null }>`
-    select email::text as email from customers where id = ${d.id} and deleted_at is null`.execute(
-    db(),
-  );
+  const actual = await sql<{ email: string | null; phone: string | null }>`
+    select email::text as email, phone::text as phone from customers
+     where id = ${d.id} and deleted_at is null`.execute(db());
   if (!actual.rows[0]) return { error: "Ese cliente ya no existe." };
-  if (actual.rows[0].email && !d.email)
+  const emailAnterior = actual.rows[0].email;
+  if (emailAnterior && !d.email)
     return { error: "El correo electrónico es obligatorio: es el acceso del cliente a su portal." };
+  if (actual.rows[0].phone && !d.phone)
+    return {
+      error: "El celular es obligatorio: no se puede borrar un dato que el cliente ya tenía.",
+    };
+  // Cambiar el correo cambia la llave del portal: el cliente sigue siendo el MISMO registro (mismo
+  // historial, puntos, código y QR), pero quien tuviera el correo anterior no debe conservar acceso.
+  const emailCambio = Boolean(emailAnterior && d.email && emailAnterior !== d.email);
   try {
-    await withStaff(db(), s.staff.id, (trx) =>
-      sql`update customers set full_name = ${d.full_name}, phone = ${d.phone ?? null}, email = ${d.email ?? null},
+    await withStaff(db(), s.staff.id, async (trx) => {
+      await sql`update customers set full_name = ${d.full_name}, phone = ${d.phone ?? null}, email = ${d.email ?? null},
             birthday = ${d.birthday ?? null}, notes = ${d.notes || null}, tags = ${d.tags},
             marketing_consent = ${d.marketing_consent}, operational_consent = ${d.operational_consent},
             marketing_opt_out_at = case when ${d.marketing_consent} then null else coalesce(marketing_opt_out_at, now()) end
-          where id = ${d.id} and deleted_at is null`.execute(trx),
-    );
+          where id = ${d.id} and deleted_at is null`.execute(trx);
+      if (emailCambio) {
+        await sql`update customer_access_tokens set used_at = now()
+                   where customer_id = ${d.id} and used_at is null and expires_at > now()`.execute(
+          trx,
+        );
+        await sql`update customer_sessions set revoked_at = now()
+                   where customer_id = ${d.id} and revoked_at is null`.execute(trx);
+        // Queda el rastro del cambio de acceso; el correo viejo y el nuevo ya están en el audit_logs
+        // del propio renglón (trigger de customers). Aquí no se guarda ningún token ni enlace.
+        await sql`insert into audit_logs(staff_id, action, entity, entity_id)
+                  values (${s.staff.id}, 'CUSTOMER_PORTAL_ACCESS_RESET', 'customers', ${d.id})`.execute(
+          trx,
+        );
+      }
+    });
   } catch (e) {
     console.error("[clientes] edición falló", e);
     if ((e as { code?: string }).code === "23505") {
@@ -145,7 +218,7 @@ export async function updateCustomerAction(_prev: ActionState, fd: FormData): Pr
   }
   revalidatePath(`/clientes/${d.id}`);
   revalidatePath("/clientes");
-  redirect(`/clientes/${d.id}?actualizado=1`);
+  redirect(`/clientes/${d.id}?actualizado=1${emailCambio ? "&acceso=reiniciado" : ""}`);
 }
 
 export async function setMarketingConsentAction(

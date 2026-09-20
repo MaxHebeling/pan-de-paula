@@ -568,15 +568,16 @@ test("POS: doble envío = una venta; alta rápida deduplica; QR por token; recom
 
   // Alta rápida: crea y deduplica por teléfono
   const phone = `664${String(Date.now()).slice(-7)}`;
-  const c1 = await page.request.post("/api/pos/customers", {
-    headers,
-    data: { full_name: "Cliente Audit Nuevo", phone },
-  });
+  // Desde la migración 0045 el alta pide celular, correo y fecha de nacimiento también en mostrador.
+  const alta = {
+    full_name: "Cliente Audit Nuevo",
+    phone,
+    email: `audit-${phone}@example.com`,
+    birthday: "1990-06-15",
+  };
+  const c1 = await page.request.post("/api/pos/customers", { headers, data: alta });
   expect(c1.status()).toBe(201);
-  const c2 = await page.request.post("/api/pos/customers", {
-    headers,
-    data: { full_name: "Cliente Audit Nuevo", phone },
-  });
+  const c2 = await page.request.post("/api/pos/customers", { headers, data: alta });
   expect(c2.status()).toBe(200);
   expect((await c2.json()).created).toBe(false);
   const created = await one<{ id: string; qr_token: string; public_code: string }>(
@@ -591,7 +592,7 @@ test("POS: doble envío = una venta; alta rápida deduplica; QR por token; recom
   }
   const bad = await page.request.post("/api/pos/customers", {
     headers,
-    data: { full_name: "X", phone: "12" },
+    data: { ...alta, full_name: "X", phone: "12" },
   });
   expect(bad.status()).toBe(400);
 

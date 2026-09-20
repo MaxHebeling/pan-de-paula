@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { resolveTier } from "@pdp/domain";
+import { CompleteProfile } from "@/components/portal/CompleteProfile";
 import { TierBadge } from "@/components/portal/TierBadge";
 import { dateTimeMX } from "@/lib/format";
 import { listTiers } from "@/lib/loyalty";
@@ -35,10 +36,13 @@ export default async function PortalProfilePage() {
         <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
           <Field label="Nombre" value={customer.fullName} testId="perfil-nombre" />
           <Field label="Correo" value={customer.email ?? "—"} testId="perfil-correo" />
-          <Field label="Teléfono" value={customer.phone ?? "No registrado"} />
-          <Field label="Cumpleaños" value={birthday ?? "No registrado"} />
+          <Field label="Celular" value={customer.phone ?? "Nos falta"} testId="perfil-telefono" />
+          <Field label="Cumpleaños" value={birthday ?? "Nos falta"} testId="perfil-cumpleanos" />
         </dl>
       </section>
+
+      {/* Cuenta anterior a los datos obligatorios: el propio cliente los completa, sin bloquearle nada. */}
+      <CompleteProfile needsPhone={!customer.phone} needsBirthday={!customer.birthday} />
 
       <section className="card p-5 sm:p-6">
         <h2 className="font-display text-xl text-ink">Tu tarjeta del club</h2>

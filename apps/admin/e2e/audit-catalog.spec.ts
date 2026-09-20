@@ -82,6 +82,8 @@ test.describe("Auditoría catálogo/clientes", () => {
       `+52 ${phone10.slice(0, 3)} ${phone10.slice(3, 6)} ${phone10.slice(6)}`,
     );
     await fillField(page, "#email", `audit-${phone10}@example.com`);
+    // El alta pide la fecha de nacimiento desde la migración 0045.
+    await fillField(page, "#birthday", "1990-06-15");
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await page.waitForURL(new RegExp(`/clientes/${UUID}\\?creado=1`), { timeout: 20_000 });
     const customerUrl = new URL(page.url()).pathname;
@@ -94,6 +96,7 @@ test.describe("Auditoría catálogo/clientes", () => {
     await fillField(page, "#phone", phone10);
     // Correo distinto a propósito: el dedupe por teléfono debe seguir mandando al mismo cliente.
     await fillField(page, "#email", `audit-bis-${phone10}@example.com`);
+    await fillField(page, "#birthday", "1990-06-15");
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await page.waitForURL(new RegExp(`${customerUrl}\\?existente=1`), { timeout: 20_000 });
     await expect(page.getByText("Ya existía un cliente")).toBeVisible();

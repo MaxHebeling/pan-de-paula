@@ -27,7 +27,12 @@ test.describe("regresión auditoría 360°: búsqueda global", () => {
     const name = `Busqueda Regresion ${stamp}`;
     // Alta directa por la API de POS (dedupe canónico del teléfono)
     const created = await page.request.post("/api/pos/customers", {
-      data: { full_name: name, phone },
+      data: {
+        full_name: name,
+        phone,
+        email: `busqueda-${stamp}@example.com`,
+        birthday: "1990-06-15",
+      },
       headers: { origin: new URL(page.url()).origin },
     });
     expect(created.ok()).toBeTruthy();
@@ -71,7 +76,7 @@ test.describe("regresión auditoría 360°: la búsqueda respeta permisos", () =
                   must_change_password = false, failed_logins = 0, locked_until = null, deleted_at = null`.execute(
         db,
       );
-      await sql`select register_customer(${JSON.stringify({ full_name: `Zulema Permisos ${stamp}`, phone: `664${stamp}`, allow_without_email: true })}::jsonb)`.execute(
+      await sql`select register_customer(${JSON.stringify({ full_name: `Zulema Permisos ${stamp}`, phone: `664${stamp}`, allow_incomplete: true })}::jsonb)`.execute(
         db,
       );
     } finally {

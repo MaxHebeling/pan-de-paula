@@ -83,14 +83,25 @@ export default async function CustomerPage({
       )
     : 100;
   const flash = sp.creado
-    ? "Cliente registrado."
+    ? sp.invitado
+      ? "Cliente registrado. Le enviamos por correo su enlace para entrar al portal."
+      : "Cliente registrado. Para que entre a su portal, mándale su enlace desde esta ficha."
     : sp.existente
       ? "Ya existía un cliente con ese teléfono/email: se muestra el registro existente."
       : sp.actualizado
-        ? "Cambios guardados."
+        ? sp.acceso === "reiniciado"
+          ? "Cambios guardados. Al cambiar el correo se cerró su sesión del portal y se anularon sus enlaces anteriores: mándale uno nuevo."
+          : "Cambios guardados."
         : sp.fusionado
           ? "Clientes fusionados correctamente."
           : null;
+  // Datos que el alta exige hoy y a este cliente le faltan (registro anterior a la regla, o alta de
+  // mostrador). No se inventan: se señalan para que alguien los pida y los capture.
+  const pendientes = [
+    !c.email ? "correo" : null,
+    !c.phone ? "celular" : null,
+    !c.birthday ? "fecha de nacimiento" : null,
+  ].filter(Boolean) as string[];
   const openEvents = x.events.filter((e) => !e.handled_at);
   return (
     <>
@@ -171,17 +182,26 @@ export default async function CustomerPage({
         {/* Columna 1: datos, consentimientos, nivel, direcciones */}
         <div className="flex flex-col gap-4">
           <Card title="Datos de contacto">
+            {/* Nota fija de la ficha, no un aviso en vivo: sin `role="status"` para no competir con
+                los mensajes de las acciones (ajuste de puntos, guardado…). */}
+            {pendientes.length > 0 && (
+              <p className="st-amber mb-3 rounded-[var(--r-btn)] px-3 py-2 text-xs">
+                Datos pendientes: {pendientes.join(", ")}. Pídeselos y captúralos en “Editar”; el
+                cliente también puede completarlos desde su portal.
+              </p>
+            )}
             <dl className="grid grid-cols-[110px_1fr] gap-y-1.5 text-sm">
-              <dt className="text-muted">Teléfono</dt>
+              <dt className="text-muted">Celular</dt>
               <dd className="tabular-nums">{c.phone ?? "—"}</dd>
               <dt className="text-muted">Email</dt>
               <dd className="break-all">{c.email ?? "—"}</dd>
-              <dt className="text-muted">Cumpleaños</dt>
+              <dt className="text-muted">Nacimiento</dt>
               <dd>
                 {c.birthday
                   ? new Intl.DateTimeFormat("es-MX", {
                       day: "numeric",
                       month: "long",
+                      year: "numeric",
                       timeZone: "UTC",
                     }).format(new Date(c.birthday + "T00:00:00Z"))
                   : "—"}

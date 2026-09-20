@@ -203,11 +203,23 @@ describe("normalize_mx_phone + register_customer + find_customer", () => {
     expect(b).toMatchObject({ customer_id: a.customer_id, created: false });
     expect(c).toMatchObject({ customer_id: a.customer_id, created: false });
     expect((await customerRow(a.customer_id)).phone).toBe("6640001111");
+    // Altas humanas: desde 0045 llevan celular y fecha de nacimiento; lo que se prueba aquí es el
+    // dedupe por correo, que no depende de eso.
     const d = await asStaff<{ customer_id: string; created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Beto", email: "BETO@Example.COM" }),
+      JSON.stringify({
+        full_name: "Beto",
+        phone: "6640002222",
+        birthday: "1990-06-15",
+        email: "BETO@Example.COM",
+      }),
     ]);
     const e = await asStaff<{ customer_id: string; created: boolean }>("register_customer", [
-      JSON.stringify({ full_name: "Beto", email: " beto@example.com " }),
+      JSON.stringify({
+        full_name: "Beto",
+        phone: "6640003333",
+        birthday: "1990-06-15",
+        email: " beto@example.com ",
+      }),
     ]);
     expect(e).toMatchObject({ customer_id: d.customer_id, created: false });
     // Un cliente histórico guardado con +52 también se encuentra desde el formato de 10 dígitos

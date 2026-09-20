@@ -72,6 +72,7 @@ export function CheckoutForm({
   const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_COUNTRY);
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
+  const [birthday, setBirthday] = useState("");
   const [isMember, setIsMember] = useState(Boolean(cart.customerLookup));
   const [lookup, setLookup] = useState(cart.customerLookup ?? "");
   const [lookupHint, setLookupHint] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export function CheckoutForm({
       notes: cart.notes.trim() || undefined,
       payment_method: method,
       marketing_consent: consent,
+      customer_birthday: consent ? birthday : undefined,
       idempotency_key: getOrCreateIdempotencyKey(safeSessionStorage(), signature),
     };
     startTransition(async () => {
@@ -487,6 +489,30 @@ export function CheckoutForm({
               de baja cuando quieras.
             </span>
           </label>
+          {/* Apuntarse al club da de alta un cliente, y todo cliente nuevo se registra con sus datos
+              completos (migración 0045). Quien no quiera darlos, desmarca la casilla y su pedido sigue
+              igual: la compra nunca depende del club. */}
+          {consent && (
+            <div className="mt-3">
+              <label htmlFor="customer_birthday" className="label">
+                Fecha de nacimiento
+              </label>
+              <input
+                id="customer_birthday"
+                name="customer_birthday"
+                type="date"
+                className="input sm:max-w-xs"
+                value={birthday}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setBirthday(e.target.value)}
+                data-testid="checkout-birthday"
+              />
+              <p className="help">
+                De aquí sale tu cumpleaños. Para entrar a tu cuenta del club también necesitamos tu
+                correo.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Paso 3 */}

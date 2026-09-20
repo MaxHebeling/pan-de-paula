@@ -97,32 +97,64 @@ con el maquetado común del resto de los correos) empieza a enviar solo.
 El sistema **no guarda** en qué sucursal se dio de alta un cliente, así que el perfil no muestra nada
 al respecto: preferimos no enseñar un dato antes que inventarlo.
 
-## Correo obligatorio en las altas humanas
+## Datos obligatorios en las altas humanas
 
-Desde la migración `0043`, `register_customer` **exige correo**, porque es la llave del portal.
+Desde la migración `0045`, `register_customer` **exige nombre, celular, correo y fecha de nacimiento**.
+Antes (`0043`) solo exigía nombre y correo. El correo es la llave del portal; de la fecha de nacimiento
+sale el cumpleaños.
 
-- Lo exigen: `/unete` del sitio y el alta/edición de cliente en el CRM (validado en cliente y en
-  servidor, normalizado a minúsculas y sin espacios, único por el índice `customers_email_idx` que ya
-  existía; el `23505` se traduce a "Ese correo ya está registrado").
-- Excepción documentada `allow_without_email: true`, para flujos donde lo que se está capturando **no**
-  es un alta del club y bloquearlos costaría ventas:
+**Una sola fecha.** Se guarda `customers.birthday` (fecha de nacimiento). El día y el mes del festejo
+se derivan de ella con `observed_birthday` / `celebrates_birthday_on` (migración `0042`, que también
+resuelve el 29 de febrero). No existe —ni debe existir— una segunda "fecha de cumpleaños".
 
-| Quién                                      | Por qué                                                              |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| Alta rápida del POS (`/api/pos/customers`) | Mostrador con fila; el panel sí ofrece el campo de correo (opcional) |
-| Pedido manual del CRM con cliente nuevo    | Se está capturando un pedido, no un alta del club                    |
-| Checkout web (`/checkout`)                 | El correo es opcional en el pedido                                   |
-| Importación histórica y seeds              | Los clientes del Sheets llegaron sin correo                          |
+**Dónde vive la regla.** En la función SQL, no en las pantallas: así la cumplen por igual el mostrador,
+el sitio y el CRM, y nadie puede saltársela desde su propia capa. Los formularios la repiten
+(`customerRegistrationCompleteSchema` en `@pdp/domain`) solo para dar el mensaje correcto antes de
+llegar a la base.
 
-**Los clientes históricos sin correo se conservan intactos**: datos, puntos, QR, código e historial.
-Cuando se les registra el correo (desde el CRM, o volviendo a pasar por `register_customer` con el
-mismo teléfono) se **completa** el registro existente — no se crea un duplicado ni se toca nada más.
-Sin correo no pueden pedirse el enlace solos; el CRM se los genera.
+**Por qué no hay `not null` en la tabla.** Los clientes históricos existen y tienen huecos. Ponerles un
+`not null` obligaría a inventarles datos o a romperlos. La obligatoriedad aplica a lo NUEVO; lo viejo se
+conserva y se completa.
+
+| Alta                                        | Qué pide ahora                                                                                                                         |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `/unete` del sitio                          | Los cuatro datos                                                                                                                       |
+| Alta de cliente del CRM (`/clientes/nuevo`) | Los cuatro datos, y al guardar se le prepara y envía su enlace del portal                                                              |
+| Alta del POS (`/api/pos/customers`)         | Los cuatro datos. Si el cliente no los quiere dar **se cobra sin asignarle cuenta**: la venta nunca se frena                           |
+| Checkout web (`/checkout`)                  | Solo si marca "quiero novedades": entonces se le piden correo y fecha. Si no los da, el **pedido se crea igual** y no se le da de alta |
+| Importación histórica y seeds               | Excepción documentada `allow_incomplete: true` (alias antiguo `allow_without_email`)                                                   |
+
+Una fecha de nacimiento futura o anterior a 1900 se rechaza **siempre**, también con la excepción: eso
+no es un cliente incompleto, es un error de captura.
+
+### Clientes históricos incompletos
+
+Se conservan intactos: datos, puntos, QR, código público e historial. Y no se les bloquea nada.
+
+- El CRM muestra en su ficha un aviso de **"Datos pendientes: correo, celular, fecha de nacimiento"**
+  (lo que falte) y se pueden capturar en "Editar", donde esos campos NO son obligatorios salvo que el
+  cliente ya los tuviera — un dato existente no se puede borrar.
+- El propio cliente puede completarlos desde `/portal/perfil`, que solo muestra los campos que faltan
+  (`completePortalProfileAction`). Ese formulario **solo rellena huecos**: corregir un dato ya
+  capturado se pide al equipo, para que quede en la auditoría del CRM.
+- Volver a pasar por `register_customer` con el mismo teléfono o correo **completa** el registro
+  existente y devuelve `created: false`. Nunca se crea un duplicado.
+- `customer_missing_fields(uuid)` dice qué le falta a un cliente, y es lo que usan ambas pantallas.
+
+### Cambiar el correo de quien ya tiene portal
+
+El correo es la llave de acceso. Al cambiarlo desde el CRM, el cliente **sigue siendo el mismo registro**
+(mismo historial, puntos, código y QR), pero se anulan sus enlaces de acceso pendientes y se revocan sus
+sesiones abiertas, y queda un `CUSTOMER_PORTAL_ACCESS_RESET` en `audit_logs`. El CRM lo avisa en pantalla
+para que se le mande un enlace nuevo. Sin esto, quien tuviera el correo anterior seguiría dentro.
 
 ## Pruebas
 
-| Archivo                                    | Qué cubre                                                                                                                                                                                                                |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/db/test/customer_portal.test.ts` | Correo obligatorio y su excepción, normalización, unicidad, cliente histórico que recibe correo sin duplicarse, tokens (un solo uso, caducidad, hash), sesiones, y no regresión de `pos_checkout`/`finalize_sale`/ledger |
-| `apps/web/test/portal.test.ts`             | Respuesta idéntica exista o no la cuenta, canje de un solo uso, sesión y su caducidad/revocación, acceso denegado sin sesión, aislamiento de todas las consultas por cliente                                             |
-| `apps/web/e2e/portal.spec.ts`              | Flujo completo en el navegador, compra ajena → 404, `/mi-tarjeta/[token]` intacto                                                                                                                                        |
+| Archivo                                              | Qué cubre                                                                                                                                                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/db/test/customer_portal.test.ts`           | Correo obligatorio y su excepción, normalización, unicidad, cliente histórico que recibe correo sin duplicarse, tokens (un solo uso, caducidad, hash), sesiones, y no regresión de `pos_checkout`/`finalize_sale`/ledger |
+| `apps/web/test/portal.test.ts`                       | Respuesta idéntica exista o no la cuenta, canje de un solo uso, sesión y su caducidad/revocación, acceso denegado sin sesión, aislamiento de todas las consultas por cliente                                             |
+| `apps/web/e2e/portal.spec.ts`                        | Flujo completo en el navegador, compra ajena → 404, `/mi-tarjeta/[token]` intacto, cliente histórico que completa sus datos desde su portal                                                                              |
+| `packages/db/test/customer_required_fields.test.ts`  | La regla de 0045 en SQL: qué se rechaza, fechas imposibles, la excepción de importación, y que el histórico se completa sin duplicarse conservando código, QR, puntos y compras                                          |
+| `packages/domain/test/customer_registration.test.ts` | El espejo en el formulario: mensajes por campo, normalización de correo y teléfono, fechas inválidas                                                                                                                     |
+| `apps/admin/e2e/registro-obligatorio.spec.ts`        | El CRM en el navegador: campos obligatorios, rechazo del servidor, enlace de portal creado en el alta, aviso de datos pendientes y revocación de acceso al cambiar el correo                                             |

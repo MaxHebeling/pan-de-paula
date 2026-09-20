@@ -63,47 +63,71 @@ beforeEach(async () => {
 });
 
 describe("/unete · registro", () => {
-  it("sin correo → error claro en el campo correo (el correo es obligatorio desde 0043)", async () => {
-    const r = await joinClubAction(null, form({ full_name: "Solo Nombre" }));
-    expect(r).toMatchObject({ field: "email", error: expect.stringMatching(/correo/i) });
-    // Tampoco basta con el teléfono: el correo es la llave del portal.
-    const soloTel = await joinClubAction(
+  it("el alta pide los cuatro datos y dice cuál falta (migración 0045)", async () => {
+    const soloNombre = await joinClubAction(null, form({ full_name: "Solo Nombre" }));
+    expect(soloNombre).toMatchObject({ field: "phone", error: expect.stringMatching(/celular/i) });
+    const sinCorreo = await joinClubAction(
       null,
       form({ full_name: "Solo Teléfono", phone: "6645551111" }),
     );
-    expect(soloTel).toMatchObject({ field: "email", error: expect.stringMatching(/correo/i) });
+    expect(sinCorreo).toMatchObject({ field: "email", error: expect.stringMatching(/correo/i) });
+    const sinFecha = await joinClubAction(
+      null,
+      form({ full_name: "Sin Fecha", phone: "6645551111", email: "sinfecha@example.com" }),
+    );
+    expect(sinFecha).toMatchObject({
+      field: "birthday",
+      error: expect.stringMatching(/fecha de nacimiento/i),
+    });
+    // Ninguno de los rechazos dejó un cliente a medias.
     expect((await sql`select 1 from customers`.execute(db)).rows).toHaveLength(0);
   });
 
-  it("el teléfono pasa a ser opcional: con nombre y correo alcanza", async () => {
-    const to = await redirectOf(
-      joinClubAction(null, form({ full_name: "Sin Teléfono", email: "sinte@example.com" })),
+  it("una fecha de nacimiento futura se rechaza aunque el navegador la deje escribir", async () => {
+    const manana = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const r = await joinClubAction(
+      null,
+      form({
+        full_name: "Del Futuro",
+        phone: "6645551122",
+        email: "futuro@example.com",
+        birthday: manana,
+      }),
     );
-    expect(to).toMatch(/^\/mi-tarjeta\/.+\?bienvenida=1$/);
-    const c = await sql<{
-      phone: string | null;
-      email: string;
-    }>`select phone, email from customers`.execute(db);
-    expect(c.rows[0]).toMatchObject({ phone: null, email: "sinte@example.com" });
+    expect(r).toMatchObject({ field: "birthday", error: expect.stringMatching(/futura/i) });
+    expect((await sql`select 1 from customers`.execute(db)).rows).toHaveLength(0);
   });
 
   it("teléfono inválido y correo inválido se rechazan con su campo", async () => {
     expect(
       await joinClubAction(
         null,
-        form({ full_name: "Ana", phone: "12345", email: "ana@example.com" }),
+        form({
+          full_name: "Ana",
+          phone: "12345",
+          email: "ana@example.com",
+          birthday: "1990-01-01",
+        }),
       ),
     ).toMatchObject({ field: "phone" });
-    expect(await joinClubAction(null, form({ full_name: "Ana", email: "ana@" }))).toMatchObject({
-      field: "email",
-    });
+    expect(
+      await joinClubAction(
+        null,
+        form({ full_name: "Ana", phone: "6645550909", email: "ana@", birthday: "1990-01-01" }),
+      ),
+    ).toMatchObject({ field: "email" });
   });
 
   it("alta nueva → redirige a su tarjeta; el correo se guarda en minúsculas y el +52 como 10 dígitos", async () => {
     const to = await redirectOf(
       joinClubAction(
         null,
-        form({ full_name: "Nueva Cliente", phone: "+52 664 555 0101", email: "Nueva@Example.COM" }),
+        form({
+          full_name: "Nueva Cliente",
+          phone: "+52 664 555 0101",
+          email: "Nueva@Example.COM",
+          birthday: "1990-06-15",
+        }),
       ),
     );
     expect(to).toMatch(/^\/mi-tarjeta\/.+\?bienvenida=1$/);
@@ -131,6 +155,7 @@ describe("/unete · registro", () => {
           phone_country: "US",
           phone: "619 555 0100",
           email: "sandra@example.com",
+          birthday: "1990-06-15",
         }),
       ),
     );
@@ -150,6 +175,7 @@ describe("/unete · registro", () => {
         phone_country: "US",
         phone: "619 555 010",
         email: "sandra2@example.com",
+        birthday: "1990-06-15",
       }),
     );
     expect(r).toMatchObject({ field: "phone" });
@@ -169,6 +195,7 @@ describe("/unete · registro", () => {
           phone_country: "no-existe",
           phone: "664 555 0102",
           email: "ana3@example.com",
+          birthday: "1990-06-15",
         }),
       ),
     );
@@ -180,7 +207,12 @@ describe("/unete · registro", () => {
     await redirectOf(
       joinClubAction(
         null,
-        form({ full_name: "Titular Real", phone: "6645550202", email: "titular.real@example.com" }),
+        form({
+          full_name: "Titular Real",
+          phone: "6645550202",
+          email: "titular.real@example.com",
+          birthday: "1990-06-15",
+        }),
       ),
     );
     const before =
@@ -203,12 +235,25 @@ describe("/unete · registro", () => {
     expect(after.rows).toHaveLength(1);
     // Tampoco por correo ya registrado
     await redirectOf(
-      joinClubAction(null, form({ full_name: "Con Correo", email: "titular@example.com" })),
+      joinClubAction(
+        null,
+        form({
+          full_name: "Con Correo",
+          phone: "6645550404",
+          email: "titular@example.com",
+          birthday: "1990-06-15",
+        }),
+      ),
     );
     expect(
       await joinClubAction(
         null,
-        form({ full_name: "Otro", phone: "6645550303", email: "TITULAR@example.com" }),
+        form({
+          full_name: "Otro",
+          phone: "6645550303",
+          email: "TITULAR@example.com",
+          birthday: "1990-06-15",
+        }),
       ),
     ).toMatchObject({ notice: "existing" });
     expect((await sql`select 1 from customers`.execute(db)).rows).toHaveLength(2);
@@ -224,6 +269,7 @@ describe("/unete · registro", () => {
             full_name: `P ${i}`,
             phone: `66400000${String(i).padStart(2, "0")}`,
             email: `p${i}@example.com`,
+            birthday: "1990-06-15",
           }),
         ),
       );
@@ -231,7 +277,12 @@ describe("/unete · registro", () => {
     }
     const r = await joinClubAction(
       null,
-      form({ full_name: "Bloqueado", phone: "6640009999", email: "bloqueado@example.com" }),
+      form({
+        full_name: "Bloqueado",
+        phone: "6640009999",
+        email: "bloqueado@example.com",
+        birthday: "1990-06-15",
+      }),
     );
     expect(r).toMatchObject({ error: expect.stringMatching(/demasiados intentos/i) });
   });
@@ -242,7 +293,12 @@ describe("/mi-tarjeta · resolución del token", () => {
     await redirectOf(
       joinClubAction(
         null,
-        form({ full_name: "Ana López Ruiz", phone: "6641234567", email: "ana@example.com" }),
+        form({
+          full_name: "Ana López Ruiz",
+          phone: "6641234567",
+          email: "ana@example.com",
+          birthday: "1990-06-15",
+        }),
       ),
     );
     const row = (

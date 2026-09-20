@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { customerRegistrationSchema, parseOptionalPhone } from "@pdp/domain";
+import { customerRegistrationCompleteSchema, parseOptionalPhone } from "@pdp/domain";
 import { db, callFn, withStaff } from "@/lib/db";
 import {
   apiSession,
@@ -26,15 +26,15 @@ export async function GET(req: Request) {
   }
 }
 
-const quickSchema = customerRegistrationSchema;
+const quickSchema = customerRegistrationCompleteSchema;
 
 /**
- * POST {full_name, phone?, email?} → alta rápida desde POS (deduplica por teléfono/email).
+ * POST {full_name, phone, email, birthday} → alta desde el POS (deduplica por teléfono/email).
  *
- * Excepción documentada al correo obligatorio (migración 0043): esta alta ocurre en el mostrador con
- * fila detrás; exigir el correo para poder cobrar frenaría la venta. El panel del POS sí ofrece el
- * campo de correo (opcional) porque es la llave del portal del cliente, y si el cliente lo da ahí
- * queda listo; si no, el CRM puede completarlo después sin duplicar el registro.
+ * Desde la migración 0045 el alta pide los cuatro datos, aquí y en cualquier otra pantalla: el correo
+ * es la llave del portal y de la fecha de nacimiento sale el cumpleaños. En mostrador esto NO frena
+ * la venta: si el cliente no quiere darlos, se cobra sin asignarle cuenta y se le da de alta después.
+ * Un cliente que ya existe no se duplica: `register_customer` le completa los huecos y devuelve el suyo.
  */
 export async function POST(req: Request) {
   const auth = await apiSession("pos.sell");
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   try {
     const r = await withStaff(db(), auth.session.staff.id, (trx) =>
       callFn<{ customer_id: string; created: boolean }>(trx, "register_customer", [
-        JSON.stringify({ ...parsed.data, allow_without_email: true }),
+        JSON.stringify(parsed.data),
       ]),
     );
     const customer = await getCustomer(r.customer_id);

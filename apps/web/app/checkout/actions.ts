@@ -1,6 +1,6 @@
 "use server";
 
-import { parsePhone, webCheckoutSchema } from "@pdp/domain";
+import { birthdaySchema, parsePhone, webCheckoutSchema } from "@pdp/domain";
 import { callFn, db, dbErrorMessage, sql } from "@/lib/db";
 import { listProductsByIds } from "@/lib/catalog";
 import { availability } from "@/lib/availability";
@@ -56,6 +56,8 @@ export type CheckoutPayload = {
   notes?: string;
   payment_method: "mercadopago" | "cash" | "transfer";
   marketing_consent: boolean;
+  /** Solo si se apunta al club: de aquí sale su cumpleaños (`customers.birthday`). */
+  customer_birthday?: string;
   idempotency_key: string;
 };
 
@@ -115,6 +117,26 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     // "+<prefijo><nacional>" en cualquier otro país). Nada de esto depende del navegador.
     const phone = parsePhone(payload.customer_phone_country, payload.customer_phone ?? "");
     if (!phone.ok) return { ok: false, field: "customer_phone", error: phone.error };
+
+    // Apuntarse al club es opcional, pero si se apunta se le piden los mismos datos que en /unete
+    // (correo y fecha de nacimiento). Quien no quiera darlos simplemente no marca la casilla.
+    if (payload.marketing_consent) {
+      if (!payload.customer_email?.trim())
+        return {
+          ok: false,
+          field: "customer_email",
+          error: "Para unirte al club necesitamos tu correo: con él entras a tu cuenta.",
+        };
+      const bd = birthdaySchema.safeParse(payload.customer_birthday ?? "");
+      if (!bd.success)
+        return {
+          ok: false,
+          field: "customer_birthday",
+          error: !payload.customer_birthday?.trim()
+            ? "Para unirte al club necesitamos tu fecha de nacimiento."
+            : (bd.error.issues[0]?.message ?? "Revisa tu fecha de nacimiento."),
+        };
+    }
 
     // 3) Validación del payload con el esquema compartido.
     const parsed = webCheckoutSchema.safeParse({
@@ -205,21 +227,24 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
     if (lookup) customerId = (await findCustomer(lookup))?.id ?? null;
     if (!customerId) customerId = (await findCustomer(data.customer_phone))?.id ?? null;
     if (!customerId && data.marketing_consent) {
-      // Aceptó comunicaciones: lo damos de alta en el club (fuente web) para poder sumarle puntos.
-      // Excepción documentada (0043): aquí el objetivo es el PEDIDO, no el alta del club. El correo es
-      // opcional en el checkout y bloquear la compra por eso costaría ventas; si lo dejó vacío queda sin
-      // correo (no podrá entrar al portal hasta que lo registre en /unete o se lo capture el CRM).
-      const reg = await callFn<{ customer_id: string }>(db(), "register_customer", [
-        JSON.stringify({
-          full_name: data.customer_name,
-          phone: data.customer_phone,
-          email: data.customer_email,
-          marketing_consent: true,
-          source: "web",
-          allow_without_email: true,
-        }),
-      ]);
-      customerId = reg.customer_id;
+      // Se apuntó al club: alta con los datos completos que pide la migración 0045 (el formulario los
+      // exige en cuanto marca la casilla). Si algo faltara, el PEDIDO NO se cae: se crea sin cliente y
+      // el club queda para después — frenar una compra por un dato del club costaría ventas.
+      try {
+        const reg = await callFn<{ customer_id: string }>(db(), "register_customer", [
+          JSON.stringify({
+            full_name: data.customer_name,
+            phone: data.customer_phone,
+            email: data.customer_email,
+            birthday: payload.customer_birthday,
+            marketing_consent: true,
+            source: "web",
+          }),
+        ]);
+        customerId = reg.customer_id;
+      } catch (e) {
+        console.error("[checkout] no se pudo dar de alta en el club", e);
+      }
     }
 
     // 8) Crear pedido (precios del servidor, canal web).

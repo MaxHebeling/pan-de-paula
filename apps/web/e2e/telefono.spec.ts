@@ -35,6 +35,8 @@ async function fillJoin(page: Page, phone: string, email: string) {
   await page.getByTestId("join-name").fill("Cliente Internacional");
   await page.getByTestId("join-phone").fill(phone);
   await page.getByTestId("join-email").fill(email);
+  // El alta pide también la fecha de nacimiento (migración 0045).
+  await page.getByTestId("join-birthday").fill("1990-06-15");
 }
 
 test.describe("teléfono con selector de país · sitio", () => {
@@ -160,6 +162,7 @@ test.describe("sin JavaScript", () => {
     await page.locator("#full_name").fill("Cliente Sin JS");
     await page.getByTestId("join-phone").fill(phone);
     await page.locator("#email").fill(`sinjs-${phone}@example.com`);
+    await page.locator("#birthday").fill("1990-06-15");
     await page.getByTestId("join-submit").click();
     await expect(page).toHaveURL(/\/mi-tarjeta\/.+\?bienvenida=1/, { timeout: 20_000 });
 
@@ -169,6 +172,7 @@ test.describe("sin JavaScript", () => {
     await page.locator("#full_name").fill("Cliente Sin JS 2");
     await page.getByTestId("join-phone").fill(phone);
     await page.locator("#email").fill(`sinjs2-${phone}@example.com`);
+    await page.locator("#birthday").fill("1990-06-15");
     await page.getByTestId("join-submit").click();
     await expect(page.getByTestId("join-existing")).toBeVisible({ timeout: 20_000 });
   });

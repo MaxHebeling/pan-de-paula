@@ -154,7 +154,12 @@ describe("validate_coupon · motivos que ve el sitio", () => {
 describe("register_customer y find_customer", () => {
   it("normaliza el correo a minúsculas y el teléfono a dígitos; el repetido devuelve created=false", async () => {
     const a = await callFn<{ customer_id: string; created: boolean }>(db, "register_customer", [
-      JSON.stringify({ full_name: "Ana", phone: "(664) 123-4567", email: "ANA@Example.com" }),
+      JSON.stringify({
+        full_name: "Ana",
+        phone: "(664) 123-4567",
+        email: "ANA@Example.com",
+        birthday: "1990-06-15",
+      }),
     ]);
     const row = await sql<{
       phone: string;
@@ -166,7 +171,12 @@ describe("register_customer y find_customer", () => {
     ]);
     expect(b).toMatchObject({ customer_id: a.customer_id, created: false });
     const c = await callFn<{ customer_id: string; created: boolean }>(db, "register_customer", [
-      JSON.stringify({ full_name: "Otra", email: "ana@EXAMPLE.com" }),
+      JSON.stringify({
+        full_name: "Otra",
+        phone: "6649998888",
+        email: "ana@EXAMPLE.com",
+        birthday: "1990-06-15",
+      }),
     ]);
     expect(c).toMatchObject({ customer_id: a.customer_id, created: false });
   });

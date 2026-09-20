@@ -64,14 +64,16 @@ export async function createProduct(
 }
 
 /**
- * Cliente de pruebas. Sin `email` usa la excepción documentada `allow_without_email` (migración 0043):
- * la mayoría de las suites solo necesitan un cliente con teléfono y así no se altera lo que ya probaban.
+ * Cliente de pruebas. Sin `email` usa la excepción documentada `allow_incomplete` (0043/0045): la
+ * mayoría de las suites solo necesitan un cliente con teléfono y así no se altera lo que ya probaban.
+ * Con `email` es un alta humana, y esas exigen fecha de nacimiento (0045): se pone una fija.
  */
 export async function createCustomer(
   db: Database,
   name = "Ana López",
   phone = "6641234567",
   email?: string,
+  birthday = "1990-06-15",
 ) {
   const r = await callFn<{ customer_id: string; public_code: string; qr_token: string }>(
     db,
@@ -79,8 +81,8 @@ export async function createCustomer(
     [
       JSON.stringify(
         email
-          ? { full_name: name, phone, email }
-          : { full_name: name, phone, allow_without_email: true },
+          ? { full_name: name, phone, email, birthday }
+          : { full_name: name, phone, allow_incomplete: true },
       ),
     ],
   );

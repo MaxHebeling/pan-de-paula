@@ -24,9 +24,13 @@ export function CustomerForm({
   submitLabel: string;
 }) {
   const editing = Boolean(values.id);
-  // El correo es obligatorio en el alta y en cualquier cliente que ya lo tenga (es su acceso al portal).
-  // A un cliente histórico sin correo se le puede guardar el resto sin quedar bloqueado.
+  // Alta: los cuatro datos son obligatorios (regla 0045). Edición: cada dato se exige solo si el
+  // cliente YA lo tiene —no se le puede borrar—, para poder guardar los cambios de un cliente
+  // histórico incompleto sin bloquearlo por lo que le falta.
   const emailRequired = !editing || Boolean(values.email);
+  const phoneRequired = !editing || Boolean(values.phone);
+  const birthdayRequired = !editing || Boolean(values.birthday);
+  const hoy = new Date().toISOString().slice(0, 10);
   return (
     <ActionForm action={action} submitLabel={submitLabel} className="max-w-2xl">
       {values.id && <input type="hidden" name="id" value={values.id} />}
@@ -48,8 +52,14 @@ export function CustomerForm({
         </div>
         <PhoneField
           name="phone"
-          label="Teléfono"
+          label="Celular"
+          required={phoneRequired}
           storedValue={values.phone}
+          help={
+            phoneRequired
+              ? null
+              : "Este cliente se registró sin celular. Captúralo cuando lo tengas."
+          }
           testId="customer-phone"
         />
         <div>
@@ -74,15 +84,23 @@ export function CustomerForm({
         </div>
         <div>
           <label className="label" htmlFor="birthday">
-            Cumpleaños
+            Fecha de nacimiento {birthdayRequired ? "*" : ""}
           </label>
           <input
             id="birthday"
             name="birthday"
             type="date"
             className="input"
+            required={birthdayRequired}
+            max={hoy}
             defaultValue={values.birthday ?? ""}
+            aria-describedby="birthday-help"
           />
+          <p id="birthday-help" className="help">
+            {birthdayRequired
+              ? "De aquí sale su cumpleaños: se felicita el día y mes de esta fecha."
+              : "Este cliente se registró sin fecha de nacimiento. Captúrala cuando la tengas."}
+          </p>
         </div>
         <div>
           <label className="label" htmlFor="tags">

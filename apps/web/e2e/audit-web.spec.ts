@@ -49,6 +49,7 @@ test.describe("club · privacidad de la tarjeta", () => {
     await page.getByTestId("join-name").fill("Titular Privado");
     await page.getByTestId("join-phone").fill(`+52 ${phone}`);
     await page.getByTestId("join-email").fill(email);
+    await page.getByTestId("join-birthday").fill("1988-07-03");
     await page.getByTestId("join-submit").click();
     await expect(page).toHaveURL(/\/mi-tarjeta\/.+\?bienvenida=1/, { timeout: 20_000 });
     const cardUrl = new URL(page.url());
@@ -72,6 +73,7 @@ test.describe("club · privacidad de la tarjeta", () => {
     await page.getByTestId("join-name").fill("Otra Persona");
     await page.getByTestId("join-phone").fill(phone);
     await page.getByTestId("join-email").fill(`otra-${phone}@example.com`);
+    await page.getByTestId("join-birthday").fill("1991-02-08");
     await page.getByTestId("join-submit").click();
     await expect(page.getByTestId("join-existing")).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveURL(/\/unete$/);
@@ -79,25 +81,38 @@ test.describe("club · privacidad de la tarjeta", () => {
     await expect(page.locator("body")).not.toContainText(code);
   });
 
-  test("/unete: sin correo error claro; correo inválido; teléfono inválido; token inválido → 404", async ({
+  test("/unete: faltan datos, correo inválido, celular inválido, fecha futura; token inválido → 404", async ({
     page,
   }) => {
     await page.goto("/unete");
     await page.getByTestId("join-name").fill("Sin Datos");
     await page.getByTestId("join-submit").click();
-    await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
+    await expect(page.locator('[role="alert"].error')).toContainText(/celular/i);
+    await page.getByTestId("join-phone").fill(freshPhone("66"));
     await page.getByTestId("join-email").fill("correo@");
     await page.getByTestId("join-submit").click();
     await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
-    // Con el correo bien pero el teléfono mal, el error se mueve al teléfono (sigue siendo opcional,
-    // pero si se escribe tiene que ser válido). Se parte de un formulario limpio: tras un envío
-    // fallido React re-renderiza el formulario con los valores del estado y pisaría lo que se escriba.
+    // Con el correo bien pero el celular mal, el error se mueve al celular. Se parte de un formulario
+    // limpio: tras un envío fallido React re-renderiza el formulario con los valores del estado y
+    // pisaría lo que se escriba.
     await page.goto("/unete");
     await page.getByTestId("join-name").fill("Sin Datos");
     await page.getByTestId("join-email").fill(`sin-datos-${Date.now()}@example.com`);
     await page.getByTestId("join-phone").fill("12345");
     await page.getByTestId("join-submit").click();
-    await expect(page.locator('[role="alert"].error')).toContainText(/teléfono/i);
+    // El mensaje lo da parsePhone, que conoce el país elegido y dice cuántos dígitos faltan.
+    await expect(page.locator('[role="alert"].error')).toContainText(/10 dígitos/i);
+    // Fecha de nacimiento futura: se rechaza en el servidor aunque el navegador la deje escribir.
+    await page.goto("/unete");
+    const futuro = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    await page.getByTestId("join-name").fill("Sin Datos");
+    await page.getByTestId("join-email").fill(`futuro-${Date.now()}@example.com`);
+    await page.getByTestId("join-phone").fill(freshPhone("66"));
+    await page.getByTestId("join-birthday").evaluate((el, v) => {
+      (el as HTMLInputElement).value = v;
+    }, futuro);
+    await page.getByTestId("join-submit").click();
+    await expect(page.locator('[role="alert"].error')).toContainText(/futura/i);
     expect((await page.request.get("/mi-tarjeta/AAAAAAAAAAAAAAAAAAAAAAAA")).status()).toBe(404);
     expect((await page.request.get("/mi-tarjeta/%2F%2F%2F")).status()).toBe(404);
   });

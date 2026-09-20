@@ -37,7 +37,8 @@ export function JoinForm() {
       <div className="grid gap-5">
         <PhoneField
           name="phone"
-          label="Teléfono (opcional)"
+          label="Celular"
+          required
           defaultCountry={v?.phone_country}
           defaultValue={v?.phone}
           error={err("phone")}
@@ -71,7 +72,7 @@ export function JoinForm() {
       </div>
       <div>
         <label htmlFor="birthday" className="label">
-          Cumpleaños (opcional)
+          Fecha de nacimiento
         </label>
         <input
           id="birthday"
@@ -79,8 +80,18 @@ export function JoinForm() {
           type="date"
           defaultValue={v?.birthday}
           className="input sm:max-w-xs"
+          required
+          max={new Date().toISOString().slice(0, 10)}
+          aria-invalid={Boolean(err("birthday"))}
+          data-testid="join-birthday"
         />
-        <p className="help">Ese día tus puntos valen doble.</p>
+        {err("birthday") ? (
+          <p className="error" role="alert">
+            {err("birthday")}
+          </p>
+        ) : (
+          <p className="help">De aquí sale tu cumpleaños: ese día tus puntos valen doble.</p>
+        )}
       </div>
       <label className="flex cursor-pointer items-start gap-3">
         <input

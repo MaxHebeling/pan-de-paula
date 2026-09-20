@@ -32,6 +32,7 @@ export function CustomerPanel({
     phone: "",
     phone_country: DEFAULT_PHONE_COUNTRY,
     email: "",
+    birthday: "",
   });
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -92,7 +93,13 @@ export function CustomerPanel({
       }
       if (r.data.customer) {
         onSelect(r.data.customer);
-        setForm({ full_name: "", phone: "", phone_country: DEFAULT_PHONE_COUNTRY, email: "" });
+        setForm({
+          full_name: "",
+          phone: "",
+          phone_country: DEFAULT_PHONE_COUNTRY,
+          email: "",
+          birthday: "",
+        });
         setMode("search");
       }
     } catch (e) {
@@ -262,17 +269,33 @@ export function CustomerPanel({
             testId="pos-phone"
             onChange={(v) => setForm({ ...form, phone: v.national, phone_country: v.country })}
           />
-          {/* Opcional a propósito: en mostrador no se frena la venta por el correo (ver migración 0043).
-              Si el cliente lo da aquí, ya puede entrar a su portal sin pasar por el sitio. */}
+          {/* Correo y fecha de nacimiento son obligatorios en toda alta nueva (migración 0045): el
+              correo abre su portal y de la fecha sale su cumpleaños. Si el cliente no los quiere dar,
+              se cobra sin asignarle cuenta — la venta nunca se frena por esto. */}
           <input
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            placeholder="Correo (opcional, abre su portal)"
+            placeholder="Correo (abre su portal)"
             aria-label="Correo del cliente"
             className="input min-h-11"
             type="email"
             inputMode="email"
+            required
             autoComplete="off"
+          />
+          <label className="text-xs text-muted" htmlFor="pos-birthday">
+            Fecha de nacimiento
+          </label>
+          <input
+            id="pos-birthday"
+            value={form.birthday}
+            onChange={(e) => setForm({ ...form, birthday: e.target.value })}
+            aria-label="Fecha de nacimiento del cliente"
+            className="input min-h-11"
+            type="date"
+            required
+            max={new Date().toISOString().slice(0, 10)}
+            data-testid="pos-birthday"
           />
           <button className="btn btn-primary min-h-11" disabled={loading}>
             {loading ? "Guardando…" : "Registrar y usar"}
