@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PortalNav } from "@/components/portal/PortalNav";
+import { countUnreadNotifications } from "@/lib/portal/orders";
 import { requireCustomerSession } from "@/lib/portal/session";
 import { portalLogoutAction } from "./actions";
 
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await requireCustomerSession();
   const firstName = session.customer.fullName.split(/\s+/)[0] ?? session.customer.fullName;
+  const sinLeer = await countUnreadNotifications(session.customer.id);
 
   return (
     <div className="container-x max-w-3xl py-8 sm:py-12">
@@ -35,7 +37,7 @@ export default async function PortalLayout({ children }: { children: React.React
         </form>
       </header>
       <div className="mt-5">
-        <PortalNav />
+        <PortalNav sinLeer={sinLeer} />
       </div>
       <div className="mt-7">{children}</div>
     </div>

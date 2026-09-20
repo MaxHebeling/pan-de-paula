@@ -12,6 +12,7 @@ import {
   sendOrderConfirmationEmail,
   startMercadoPago,
 } from "@/lib/orders";
+import { getCustomerSession } from "@/lib/portal/session";
 import { rateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { fulfillmentOptions, getBusiness } from "@/lib/site";
 import { zonedToUtc } from "@/lib/tz";
@@ -221,10 +222,16 @@ export async function placeOrderAction(payload: CheckoutPayload): Promise<Checko
       pickupPointId = point?.id;
     }
 
-    // 7) Cliente: vínculo explícito ("ya soy cliente") o por teléfono. Nunca se revela nada al cliente aquí.
-    let customerId: string | null = null;
+    /*
+     * 7) Cliente. Orden de prioridad, de lo más fiable a lo menos:
+     *      1. la SESIÓN del portal (si compró con su cuenta abierta, es él y no hay duda);
+     *      2. el vínculo explícito "ya soy cliente" (código, teléfono o correo que escribió);
+     *      3. el teléfono del pedido.
+     * El nombre nunca vincula solo: hay homónimos. Nunca se revela nada al cliente en este paso.
+     */
+    let customerId: string | null = (await getCustomerSession())?.customer.id ?? null;
     const lookup = payload.customer_lookup?.trim();
-    if (lookup) customerId = (await findCustomer(lookup))?.id ?? null;
+    if (!customerId && lookup) customerId = (await findCustomer(lookup))?.id ?? null;
     if (!customerId) customerId = (await findCustomer(data.customer_phone))?.id ?? null;
     if (!customerId && data.marketing_consent) {
       // Se apuntó al club: alta con los datos completos que pide la migración 0045 (el formulario los

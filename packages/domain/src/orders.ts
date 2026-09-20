@@ -93,3 +93,90 @@ export const PAYMENT_METHOD_LABELS = {
   other: "Otro",
 } as const;
 export type PaymentMethod = keyof typeof PAYMENT_METHOD_LABELS;
+
+/**
+ * Línea de tiempo del pedido TAL COMO LA VE EL CLIENTE.
+ *
+ * No es una segunda lógica de estados: es una LECTURA de los estados que ya existen
+ * (`ORDER_STATUSES`), agrupados en los pocos hitos que a una persona le importan. La panadería sigue
+ * moviendo el pedido con `change_order_status` y sus transiciones de siempre; aquí solo se traduce.
+ *
+ * Los hitos cambian según cómo recibe el cliente: quien pasa por su pedido espera "Listo para
+ * recoger"; a quien se lo llevan le toca "En camino".
+ */
+export type PortalStepKey = "received" | "confirmed" | "preparing" | "ready" | "done";
+
+export type PortalStep = {
+  key: PortalStepKey;
+  label: string;
+  /** "done" = ya pasó, "current" = donde está ahora, "pending" = todavía no. */
+  state: "done" | "current" | "pending";
+  /** Cuándo ocurrió, si quedó registrado en el historial. */
+  at: Date | null;
+};
+
+/** Estado del pedido → hito del cliente. Los estados contables (`paid`) no mueven la línea sin más. */
+const STEP_OF: Partial<Record<OrderStatus, PortalStepKey>> = {
+  new: "received",
+  payment_pending: "received",
+  confirmed: "confirmed",
+  paid: "confirmed",
+  in_production: "preparing",
+  ready: "ready",
+  ready_for_pickup: "ready",
+  out_for_delivery: "ready",
+  delivered: "done",
+  completed: "done",
+};
+
+const ORDER: PortalStepKey[] = ["received", "confirmed", "preparing", "ready", "done"];
+
+export function portalTimeline(
+  status: OrderStatus,
+  fulfillmentType: string,
+  history: Array<{ status: OrderStatus; at: Date }> = [],
+): { steps: PortalStep[]; cancelled: boolean } {
+  const entrega = fulfillmentType === "delivery";
+  const labels: Record<PortalStepKey, string> = {
+    received: "Pedido recibido",
+    confirmed: "Confirmado",
+    preparing: "En preparación",
+    ready: entrega ? "En camino" : "Listo para recoger",
+    done: entrega ? "Entregado" : "Recogido",
+  };
+  // Cancelado o reembolsado: la línea de tiempo deja de avanzar. Se muestra hasta dónde llegó.
+  const cancelled = status === "cancelled" || status === "refunded";
+  const actual = cancelled
+    ? // El último estado "normal" por el que pasó antes de cancelarse.
+      (history
+        .map((h) => STEP_OF[h.status])
+        .filter((k): k is PortalStepKey => Boolean(k))
+        .pop() ?? "received")
+    : (STEP_OF[status] ?? "received");
+  const idx = ORDER.indexOf(actual);
+
+  // Primera vez que el pedido llegó a cada hito (el historial guarda todos los cambios, no solo el último).
+  const at = new Map<PortalStepKey, Date>();
+  for (const h of history) {
+    const k = STEP_OF[h.status];
+    if (k && !at.has(k)) at.set(k, h.at);
+  }
+
+  return {
+    cancelled,
+    steps: ORDER.map((key, i) => ({
+      key,
+      label: labels[key],
+      state: cancelled
+        ? i <= idx
+          ? "done"
+          : "pending"
+        : i < idx
+          ? "done"
+          : i === idx
+            ? "current"
+            : "pending",
+      at: at.get(key) ?? null,
+    })),
+  };
+}
