@@ -82,7 +82,10 @@ test.describe("@smoke web", () => {
     const m = await request.get("/manifest.webmanifest");
     expect(m.status()).toBe(200);
     const manifest = await m.json();
-    expect(manifest).toMatchObject({ name: "El Pan de Paula", start_url: "/" });
+    // `start_url` es /portal: lo que el cliente instala es su cuenta (pedidos, puntos y QR), y el
+    // menú queda a un toque desde los accesos directos del manifiesto.
+    expect(manifest).toMatchObject({ name: "El Pan de Paula", display: "standalone" });
+    expect(manifest.start_url).toContain("/portal");
     expect(Array.isArray(manifest.icons)).toBe(true);
     const robots = await request.get("/robots.txt");
     expect(robots.status()).toBe(200);

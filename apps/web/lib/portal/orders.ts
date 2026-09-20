@@ -309,3 +309,28 @@ export async function portalPulse(customerId: string): Promise<{
     })),
   };
 }
+
+export type CustomerPrefs = { orderUpdates: boolean; promotions: boolean };
+
+/** Preferencias de avisos del cliente, con los valores por defecto de quien nunca las tocó. */
+export async function getCustomerPrefs(customerId: string): Promise<CustomerPrefs> {
+  const r = await sql<{ order_updates: boolean; promotions: boolean }>`
+    select * from customer_prefs(${customerId}::uuid)`.execute(db());
+  const p = r.rows[0];
+  return { orderUpdates: p?.order_updates ?? true, promotions: p?.promotions ?? false };
+}
+
+/**
+ * Guarda las preferencias del cliente de la sesión.
+ *
+ * Las promociones por push se guardan aquí, pero el CONSENTIMIENTO comercial sigue viviendo donde
+ * siempre (`customers.marketing_consent`): activar los avisos de un pedido nunca autoriza publicidad,
+ * y quien no aceptó marketing no recibe promociones aunque encienda este interruptor.
+ */
+export async function setCustomerPrefs(customerId: string, prefs: CustomerPrefs): Promise<void> {
+  await sql`
+    insert into customer_notification_prefs(customer_id, order_updates, promotions)
+    values (${customerId}, ${prefs.orderUpdates}, ${prefs.promotions})
+    on conflict (customer_id) do update
+      set order_updates = excluded.order_updates, promotions = excluded.promotions`.execute(db());
+}

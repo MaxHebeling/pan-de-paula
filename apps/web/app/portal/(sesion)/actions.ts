@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { logoutCustomer } from "@pdp/auth/customer";
 import { birthdaySchema, parsePhone } from "@pdp/domain";
 import { db, sql } from "@/lib/db";
-import { markNotificationsRead } from "@/lib/portal/orders";
+import { markNotificationsRead, setCustomerPrefs } from "@/lib/portal/orders";
 import { CUSTOMER_SESSION_COOKIE, requireCustomerSession } from "@/lib/portal/session";
 
 export type PortalProfileState = { ok?: string; error?: string; field?: string } | null;
@@ -89,4 +89,18 @@ export async function marcarAvisosDelPedidoAction(folio: string): Promise<void> 
   const session = await requireCustomerSession();
   await markNotificationsRead(session.customer.id, folio);
   revalidatePath("/portal", "layout");
+}
+
+/** Guarda qué avisos quiere recibir el cliente (operativos y promociones, por separado). */
+export async function guardarPreferenciasAction(
+  _prev: { ok?: string; error?: string } | null,
+  fd: FormData,
+): Promise<{ ok?: string; error?: string }> {
+  const session = await requireCustomerSession();
+  await setCustomerPrefs(session.customer.id, {
+    orderUpdates: fd.get("order_updates") === "on",
+    promotions: fd.get("promotions") === "on",
+  });
+  revalidatePath("/portal/avisos/ajustes");
+  return { ok: "Listo, guardamos tus preferencias." };
 }

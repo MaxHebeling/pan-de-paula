@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ORDER_STATUS_LABELS, portalTimeline } from "@pdp/domain";
+import { AppBanners } from "@/components/portal/AppBanners";
 import { LiveOrders } from "@/components/portal/LiveOrders";
 import { dateTimeMX, money } from "@/lib/format";
 import { listPortalOrders, portalPulse } from "@/lib/portal/orders";
 import { requireCustomerSession } from "@/lib/portal/session";
+import { env } from "@/lib/env";
 import { getBusiness } from "@/lib/site";
 
 export const metadata = { title: "Mis pedidos", robots: { index: false, follow: false } };
@@ -20,6 +22,8 @@ export default async function PortalOrdersPage() {
     <div className="space-y-5">
       <LiveOrders inicial={pulse} />
       <h1 className="font-display text-2xl text-ink">Mis pedidos</h1>
+      {/* Aquí sí tiene sentido ofrecer los avisos: el cliente vino a ver cómo va su pedido. */}
+      <AppBanners vapidPublicKey={env().NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} pedirAvisos />
 
       {orders.length === 0 ? (
         <section className="card p-6 text-center">
