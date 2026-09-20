@@ -1,32 +1,50 @@
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { TODAY } from "@/lib/ops";
-import { PageHeader, Card, Table, Badge, Alert, EmptyState } from "@/components/ui";
+import { PageHeader, Card, Table, Badge, Alert, EmptyState, LinkButton } from "@/components/ui";
 import { Tabs } from "@/components/ops/tabs";
 import { UnreadBadge } from "@/components/ops/unread-badge";
 import { ProductionBoard, type BoardProduct } from "@/components/ops/production-board";
+import {
+  SpecialProductForm,
+  SpecialProductList,
+  type SpecialRow,
+} from "@/components/ops/special-products";
 import { PrintButton } from "@/components/ops/print-button";
 import { PrintStyles } from "@/components/ops/print-styles";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_TONE, type OrderStatus } from "@pdp/domain";
 import { fmtDate, qty, todayLocal } from "@/lib/format";
 import Link from "next/link";
+import { setProductFlag, setProductPrice } from "../productos/actions";
+import {
+  createSpecialProduct,
+  reactivateProduct,
+  setSpecialName,
+  setSpecialStock,
+} from "./especiales-actions";
 
 export const metadata = { title: "Producción" };
 export const dynamic = "force-dynamic";
 
 type Search = { tab?: string; fecha?: string; producto?: string };
-const TABS = [
+const BASE_TABS = [
   { key: "hoy", label: "Producción del día" },
   { key: "lotes", label: "Lotes" },
   { key: "plan", label: "Plan" },
 ];
+const SPECIAL_TAB = { key: "especiales", label: "Especiales" };
 const isDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 export default async function ProduccionPage({ searchParams }: { searchParams: Promise<Search> }) {
   const session = await requireSession("production.read");
   const sp = await searchParams;
-  const tab = TABS.some((t) => t.key === sp.tab) ? sp.tab! : "hoy";
+  // Los especiales son catálogo: ver la pestaña pide catalog.read; crear y editar, catalog.write.
+  const canSeeSpecials = hasPermission(session, "catalog.read");
+  const tabs = canSeeSpecials ? [...BASE_TABS, SPECIAL_TAB] : BASE_TABS;
+  const tab = tabs.some((t) => t.key === sp.tab) ? sp.tab! : "hoy";
   const canWrite = hasPermission(session, "production.write");
+  const canCatalogWrite = hasPermission(session, "catalog.write");
+  const canStock = hasPermission(session, "inventory.write");
   const d = db();
 
   const lowIngredients = await sql<{
@@ -46,10 +64,19 @@ export default async function ProduccionPage({ searchParams }: { searchParams: P
       <PageHeader
         title="Producción"
         subtitle="Cada toque registra un lote y actualiza el inventario al instante."
-        actions={<UnreadBadge />}
+        actions={
+          <>
+            {canSeeSpecials && canCatalogWrite && (
+              <LinkButton href="/produccion?tab=especiales#nuevo-especial" variant="secondary">
+                + Producto especial
+              </LinkButton>
+            )}
+            <UnreadBadge />
+          </>
+        }
       />
       <div className="no-print">
-        <Tabs base="/produccion" current={tab} items={TABS} />
+        <Tabs base="/produccion" current={tab} items={tabs} />
       </div>
       {lowIngredients.rows.length > 0 && tab === "hoy" && (
         <div className="mb-4">
@@ -73,6 +100,9 @@ export default async function ProduccionPage({ searchParams }: { searchParams: P
         <BatchesTab fecha={isDate(sp.fecha) ? sp.fecha : todayLocal()} producto={sp.producto} />
       )}
       {tab === "plan" && <PlanTab fecha={isDate(sp.fecha) ? sp.fecha : todayLocal()} />}
+      {tab === "especiales" && canSeeSpecials && (
+        <SpecialsTab canWrite={canCatalogWrite} canStock={canStock} />
+      )}
     </>
   );
 }
@@ -392,5 +422,94 @@ async function PlanTab({ fecha }: { fecha: string }) {
         </Card>
       </div>
     </>
+  );
+}
+
+/**
+ * Especiales: productos temporales (navideños, de temporada, ediciones limitadas).
+ * Son productos normales marcados con `is_temporary` (migración 0017): el precio vive en
+ * `product_prices` y el stock en `inventory_movements`, igual que cualquier otro producto.
+ */
+async function SpecialsTab({ canWrite, canStock }: { canWrite: boolean; canStock: boolean }) {
+  const res = await sql<{
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+    track_stock: boolean;
+    pos_price_cents: number | null;
+    web_price_cents: number | null;
+    on_hand: string | null;
+    season_start: string | null;
+    season_end: string | null;
+  }>`select p.id, p.name, p.slug, p.is_active, p.track_stock,
+            current_price_cents(p.id, 'pos') as pos_price_cents,
+            current_price_cents(p.id, 'web') as web_price_cents,
+            coalesce(l.on_hand, 0)::text as on_hand,
+            to_char(p.season_start, 'YYYY-MM-DD') as season_start,
+            to_char(p.season_end, 'YYYY-MM-DD') as season_end
+     from products p
+     left join inventory_levels l on l.product_id = p.id
+     where p.is_temporary and p.deleted_at is null
+     order by p.is_active desc, p.name`.execute(db());
+  const rows: SpecialRow[] = res.rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    is_active: r.is_active,
+    track_stock: r.track_stock,
+    pos_price_cents: r.pos_price_cents,
+    web_price_cents: r.web_price_cents,
+    on_hand: Number(r.on_hand ?? 0),
+    season_start: r.season_start,
+    season_end: r.season_end,
+  }));
+  const activos = rows.filter((r) => r.is_active).length;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {canWrite && (
+        <div id="nuevo-especial" className="scroll-mt-4">
+          <Card title="+ Producto especial">
+            <p className="mb-3 text-sm text-muted">
+              Para lo navideño, de temporada o de edición limitada. Se vende, se produce y se
+              inventaría igual que cualquier producto; al terminar la temporada se desactiva (nunca
+              se borra) y la siguiente se vuelve a activar con su historial.
+            </p>
+            <SpecialProductForm
+              action={createSpecialProduct}
+              reactivate={reactivateProduct}
+              canStock={canStock}
+            />
+          </Card>
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <EmptyState
+          title="Todavía no hay productos especiales"
+          body={
+            canWrite
+              ? "Crea el primero arriba: nombre, precio y stock. Podrás editarlo y desactivarlo cuando pase la temporada."
+              : "Cuando administración cree uno, aparecerá aquí."
+          }
+        />
+      ) : (
+        <>
+          <p className="px-1 text-sm text-muted">
+            {activos} activo{activos === 1 ? "" : "s"} de {rows.length} · clic en una celda para
+            editar nombre, precio o stock.
+          </p>
+          <SpecialProductList
+            rows={rows}
+            canWrite={canWrite}
+            canStock={canStock}
+            setName={setSpecialName}
+            setPrice={setProductPrice}
+            setFlag={setProductFlag}
+            setStock={setSpecialStock}
+          />
+        </>
+      )}
+    </div>
   );
 }
