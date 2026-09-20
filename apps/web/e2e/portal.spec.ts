@@ -48,6 +48,8 @@ async function seedFixture(db: Database): Promise<Fixture> {
       select register_customer(${JSON.stringify({
         full_name: `Portal E2E ${id}`,
         email: `portal-e2e-${id}@example.com`,
+        phone: `664${String(id).slice(-7)}`,
+        birthday: "1990-06-15",
         source: "qr",
       })}::jsonb) as r`.execute(db)
   ).rows[0]!.r;
@@ -56,6 +58,8 @@ async function seedFixture(db: Database): Promise<Fixture> {
       select register_customer(${JSON.stringify({
         full_name: `Ajeno E2E ${id}`,
         email: `ajeno-e2e-${id}@example.com`,
+        phone: `665${String(id).slice(-7)}`,
+        birthday: "1991-07-16",
         source: "qr",
       })}::jsonb) as r`.execute(db)
   ).rows[0]!.r;
@@ -220,7 +224,7 @@ test.describe("portal del cliente", () => {
     expect(res.status()).toBe(404);
   });
 
-  test("/unete ahora exige correo y el alta nueva entra al portal con ese correo", async ({
+  test("/unete exige los datos completos y el alta nueva entra al portal con ese correo", async ({
     page,
   }) => {
     const id = stamp();
@@ -232,6 +236,10 @@ test.describe("portal del cliente", () => {
     await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
 
     await page.getByTestId("join-email").fill(`nueva-portal-${id}@example.com`);
+    await page.getByTestId("join-submit").click();
+    // Y tampoco sin fecha de nacimiento (migración 0045).
+    await expect(page.locator('[role="alert"].error')).toContainText(/fecha de nacimiento/i);
+    await page.getByTestId("join-birthday").fill("1994-09-30");
     await page.getByTestId("join-submit").click();
     await expect(page).toHaveURL(/\/mi-tarjeta\/.+\?bienvenida=1/, { timeout: 20_000 });
 
@@ -245,5 +253,43 @@ test.describe("portal del cliente", () => {
     await enter(page, await plantAccessLink(db, row.rows[0]!.id));
     await expect(page.getByTestId("portal-greeting")).toContainText("Hola, Nueva");
     await expect(page.getByTestId("portal-points")).toHaveText("0");
+  });
+
+  test("cliente histórico incompleto: completa sus datos desde su propio portal", async ({
+    page,
+  }) => {
+    const id = stamp();
+    // Alta como la de antes de la regla: sin fecha de nacimiento (y con correo para poder entrar).
+    const r = await sql<{ r: { customer_id: string } }>`
+      select register_customer(${JSON.stringify({
+        full_name: `Historico Portal ${id}`,
+        email: `historico-portal-${id}@example.com`,
+        allow_incomplete: true,
+      })}::jsonb) as r`.execute(db);
+    const customerId = r.rows[0]!.r.customer_id;
+
+    await enter(page, await plantAccessLink(db, customerId));
+    await page.goto("/portal/perfil");
+    await expect(page.getByTestId("perfil-telefono")).toHaveText("Nos falta");
+    await expect(page.getByTestId("perfil-cumpleanos")).toHaveText("Nos falta");
+
+    const form = page.getByTestId("portal-completar");
+    await expect(form).toBeVisible();
+    await form.getByTestId("portal-phone").fill(`667${String(id).slice(-7)}`);
+    await form.getByTestId("portal-birthday").fill("1987-01-23");
+    await form.getByRole("button", { name: "Guardar mis datos" }).click();
+    await expect(page.getByRole("status")).toContainText(/quedaron tus datos/i, {
+      timeout: 20_000,
+    });
+
+    const c = await sql<{ phone: string; birthday: string }>`
+      select phone::text as phone, to_char(birthday,'YYYY-MM-DD') as birthday
+        from customers where id = ${customerId}`.execute(db);
+    expect(c.rows[0]).toEqual({ phone: `667${String(id).slice(-7)}`, birthday: "1987-01-23" });
+
+    // Ya completo, el portal deja de pedírselos.
+    await page.goto("/portal/perfil");
+    await expect(page.getByTestId("portal-completar")).toHaveCount(0);
+    await expect(page.getByTestId("perfil-cumpleanos")).not.toHaveText("Nos falta");
   });
 });

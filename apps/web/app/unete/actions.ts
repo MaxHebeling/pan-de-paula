@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { customerRegistrationWithEmailSchema, parseOptionalPhone } from "@pdp/domain";
+import { customerRegistrationCompleteSchema, parseOptionalPhone } from "@pdp/domain";
 import { isEmailConfigured, sendEmail } from "@pdp/integrations";
 import { findCustomer } from "@/lib/customers";
 import { callFn, db, dbErrorMessage } from "@/lib/db";
@@ -42,8 +42,8 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
   // (10 dígitos si es México, "+<prefijo><nacional>" en cualquier otro país). El navegador no decide.
   const phone = parseOptionalPhone(raw.phone_country, raw.phone);
   if (!phone.ok) return { error: phone.error, field: "phone", values: { ...raw } };
-  // Alta humana: el correo es obligatorio (es la llave de /portal). Mismo criterio en el servidor SQL.
-  const parsed = customerRegistrationWithEmailSchema.safeParse({
+  // Alta humana: nombre, celular, correo y fecha de nacimiento son obligatorios (migración 0045).
+  const parsed = customerRegistrationCompleteSchema.safeParse({
     ...raw,
     phone: phone.value ?? "",
   });
@@ -52,14 +52,20 @@ export async function joinClubAction(_prev: JoinState, formData: FormData): Prom
     const field = issue?.path[0]?.toString();
     const msg =
       field === "phone"
-        ? "Escribe un teléfono válido."
+        ? !raw.phone
+          ? "Necesitamos tu celular para avisarte cuando esté tu pedido."
+          : "Escribe un celular válido."
         : field === "email"
           ? !raw.email
             ? "Necesitamos tu correo: con él entras a tu cuenta y te mandamos tu tarjeta."
             : "Ese correo no parece válido."
-          : field === "full_name"
-            ? "Escribe tu nombre."
-            : (issue?.message ?? "Revisa los datos.");
+          : field === "birthday"
+            ? !raw.birthday
+              ? "Necesitamos tu fecha de nacimiento para felicitarte en tu cumpleaños."
+              : (issue?.message ?? "Revisa tu fecha de nacimiento.")
+            : field === "full_name"
+              ? "Escribe tu nombre."
+              : (issue?.message ?? "Revisa los datos.");
     return { error: msg, field, values: { ...raw } };
   }
   let token: string;

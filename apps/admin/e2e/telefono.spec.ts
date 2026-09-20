@@ -145,6 +145,7 @@ test.describe("CRM · teléfono con país", () => {
     await fillField(page, "#full_name", `${name} malo`);
     await page.getByTestId("customer-phone").fill("5123 456");
     await fillField(page, "#email", `e2e-malo-${national}@example.com`);
+    await fillField(page, "#birthday", "1990-05-10");
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await expect(page.getByText(/Guatemala/)).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveURL(/\/clientes\/nuevo/);

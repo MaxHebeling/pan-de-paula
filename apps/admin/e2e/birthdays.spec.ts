@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createDb, sql } from "@pdp/db";
 
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@elpandepaula.local";
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "CambiaEstaClave!2026";
@@ -166,7 +167,31 @@ test.describe("Cumpleaños: detección, saludo y registro", () => {
 
   test("un cliente sin fecha de nacimiento no aparece ni tiene saludo", async ({ page }) => {
     await login(page);
-    const url = await createCustomer(page, { name: sinFechaName, phone: `665${stamp}` });
+    /*
+     * Desde la migración 0045 el alta del CRM exige la fecha, así que este caso solo puede existir
+     * como lo que es: un cliente HISTÓRICO, de los que se registraron antes de la regla. Se crea por
+     * la misma excepción documentada que usa la importación.
+     */
+    const { db, pool } = createDb({
+      connectionString: process.env.DATABASE_URL,
+      ssl: false,
+      max: 2,
+    });
+    let url: string;
+    try {
+      const r = await sql<{ r: { customer_id: string } }>`
+        select register_customer(${JSON.stringify({
+          full_name: sinFechaName,
+          phone: `665${stamp}`,
+          email: `cumple-665${stamp}@example.com`,
+          allow_incomplete: true,
+        })}::jsonb) as r`.execute(db);
+      url = `/clientes/${r.rows[0]!.r.customer_id}`;
+    } finally {
+      await db.destroy();
+      await pool.end().catch(() => {});
+    }
+    await open(page, url);
     await expect(page.getByRole("link", { name: /Saludo de cumpleaños/ })).toHaveCount(0);
 
     await open(page, "/fidelizacion");

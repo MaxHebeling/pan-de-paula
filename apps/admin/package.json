@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test --pass-with-no-tests"
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "invitar-portal": "tsx scripts/invitar-portal.ts"
   },
   "dependencies": {
     "@pdp/auth": "workspace:*",
@@ -39,6 +40,7 @@
     "eslint-config-next": "16.3.5",
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",
+    "tsx": "4.23.13",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }

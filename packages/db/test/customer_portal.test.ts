@@ -25,12 +25,24 @@ const { db, pool } = testDb();
 let staff: string;
 let croissant: string;
 
-const register = (p: Record<string, unknown>) =>
-  callFn<{ customer_id: string; public_code: string; qr_token: string; created: boolean }>(
+/**
+ * Alta para estas pruebas. Desde la migración 0045 el alta humana exige también celular y fecha de
+ * nacimiento; como aquí lo que se prueba es el PORTAL, se rellenan por defecto. Cuando el caso los
+ * fija, o usa la excepción documentada (importación/seeds), se manda exactamente lo que escribe la
+ * prueba. La regla de datos obligatorios vive en customer_required_fields.test.ts.
+ */
+let telSeq = 0;
+const register = (p: Record<string, unknown>) => {
+  const excepcion = "allow_without_email" in p || "allow_incomplete" in p;
+  const payload = excepcion
+    ? p
+    : { phone: `6647${String(++telSeq).padStart(6, "0")}`, birthday: "1990-06-15", ...p };
+  return callFn<{ customer_id: string; public_code: string; qr_token: string; created: boolean }>(
     db,
     "register_customer",
-    [JSON.stringify(p)],
+    [JSON.stringify(payload)],
   );
+};
 
 const customerRow = (id: string) =>
   sql<{

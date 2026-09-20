@@ -151,7 +151,7 @@ beforeEach(async () => {
   ana = (
     await sql<{
       r: typeof ana;
-    }>`select register_customer('{"full_name":"Ana López Ruiz","phone":"6641234567","email":"ana@example.com"}'::jsonb) as r`.execute(
+    }>`select register_customer('{"full_name":"Ana López Ruiz","phone":"6641234567","email":"ana@example.com","birthday":"1990-06-15"}'::jsonb) as r`.execute(
       db,
     )
   ).rows[0]!.r;
@@ -589,8 +589,15 @@ describe("checkout web · cliente y comprobantes", () => {
     const r1 = await placeOrderAction(base({ customer_phone: "664 123 4567" }));
     expect(r1.ok).toBe(true);
     if (r1.ok) expect((await orderFromRedirect(r1.redirect)).customer_id).toBe(ana.customer_id);
+    // Apuntarse al club da de alta un cliente NUEVO, así que se le piden los mismos datos que en
+    // /unete: correo y fecha de nacimiento (migración 0045).
     const r2 = await placeOrderAction(
-      base({ customer_phone: "6647778899", marketing_consent: true }),
+      base({
+        customer_phone: "6647778899",
+        customer_email: "nueva.socia@example.com",
+        customer_birthday: "1992-08-09",
+        marketing_consent: true,
+      }),
     );
     expect(r2.ok).toBe(true);
     if (!r2.ok) return;
@@ -599,15 +606,50 @@ describe("checkout web · cliente y comprobantes", () => {
       phone: string;
       source: string;
       marketing_consent: boolean;
-    }>`select phone, source, marketing_consent from customers where id = ${o.customer_id}`.execute(
-      db,
-    );
-    expect(c.rows[0]).toEqual({ phone: "6647778899", source: "web", marketing_consent: true });
+      birthday: string | null;
+    }>`select phone, source, marketing_consent, to_char(birthday,'YYYY-MM-DD') as birthday
+         from customers where id = ${o.customer_id}`.execute(db);
+    expect(c.rows[0]).toEqual({
+      phone: "6647778899",
+      source: "web",
+      marketing_consent: true,
+      birthday: "1992-08-09",
+    });
     const r3 = await placeOrderAction(
       base({ customer_phone: "6640001111", marketing_consent: false }),
     );
     expect(r3.ok).toBe(true);
     if (r3.ok) expect((await orderFromRedirect(r3.redirect)).customer_id).toBeNull();
+  });
+
+  it("apuntarse al club exige correo y fecha de nacimiento, y sin ellos el pedido NO se cae", async () => {
+    // Marcó la casilla pero no dio correo: se le pide, no se le crea una cuenta a medias.
+    const sinCorreo = await placeOrderAction(
+      base({ customer_phone: "6643334444", marketing_consent: true }),
+    );
+    expect(sinCorreo).toMatchObject({ ok: false, field: "customer_email" });
+    const sinFecha = await placeOrderAction(
+      base({
+        customer_phone: "6643334444",
+        customer_email: "socio@example.com",
+        marketing_consent: true,
+      }),
+    );
+    expect(sinFecha).toMatchObject({ ok: false, field: "customer_birthday" });
+    const futura = await placeOrderAction(
+      base({
+        customer_phone: "6643334444",
+        customer_email: "socio@example.com",
+        customer_birthday: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10),
+        marketing_consent: true,
+      }),
+    );
+    expect(futura).toMatchObject({ ok: false, field: "customer_birthday" });
+    // Sin casilla, el mismo pedido pasa: la compra nunca depende del club.
+    const compra = await placeOrderAction(
+      base({ customer_phone: "6643334444", marketing_consent: false }),
+    );
+    expect(compra.ok).toBe(true);
   });
 
   it("sin Resend configurado el pedido se crea igual y queda constancia del correo omitido en receipts", async () => {

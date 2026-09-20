@@ -46,6 +46,34 @@ export const requiredEmailSchema = z
   .email("Ese correo no parece válido")
   .max(254);
 
+/**
+ * Fecha de nacimiento OBLIGATORIA del alta. Una sola fecha: el día y el mes del festejo se derivan de
+ * ella (ver `observed_birthday` en 0042), no se captura ni se guarda una segunda fecha de cumpleaños.
+ * No admite fechas futuras ni anteriores a 1900 — eso es un error de captura, no un cliente longevo.
+ * Espejo de las mismas reglas en `register_customer` (migración 0045).
+ */
+export const birthdaySchema = z
+  .string({ message: "La fecha de nacimiento es obligatoria" })
+  .trim()
+  .min(1, "La fecha de nacimiento es obligatoria")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Escribe la fecha como día, mes y año")
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && s === d.toISOString().slice(0, 10);
+  }, "Esa fecha no existe")
+  .refine(
+    (s) => s <= new Date().toISOString().slice(0, 10),
+    "La fecha de nacimiento no puede ser futura",
+  )
+  .refine((s) => s >= "1900-01-01", "Revisa la fecha de nacimiento");
+
+/** Celular OBLIGATORIO: distingue "lo dejaste vacío" de "está mal escrito". */
+export const requiredPhoneSchema = z
+  .string({ message: "El número de celular es obligatorio" })
+  .trim()
+  .min(1, "El número de celular es obligatorio")
+  .pipe(phoneMX);
+
 const customerRegistrationFields = z.object({
   full_name: z.string().trim().min(2, "Nombre muy corto").max(120),
   phone: phoneMX.optional().or(z.literal("").transform(() => undefined)),
@@ -74,6 +102,17 @@ export const customerRegistrationSchema = customerRegistrationFields.refine(
  */
 export const customerRegistrationWithEmailSchema = customerRegistrationFields.extend({
   email: requiredEmailSchema,
+});
+
+/**
+ * Alta COMPLETA (mostrador, sitio `/unete` y CRM): nombre, celular, correo y fecha de nacimiento.
+ * Es la regla vigente para todo cliente nuevo; los históricos incompletos se conservan tal cual y se
+ * completan sin duplicarlos. Espejo de `register_customer` (0045), que la vuelve a exigir en SQL.
+ */
+export const customerRegistrationCompleteSchema = customerRegistrationFields.extend({
+  email: requiredEmailSchema,
+  phone: requiredPhoneSchema,
+  birthday: birthdaySchema,
 });
 
 /**

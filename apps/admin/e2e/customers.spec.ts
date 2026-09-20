@@ -67,13 +67,14 @@ test.describe("Clientes, fidelización, cupones y reportes", () => {
     await open(page, "/clientes/nuevo");
     await fillField(page, "#full_name", name);
     await fillField(page, "#phone", phone);
-    // Desde la migración 0043 el correo es obligatorio en las altas humanas del CRM.
+    // Desde la migración 0045 el alta del CRM pide celular, correo y fecha de nacimiento.
     await fillField(page, "#email", `e2e-cliente-${phone}@example.com`);
+    await fillField(page, "#birthday", "1990-06-15");
     await page.getByRole("button", { name: "Registrar cliente" }).click();
     await page.waitForURL(/\/clientes\/[0-9a-f-]{36}/, { timeout: 20_000 });
     customerUrl = new URL(page.url()).pathname;
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByText("Cliente registrado.")).toBeVisible();
+    await expect(page.getByText(/Cliente registrado\./)).toBeVisible();
 
     // Tarjeta QR imprimible
     await open(page, `${customerUrl}/tarjeta`);

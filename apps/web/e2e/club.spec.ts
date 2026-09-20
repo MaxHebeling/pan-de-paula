@@ -7,14 +7,19 @@ test.describe("club de clientes", () => {
     await page.getByRole("link", { name: "Quiero mi tarjeta" }).click();
     await expect(page).toHaveURL(/\/unete$/);
 
-    // Validación: el correo es obligatorio (es la llave del portal del cliente)
+    // Validación: el alta pide los cuatro datos (migración 0045); aquí falta todo menos el nombre.
     await page.getByTestId("join-name").fill("Cliente E2E");
     await page.getByTestId("join-submit").click();
-    await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
+    await expect(page.locator('[role="alert"].error')).toContainText(/celular/i);
 
     const phone = `65${String(Date.now()).slice(-8)}`;
     await page.getByTestId("join-phone").fill(phone);
+    await page.getByTestId("join-submit").click();
+    await expect(page.locator('[role="alert"].error')).toContainText(/correo/i);
     await page.getByTestId("join-email").fill(`cliente-e2e-${phone}@example.com`);
+    await page.getByTestId("join-submit").click();
+    await expect(page.locator('[role="alert"].error')).toContainText(/fecha de nacimiento/i);
+    await page.getByTestId("join-birthday").fill("1990-04-12");
     await page.getByTestId("join-submit").click();
 
     await expect(page).toHaveURL(/\/mi-tarjeta\/.+\?bienvenida=1/, { timeout: 20_000 });

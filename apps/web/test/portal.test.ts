@@ -77,10 +77,20 @@ const form = (f: Record<string, string>) => {
   return fd;
 };
 
+/**
+ * Alta de cliente para las pruebas. Rellena celular y fecha de nacimiento si el caso no los fija:
+ * desde la migración 0045 el alta los exige, y lo que aquí se prueba es el PORTAL, no esa regla
+ * (esa vive en packages/db/test/customer_required_fields.test.ts).
+ */
 async function register(p: Record<string, unknown>) {
+  const completo = {
+    phone: `664${String(Math.floor(Math.random() * 9_999_999)).padStart(7, "0")}`,
+    birthday: "1990-06-15",
+    ...p,
+  };
   const r = await sql<{
     r: { customer_id: string; public_code: string; qr_token: string };
-  }>`select register_customer(${JSON.stringify(p)}::jsonb) as r`.execute(db);
+  }>`select register_customer(${JSON.stringify(completo)}::jsonb) as r`.execute(db);
   return r.rows[0]!.r;
 }
 
