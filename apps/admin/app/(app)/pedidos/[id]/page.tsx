@@ -29,6 +29,7 @@ import {
   refundAction,
   returnAction,
   sendReceiptAction,
+  updatePaymentReferenceAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -494,8 +495,16 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
                         ·{" "}
                         {PAYMENT_METHOD_LABELS[p.method as keyof typeof PAYMENT_METHOD_LABELS] ??
                           p.method}
-                        {p.reference && <span className="text-muted"> · ref. {p.reference}</span>}
-                        {p.external_id && <span className="text-muted"> · MP {p.external_id}</span>}
+                        <span className="text-muted"> · ref. </span>
+                        <span
+                          className={p.reference ? "font-mono text-xs" : "text-muted"}
+                          data-testid="payment-reference"
+                        >
+                          {p.reference ?? "—"}
+                        </span>
+                        {p.external_id && (
+                          <span className="text-muted"> · ID Mercado Pago {p.external_id}</span>
+                        )}
                         {p.change_cents ? (
                           <span className="text-muted"> · cambio {formatMXN(p.change_cents)}</span>
                         ) : null}
@@ -515,6 +524,42 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
                         </Badge>
                       </span>
                     </div>
+                    {canWrite && (
+                      <details data-testid="edit-reference">
+                        <summary className="btn btn-secondary btn-sm min-h-9 w-fit cursor-pointer list-none">
+                          {p.reference ? "Editar referencia" : "Agregar referencia"}
+                        </summary>
+                        <ActionForm
+                          action={updatePaymentReferenceAction}
+                          resetOnSuccess={false}
+                          className="mt-2 grid grid-cols-1 gap-2 rounded-[var(--r-card)] bg-bg p-3 sm:grid-cols-[1fr_auto]"
+                        >
+                          <input type="hidden" name="payment_id" value={p.id} />
+                          <Field
+                            label="Referencia contable"
+                            htmlFor={`ref-${p.id}`}
+                            hint="Clave de rastreo, folio de la terminal o id del depósito. Vacío la borra."
+                          >
+                            <input
+                              id={`ref-${p.id}`}
+                              name="reference"
+                              className="input min-h-11 font-mono"
+                              defaultValue={p.reference ?? ""}
+                              maxLength={80}
+                              autoComplete="off"
+                            />
+                          </Field>
+                          <div className="flex items-end">
+                            <PendingButton
+                              className="btn btn-primary min-h-11"
+                              pendingLabel="Guardando…"
+                            >
+                              Guardar
+                            </PendingButton>
+                          </div>
+                        </ActionForm>
+                      </details>
+                    )}
                     {canRefund &&
                       ["paid", "partially_refunded"].includes(p.status) &&
                       p.amount_cents - p.refunded_cents > 0 && (
@@ -611,13 +656,14 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
                       placeholder="opcional"
                     />
                   </Field>
-                  <Field label="Referencia" htmlFor="pay-ref">
+                  <Field label="Referencia contable" htmlFor="pay-ref">
                     <input
                       id="pay-ref"
                       name="reference"
-                      className="input min-h-11"
-                      placeholder="folio / terminal"
+                      className="input min-h-11 font-mono"
+                      placeholder="clave de rastreo / folio"
                       maxLength={80}
+                      autoComplete="off"
                     />
                   </Field>
                   <div className="col-span-2 sm:col-span-4">
