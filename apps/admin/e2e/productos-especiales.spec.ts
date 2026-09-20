@@ -238,7 +238,12 @@ test("alta, edición en línea, venta en POS, desactivar y reactivar", async ({ 
   await especiales(page);
   await expect(page.getByTestId(`especial-stock-valor-${id}`)).toHaveText("29");
 
+  // ── Sale en reportes como cualquier producto ─────────────────────────────
+  await page.goto("/reportes");
+  await expect(page.getByRole("cell", { name: ROSCA_NUEVA, exact: true }).first()).toBeVisible();
+
   // ── Cambiar el precio NO altera la venta ya hecha ────────────────────────
+  await especiales(page);
   await editarCelda(page, `especial-precio-${id}`, "600");
   await expect(page.getByTestId(`especial-precio-${id}`)).toHaveText("$600.00", {
     timeout: 15_000,
