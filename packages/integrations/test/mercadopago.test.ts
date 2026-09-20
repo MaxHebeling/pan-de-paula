@@ -8,8 +8,10 @@ import {
   createMercadoPagoPreference,
   createPointOrder,
   createQrOrder,
+  fetchMercadoPagoOrder,
   fetchMercadoPagoPayment,
   MercadoPagoApiError,
+  mpOrderStatusToPaymentStatus,
   parseMercadoPagoSignatureHeader,
   parseMercadoPagoWebhook,
   refundMercadoPagoPayment,
@@ -517,10 +519,86 @@ describe("REST con fetch mockeado", () => {
     });
   });
 
+  it("consulta una orden (Point/QR) y mapea external_reference, montos y pagos", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP6D",
+        type: "point",
+        external_reference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
+        status: "processed",
+        status_detail: "accredited",
+        total_amount: "120.50",
+        total_paid_amount: "120.50",
+        transactions: {
+          payments: [
+            {
+              id: "PAY01K22Y503EJ8JHGF64KGY1PZ2B",
+              amount: "120.50",
+              paid_amount: "120.50",
+              status: "processed",
+              status_detail: "accredited",
+            },
+          ],
+        },
+      }),
+    );
+    const o = await fetchMercadoPagoOrder("ORD01JYH1Z1YJN4HZ8J3Q0RB3YP6D");
+    expect(fetchMock.mock.calls[0]![0]).toBe(
+      "https://api.mercadopago.com/v1/orders/ORD01JYH1Z1YJN4HZ8J3Q0RB3YP6D",
+    );
+    expect(fetchMock.mock.calls[0]![1]?.method).toBe("GET");
+    expect(o).toMatchObject({
+      orderId: "ORD01JYH1Z1YJN4HZ8J3Q0RB3YP6D",
+      type: "point",
+      status: "processed",
+      statusDetail: "accredited",
+      externalReference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
+      totalAmountCents: 12050,
+      totalPaidAmountCents: 12050,
+      paymentIds: ["PAY01K22Y503EJ8JHGF64KGY1PZ2B"],
+    });
+  });
+
+  it("orden sin total_paid_amount suma paid_amount de sus pagos", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: "ORD01X",
+        status: "processed",
+        total_amount: "50.00",
+        transactions: {
+          payments: [
+            { id: "PAY1", paid_amount: "20.00" },
+            { id: "PAY2", paid_amount: "30.00" },
+          ],
+        },
+      }),
+    );
+    const o = await fetchMercadoPagoOrder("ORD01X");
+    expect(o.totalPaidAmountCents).toBe(5000);
+    expect(o.paymentIds).toEqual(["PAY1", "PAY2"]);
+  });
+
+  it("rechaza ids de orden inválidos sin llamar a la red", async () => {
+    await expect(fetchMercadoPagoOrder("../v1/payments/1")).rejects.toThrow(/inválido/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("QR sin external_pos_id configurado falla claro", async () => {
     delete process.env.MERCADOPAGO_QR_EXTERNAL_POS_ID;
     await expect(
       createQrOrder({ amountCents: 100, externalReference: "x", description: "y" }),
     ).rejects.toBeInstanceOf(NotConfiguredError);
+  });
+});
+
+describe("mpOrderStatusToPaymentStatus", () => {
+  it("traduce estados de la API de Órdenes al vocabulario de apply_mercadopago_payment", () => {
+    expect(mpOrderStatusToPaymentStatus("processed")).toBe("approved");
+    expect(mpOrderStatusToPaymentStatus("failed")).toBe("rejected");
+    expect(mpOrderStatusToPaymentStatus("canceled")).toBe("cancelled");
+    expect(mpOrderStatusToPaymentStatus("expired")).toBe("cancelled");
+    expect(mpOrderStatusToPaymentStatus("refunded")).toBe("refunded");
+    for (const s of ["created", "at_terminal", "action_required", "algo_nuevo"])
+      expect(mpOrderStatusToPaymentStatus(s)).toBe("pending");
   });
 });

@@ -34,7 +34,7 @@
 
 1. Panel → tu aplicación → **Webhooks** → **Configurar notificaciones**.
 2. Modo **Productivo**: URL `https://<dominio-del-sitio>/api/webhooks/mercadopago`. Modo **Prueba**: la misma ruta en el dominio de staging (o un túnel `https` local, p. ej. `cloudflared`/`ngrok`, apuntando a `:3106`).
-3. Eventos: marcar **Pagos** (`payment`). Los demás (`orders`, `merchant_order`, etc.) se aceptan y quedan como `ignored`.
+3. Eventos: marcar **Pagos** (`payment`) y, si se cobra con terminal Point o QR, **Órdenes** (`order`). Los demás (`merchant_order`, etc.) se aceptan y quedan como `ignored`.
 4. **Guardar** → aparece la **Clave secreta** → `MERCADOPAGO_WEBHOOK_SECRET`. Sin ella, **producción rechaza** toda notificación (500) y `development` acepta con un `warn`.
 5. Botón **Simular** del panel → debe responder `200`. La simulación llega con `data.id` ficticio: el sistema lo consulta, MP devuelve 404 → el evento queda `failed` y se reintenta hasta 8 veces (es lo esperado con ids simulados; con pagos reales se procesa).
 
@@ -53,7 +53,9 @@ raw body → parseMercadoPagoWebhook → verifyMercadoPagoSignature (401 si fall
 → webhook_events (provider 'mercadopago', external_id = `${type}:${data.id}:${action}`)
    duplicado processed/ignored/processing → 200 {duplicate:true}
 → claim atómico (received/failed → processing, attempts++)
-→ type ≠ payment → ignored
+→ type = order → fetchMercadoPagoOrder(data.id) → external_reference = orders.id
+     → apply_mercadopago_payment(external_id = id de la orden MP) (ver §1.5)
+→ type ≠ payment/order → ignored
 → fetchMercadoPagoPayment(data.id)  (GET /v1/payments/{id}; error → failed + 500 ⇒ MP reintenta)
 → external_reference = orders.id (uuid y existente; si no → ignored)
 → apply_mercadopago_payment(jsonb) → record_payment/finalize_sale/record_refund en UNA transacción
@@ -81,7 +83,8 @@ Ambos usan `POST https://api.mercadopago.com/v1/orders` con `X-Idempotency-Key` 
 
 - **Point** (`createPointOrder`): `type: "point"`, `config.point.terminal_id = MERCADOPAGO_POINT_DEVICE_ID`, `print_on_terminal`, `transactions.payments[{amount}]`, `expiration_time PT15M`. **Requisitos en cuenta real (verificar)**: terminal vinculada a la cuenta, en modo **PDV** (`PATCH /terminals`), id según `GET /terminals`; Point **no** funciona con credenciales de prueba (se prueba con cobros reales mínimos y se reembolsan). El resultado llega por webhook (`orders`/`point_integration_wh`) o `fetchMercadoPagoOrder(id)`.
 - **QR dinámico** (`createQrOrder`): `type: "qr"`, `config.qr.external_pos_id = MERCADOPAGO_QR_EXTERNAL_POS_ID`, `mode: "dynamic"`, `total_amount`, `items[]`. Devuelve `type_response.qr_data` (string EMV para renderizar como QR). **Requisitos (verificar)**: sucursal (`POST /users/{user_id}/stores`) y caja (`POST /pos`) creadas con `external_id`. El pago llega por webhook `orders`.
-- Los webhooks de tipo `orders` hoy quedan `ignored` en el endpoint: cuando se active POS con MP, conciliarlos con `fetchMercadoPagoOrder` → `apply_mercadopago_payment` por cada `transactions.payments[].id` (pendiente, ver §7).
+- **Conciliación (webhook `order`)**: `GET /v1/orders/{id}` → `external_reference` = `orders.id` → `apply_mercadopago_payment` con `external_id` = **id de la orden MP** (`ORD01…`), el mismo con el que el POS registró el pago `pending`. Así `processed` pasa ese pago a `paid` y `finalize_sale` cierra la venta en la misma transacción; los reenvíos son duplicados sin efecto. Estados: `processed→approved`, `failed→rejected`, `canceled|expired→cancelled`, `refunded→refunded`; `created|at_terminal|action_required` quedan `ignored` (el pago sigue `pending`). Los ids `PAY01…` de `transactions.payments[]` se guardan en `payments.metadata.mp_payment_ids` para conciliar con el panel. No se aplica por cada `PAY01…` porque crearía un segundo pago junto al `pending` del POS.
+- Reembolsos parciales hechos desde la terminal/panel sobre una orden aún `processed` no se concilian automáticamente (solo `order.refunded` total).
 
 ### 1.6 Prueba local rápida
 
@@ -181,7 +184,7 @@ Nuevas en esta entrega (ya en `.env.example` y `turbo.json → globalEnv`): `MER
 
 ## 8. Pendientes / riesgos conocidos
 
-- **Point/QR**: implementados contra la API de Órdenes vigente pero **sin probar en cuenta real** (requieren terminal/caja reales). Falta conciliar webhooks `orders` (hoy `ignored`).
+- **Point/QR**: implementados contra la API de Órdenes vigente, con conciliación del webhook `order` probada con la API mockeada; **falta probar en cuenta real** (requieren terminal/caja reales; Point no funciona con credenciales de prueba).
 - **Renovación del token de Instagram** (60 días): no hay job automático; documentar en el runbook de operación o agregar cron `instagram-token-refresh`.
 - **App Review de Meta**: hasta obtener _Live_, el bot solo responde a testers de la app.
 - **Homologación de Mercado Pago**: necesaria para credenciales de producción.

@@ -20,7 +20,7 @@ export function GET() {
 }
 
 /**
- * Notificaciones de Mercado Pago (evento `payment`).
+ * Notificaciones de Mercado Pago (`payment` de Checkout Pro y `order` de Point/QR).
  * 200 = recibido/procesado/duplicado/ignorado · 401 = firma inválida · 500 = error transitorio (MP reintenta).
  */
 export async function POST(req: Request) {

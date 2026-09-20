@@ -446,8 +446,19 @@ type MpOrderResponse = {
   status?: string;
   status_detail?: string;
   type?: string;
+  external_reference?: string | null;
+  total_amount?: string | number;
+  total_paid_amount?: string | number;
   type_response?: { qr_data?: string };
-  transactions?: { payments?: Array<{ id?: string; status?: string }> };
+  transactions?: {
+    payments?: Array<{
+      id?: string;
+      status?: string;
+      status_detail?: string;
+      amount?: string | number;
+      paid_amount?: string | number;
+    }>;
+  };
 };
 
 /** external_reference de Órdenes: máx. 64, letras/números/guiones. Los UUID cumplen. */
@@ -558,25 +569,90 @@ export async function createQrOrder(input: {
   return { orderId: String(r.id), qrData, status: String(r.status ?? "created") };
 }
 
-/** Consulta una orden (Point/QR) por id. */
-export async function fetchMercadoPagoOrder(orderId: string): Promise<{
+export type MpOrder = {
   orderId: string;
+  /** created | at_terminal | action_required | processed | failed | canceled | expired | refunded */
   status: string;
   statusDetail: string;
+  /** point | qr */
+  type: string;
+  externalReference: string | null;
+  totalAmountCents: number;
+  /** Monto efectivamente acreditado (`total_paid_amount`, o la suma de `paid_amount` de los pagos). */
+  totalPaidAmountCents: number;
   paymentIds: string[];
+  payments: Array<{ id: string; status: string; statusDetail: string; paidAmountCents: number }>;
   raw: unknown;
-}> {
+};
+
+/** ids de la API de Órdenes: `ORD01…` (alfanumérico). */
+const MP_ORDER_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Consulta una orden (Point/QR) por id. Fuente de verdad del cobro presencial: el webhook `order` nunca se
+ * aplica con su payload. Mismo presupuesto de tiempo que la consulta de pagos (la ruta del webhook dura ≤ 20 s).
+ */
+export async function fetchMercadoPagoOrder(orderId: string): Promise<MpOrder> {
   assertConfigured();
+  if (!MP_ORDER_ID_RE.test(String(orderId))) throw new Error(`ID de orden inválido: ${orderId}`);
   const r = await mpFetch<MpOrderResponse>({
     method: "GET",
     path: `/v1/orders/${encodeURIComponent(orderId)}`,
     idempotent: true,
+    timeoutMs: MP_PAYMENT_FETCH_TIMEOUT_MS,
+    retries: MP_PAYMENT_FETCH_RETRIES,
   });
+  return mapOrder(r);
+}
+
+export function mapOrder(r: MpOrderResponse): MpOrder {
+  const payments = (r.transactions?.payments ?? [])
+    .filter((p) => p.id)
+    .map((p) => ({
+      id: String(p.id),
+      status: String(p.status ?? "unknown").toLowerCase(),
+      statusDetail: String(p.status_detail ?? ""),
+      paidAmountCents: amountToCents(p.paid_amount),
+    }));
+  const paidSum = payments.reduce((acc, p) => acc + p.paidAmountCents, 0);
   return {
     orderId: String(r.id),
-    status: String(r.status ?? "unknown"),
+    status: String(r.status ?? "unknown").toLowerCase(),
     statusDetail: String(r.status_detail ?? ""),
-    paymentIds: (r.transactions?.payments ?? []).map((p) => String(p.id ?? "")).filter(Boolean),
+    type: String(r.type ?? ""),
+    externalReference: r.external_reference ?? null,
+    totalAmountCents: amountToCents(r.total_amount),
+    totalPaidAmountCents:
+      r.total_paid_amount !== undefined &&
+      r.total_paid_amount !== null &&
+      r.total_paid_amount !== ""
+        ? amountToCents(r.total_paid_amount)
+        : paidSum,
+    paymentIds: payments.map((p) => p.id),
+    payments,
     raw: r,
   };
+}
+
+/**
+ * Traduce el estado de una orden (API de Órdenes) al vocabulario de pagos que entiende
+ * `apply_mercadopago_payment` (approved | pending | rejected | cancelled | refunded).
+ * Estados desconocidos → pending (no mueve dinero).
+ */
+export function mpOrderStatusToPaymentStatus(status: string): string {
+  switch (status.toLowerCase()) {
+    case "processed":
+      return "approved";
+    case "failed":
+      return "rejected";
+    case "canceled":
+    case "cancelled":
+    case "expired":
+      return "cancelled";
+    case "refunded":
+      return "refunded";
+    default:
+      // created | at_terminal | action_required | processing …
+      return "pending";
+  }
 }
