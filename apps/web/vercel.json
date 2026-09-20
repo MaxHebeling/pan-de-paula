@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/webhooks-retry",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/push-pendientes",
+      "schedule": "*/15 * * * *"
     }
   ],
   "git": {

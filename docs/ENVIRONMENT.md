@@ -75,6 +75,19 @@ Usa credenciales de **prueba** en staging y de **producción** solo en producci�
 | `RESEND_API_KEY` | Enviar comprobantes y avisos | resend.com → API Keys (dominio verificado)    |
 | `EMAIL_FROM`     | Remitente                    | `"El Pan de Paula <pedidos@elpandepaula.mx>"` |
 
+### Notificaciones push (Web Push · VAPID)
+
+| Variable                       | Propósito                                         | Dónde obtenerla                                                    |
+| ------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------ |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Clave pública; viaja al navegador (no es secreta) | Se genera una vez con `generateVapidKeys()` de `@pdp/integrations` |
+| `VAPID_PRIVATE_KEY`            | Clave privada del servidor                        | El mismo par. **Nunca** en `NEXT_PUBLIC_*`                         |
+| `VAPID_SUBJECT`                | Contacto que exige el estándar                    | `mailto:bakery@pandepaula.com`                                     |
+
+Sin ellas el portal funciona igual: no se ofrecen avisos al teléfono. El par se genera **una sola
+vez** y no se cambia: cambiarlo invalida todas las suscripciones existentes y cada cliente tendría
+que volver a activarlos. Van en el proyecto **web** (que es quien suscribe) y en el **admin** (que es
+quien envía al mover el estado del pedido).
+
 ### Almacenamiento de imágenes
 
 | Variable                    | Propósito                              | Valores                                                          |

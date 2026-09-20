@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LogoutButton } from "@/components/portal/LogoutButton";
 import { PortalNav } from "@/components/portal/PortalNav";
 import { countUnreadNotifications } from "@/lib/portal/orders";
 import { requireCustomerSession } from "@/lib/portal/session";
@@ -30,11 +31,9 @@ export default async function PortalLayout({ children }: { children: React.React
             Hola, {firstName}
           </p>
         </div>
-        <form action={portalLogoutAction}>
-          <button type="submit" className="btn btn-secondary" data-testid="portal-logout">
-            Cerrar sesión
-          </button>
-        </form>
+        {/* Cerrar sesión apaga antes los avisos de ESTE dispositivo: una suscripción viva
+            seguiría recibiendo los pedidos de quien ya se fue. */}
+        <LogoutButton action={portalLogoutAction} />
       </header>
       <div className="mt-5">
         <PortalNav sinLeer={sinLeer} />

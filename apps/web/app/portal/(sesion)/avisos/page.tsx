@@ -22,6 +22,9 @@ export default async function PortalNotificationsPage() {
       <LiveOrders inicial={pulse} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl text-ink">Avisos</h1>
+        <Link href="/portal/avisos/ajustes" className="text-sm text-sage underline">
+          Ajustes de avisos
+        </Link>
         {sinLeer > 0 && (
           <form action={marcarAvisosLeidosAction}>
             <button type="submit" className="btn btn-secondary" data-testid="avisos-marcar">
