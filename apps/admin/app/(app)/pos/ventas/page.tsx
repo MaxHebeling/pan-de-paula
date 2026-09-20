@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { containsPattern } from "@pdp/domain";
+import { containsPattern, PAYMENT_METHOD_LABELS } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { todayLocal } from "@/lib/format";
 import { PageHeader, Stat, Money } from "@/components/ui";
 import { SalesTable, type SaleRow } from "@/components/pos/sales-table";
+
+const METHODS = Object.keys(PAYMENT_METHOD_LABELS);
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ventas del día" };
@@ -30,13 +32,16 @@ type Row = {
 export default async function VentasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fecha?: string }>;
+  searchParams: Promise<{ q?: string; fecha?: string; metodo?: string }>;
 }) {
   const session = await requireSession("pos.sell");
   const sp = await searchParams;
-  const q = (sp.q ?? "").trim();
+  const q = (sp.q ?? "").trim().slice(0, 80);
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha ?? "") ? sp.fecha! : todayLocal();
+  // `q` busca por folio O por referencia contable de cualquiera de los pagos de la venta: pegar
+  // "BANORTE-839201" trae la venta donde se cobró con esa referencia (aunque no sea del día elegido).
   const byFolio = q.length >= 3;
+  const metodo = METHODS.includes(sp.metodo ?? "") ? sp.metodo! : "";
   const rows = await sql<Row>`
     select s.id as sale_id, o.id as order_id, o.folio, s.sold_at, s.voided_at, s.void_reason,
            o.customer_name, su.full_name as staff_name, s.items_count, s.total_cents, o.refunded_cents, o.payment_status,
@@ -52,8 +57,12 @@ export default async function VentasPage({
     left join staff_users su on su.id = s.staff_id
     cross join business_settings bs
     where s.channel = 'pos'
-      and case when ${byFolio} then o.folio ilike ${containsPattern(q)}
+      and case when ${byFolio} then (o.folio ilike ${containsPattern(q)}
+                 or exists (select 1 from payments p where p.order_id = o.id and p.reference ilike ${containsPattern(q)}))
                else (s.sold_at at time zone bs.timezone)::date = ${fecha}::date end
+      and (${metodo} = '' or exists (select 1 from payments p
+             where p.order_id = o.id and p.method::text = ${metodo}
+               and p.status in ('paid','partially_refunded','refunded')))
     order by s.sold_at desc
     limit 300`.execute(db());
   const sales: SaleRow[] = rows.rows.map((r) => ({
@@ -81,7 +90,9 @@ export default async function VentasPage({
     <>
       <PageHeader
         title="Ventas"
-        subtitle={byFolio ? `Resultados para “${q}”` : `Ventas en tienda del ${fecha}`}
+        subtitle={
+          byFolio ? `Resultados para “${q}” (folio o referencia)` : `Ventas en tienda del ${fecha}`
+        }
         actions={
           <Link href="/pos" className="btn btn-primary">
             Volver al POS
@@ -92,9 +103,10 @@ export default async function VentasPage({
         <input
           name="q"
           defaultValue={q}
-          placeholder="Buscar folio (PDP-2026-000123)"
+          placeholder="Folio o referencia (BANORTE-839201)"
           className="input min-h-11 max-w-xs"
-          aria-label="Buscar por folio"
+          aria-label="Buscar por folio o referencia"
+          maxLength={80}
         />
         <input
           name="fecha"
@@ -103,8 +115,21 @@ export default async function VentasPage({
           className="input min-h-11 w-44"
           aria-label="Fecha"
         />
+        <select
+          name="metodo"
+          defaultValue={metodo}
+          className="input min-h-11 w-44"
+          aria-label="Método de pago"
+        >
+          <option value="">Todos los métodos</option>
+          {METHODS.map((m) => (
+            <option key={m} value={m}>
+              {PAYMENT_METHOD_LABELS[m as keyof typeof PAYMENT_METHOD_LABELS]}
+            </option>
+          ))}
+        </select>
         <button className="btn btn-secondary min-h-11">Buscar</button>
-        {(q || sp.fecha) && (
+        {(q || sp.fecha || metodo) && (
           <Link href="/pos/ventas" className="btn btn-secondary min-h-11">
             Hoy
           </Link>

@@ -41,7 +41,7 @@ export default async function SearchPage({
             name="q"
             className="input"
             defaultValue={q}
-            placeholder="Nombre, teléfono, código PDP, folio o producto"
+            placeholder="Nombre, teléfono, código PDP, folio, producto o referencia de pago"
             autoFocus
           />
         </div>
@@ -96,6 +96,11 @@ export default async function SearchPage({
                       <Badge tone="blue">{CHANNEL_LABELS[o.channel] ?? o.channel}</Badge>
                       <Badge tone="gray">{ORDER_STATUS_LABELS[o.status] ?? o.status}</Badge>
                       <span>· {fmtDate(o.placed_at, "datetime")}</span>
+                      {o.payment_reference && (
+                        <span data-testid="search-payment-reference">
+                          · ref. <span className="font-mono">{o.payment_reference}</span>
+                        </span>
+                      )}
                     </div>
                   </li>
                 ))}
