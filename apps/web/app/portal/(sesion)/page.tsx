@@ -7,6 +7,9 @@ import { TierBadge, tierPalette } from "@/components/portal/TierBadge";
 import { dateMX, money } from "@/lib/format";
 import { getProgram, listTiers, loyaltyEnabled } from "@/lib/loyalty";
 import { getPortalCustomer, listPortalPurchases } from "@/lib/portal/data";
+import { listPortalOrders, portalPulse } from "@/lib/portal/orders";
+import { LiveOrders } from "@/components/portal/LiveOrders";
+import { ORDER_STATUS_LABELS, OPEN_ORDER_STATUSES } from "@pdp/domain";
 import { requireCustomerSession } from "@/lib/portal/session";
 import { cardUrl, qrDataUrl } from "@/lib/qr";
 import { getBusiness } from "@/lib/site";
@@ -21,12 +24,16 @@ export default async function PortalHomePage({
   const customer = await getPortalCustomer(session.customer.id);
   if (!customer) notFound();
 
-  const [business, program, tiers, purchases] = await Promise.all([
+  const [business, program, tiers, purchases, pedidos, pulse] = await Promise.all([
     getBusiness(),
     getProgram(),
     listTiers(),
     listPortalPurchases(customer.id, 3),
+    listPortalOrders(customer.id, 5),
+    portalPulse(customer.id),
   ]);
+  // "En curso" = los estados abiertos que ya define el dominio; no se inventa otra lista.
+  const enCurso = pedidos.filter((o) => OPEN_ORDER_STATUSES.includes(o.status));
   const enabled = loyaltyEnabled(business.flags, program);
 
   // El QR es EXACTAMENTE el mismo de /mi-tarjeta: mismo qr_token, misma URL, mismo generador.
@@ -50,6 +57,7 @@ export default async function PortalHomePage({
 
   return (
     <div className="space-y-6">
+      <LiveOrders inicial={pulse} />
       {welcome && (
         <p
           className="rounded-card border border-sage/40 bg-sage/10 px-4 py-3 text-sm text-ink"
@@ -158,6 +166,39 @@ export default async function PortalHomePage({
           small
         />
       </div>
+
+      {enCurso.length > 0 && (
+        <section className="card p-5 sm:p-6" data-testid="portal-pedidos-en-curso">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-xl text-ink">
+              {enCurso.length === 1 ? "Tu pedido en curso" : "Tus pedidos en curso"}
+            </h2>
+            <Link href="/portal/pedidos" className="text-sm text-sage underline">
+              Ver todos
+            </Link>
+          </div>
+          <ul className="mt-3 divide-y divide-line">
+            {enCurso.map((o) => (
+              <li key={o.folio} className="py-2">
+                <Link
+                  href={`/portal/pedidos/${o.folio}`}
+                  className="flex items-baseline justify-between gap-3"
+                >
+                  <span className="min-w-0">
+                    <span className="font-mono text-sm text-ink-2">{o.folio}</span>
+                    {o.summary && (
+                      <span className="block truncate text-sm text-ink">{o.summary}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold text-sage">
+                    {ORDER_STATUS_LABELS[o.status]}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">

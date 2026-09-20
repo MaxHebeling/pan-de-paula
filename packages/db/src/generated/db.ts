@@ -262,6 +262,18 @@ export interface CustomerEvents {
   payload: Generated<Json>;
 }
 
+export interface CustomerNotifications {
+  body: string | null;
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  id: Generated<string>;
+  kind: string;
+  order_id: string | null;
+  read_at: Timestamp | null;
+  status_history_id: Int8 | null;
+  title: string;
+}
+
 export interface Customers {
   birthday: Timestamp | null;
   created_at: Generated<Timestamp>;
@@ -1045,6 +1057,7 @@ export interface DB {
   customer_access_tokens: CustomerAccessTokens;
   customer_addresses: CustomerAddresses;
   customer_events: CustomerEvents;
+  customer_notifications: CustomerNotifications;
   customer_sessions: CustomerSessions;
   customers: Customers;
   domain_events: DomainEvents;

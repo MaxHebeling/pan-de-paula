@@ -42,6 +42,7 @@ type AccesoActions = typeof import("../app/portal/acceso/actions");
 type SesionActions = typeof import("../app/portal/(sesion)/actions");
 type PortalSession = typeof import("../lib/portal/session");
 type PortalData = typeof import("../lib/portal/data");
+type PortalOrders = typeof import("../lib/portal/orders");
 
 let requestPortalLinkAction: EntrarActions["requestPortalLinkAction"];
 let redeemAccessTokenAction: AccesoActions["redeemAccessTokenAction"];
@@ -53,6 +54,12 @@ let getPortalCustomer: PortalData["getPortalCustomer"];
 let listPortalPurchases: PortalData["listPortalPurchases"];
 let getPortalPurchase: PortalData["getPortalPurchase"];
 let listPortalPointsMovements: PortalData["listPortalPointsMovements"];
+let listPortalOrders: PortalOrders["listPortalOrders"];
+let getPortalOrder: PortalOrders["getPortalOrder"];
+let listPortalNotifications: PortalOrders["listPortalNotifications"];
+let countUnreadNotifications: PortalOrders["countUnreadNotifications"];
+let markNotificationsRead: PortalOrders["markNotificationsRead"];
+let portalPulse: PortalOrders["portalPulse"];
 
 let db: Database;
 let pool: { end: () => Promise<void> };
@@ -135,6 +142,14 @@ beforeAll(async () => {
     await import("../lib/portal/session"));
   ({ getPortalCustomer, listPortalPurchases, getPortalPurchase, listPortalPointsMovements } =
     await import("../lib/portal/data"));
+  ({
+    listPortalOrders,
+    getPortalOrder,
+    listPortalNotifications,
+    countUnreadNotifications,
+    markNotificationsRead,
+    portalPulse,
+  } = await import("../lib/portal/orders"));
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -471,5 +486,120 @@ describe("consultas del portal · aislamiento por cliente", () => {
     expect(await listPortalPurchases(solo.customer_id)).toEqual([]);
     expect(await listPortalPointsMovements(solo.customer_id)).toEqual([]);
     expect((await getPortalCustomer(solo.customer_id))!.pointsBalance).toBe(0);
+  });
+});
+
+/**
+ * Pedidos en vivo y avisos (migración 0046). Lo que se prueba aquí es lo que no se ve en el
+ * navegador: que cada consulta filtre por el cliente de la sesión y que el pulso —lo que sondea la
+ * pantalla— no filtre nada de nadie más.
+ */
+describe("pedidos del portal · aislamiento y pulso", () => {
+  let ana: { customer_id: string };
+  let beto: { customer_id: string };
+  let pedidoAna: string;
+  let pedidoBeto: string;
+
+  /** Pedido por el camino real (`create_order`), como el del sitio o el del CRM. */
+  async function pedir(customerId: string, key: string): Promise<{ id: string; folio: string }> {
+    const r = await sql<{ id: string }>`
+      select create_order(${JSON.stringify({
+        channel: "web",
+        customer_id: customerId,
+        customer_name: "Cliente",
+        customer_phone: "6640000000",
+        items: [{ product_id: croissant, qty: 2 }],
+        idempotency_key: key,
+      })}::jsonb) as id`.execute(db);
+    const id = r.rows[0]!.id;
+    const f = await sql<{ folio: string }>`select folio from orders where id = ${id}`.execute(db);
+    return { id, folio: f.rows[0]!.folio };
+  }
+
+  const mover = async (id: string, to: string) => {
+    await sql`select set_config('app.staff_id', ${staff}, false)`.execute(db);
+    await sql`select change_order_status(${id}::uuid, ${to}::order_status, null)`.execute(db);
+  };
+
+  beforeEach(async () => {
+    ana = await register({ full_name: "Ana Pedidos", email: "ana.pedidos@example.com" });
+    beto = await register({ full_name: "Beto Pedidos", email: "beto.pedidos@example.com" });
+    const a = await pedir(ana.customer_id, `ana-${Date.now()}`);
+    const b = await pedir(beto.customer_id, `beto-${Date.now()}`);
+    pedidoAna = a.folio;
+    pedidoBeto = b.folio;
+    await mover(a.id, "confirmed");
+    await mover(b.id, "confirmed");
+    await mover(a.id, "in_production");
+  });
+
+  it("cada quien ve solo sus pedidos, con su estado actual", async () => {
+    const deAna = await listPortalOrders(ana.customer_id);
+    const deBeto = await listPortalOrders(beto.customer_id);
+    expect(deAna.map((o) => o.folio)).toEqual([pedidoAna]);
+    expect(deBeto.map((o) => o.folio)).toEqual([pedidoBeto]);
+    expect(deAna[0]!.status).toBe("in_production");
+    expect(deBeto[0]!.status).toBe("confirmed");
+    expect(deAna[0]!.summary).toContain("Croissant Portal");
+  });
+
+  it("el seguimiento con el folio de OTRO cliente no existe (la página responde 404)", async () => {
+    expect(await getPortalOrder(ana.customer_id, pedidoAna)).not.toBeNull();
+    expect(await getPortalOrder(ana.customer_id, pedidoBeto)).toBeNull();
+    expect(await getPortalOrder(beto.customer_id, pedidoAna)).toBeNull();
+    for (const f of ["", "x", "PDP-1", "' or 1=1 --", pedidoAna.toLowerCase()])
+      if (f !== pedidoAna.toLowerCase())
+        expect(await getPortalOrder(ana.customer_id, f)).toBeNull();
+  });
+
+  it("el detalle trae historial completo y nada interno del equipo", async () => {
+    const o = (await getPortalOrder(ana.customer_id, pedidoAna))!;
+    expect(o.history.map((h) => h.status)).toEqual(["new", "confirmed", "in_production"]);
+    expect(o.items[0]).toMatchObject({ name: expect.stringContaining("Croissant"), qty: 2 });
+    // Nada de ids internos, notas del equipo ni quién movió el estado.
+    const texto = JSON.stringify(o);
+    expect(texto).not.toContain("staff");
+    expect(texto).not.toContain("internal");
+    expect(Object.keys(o)).not.toContain("id");
+  });
+
+  it("los avisos son del cliente y el contador cuadra", async () => {
+    const deAna = await listPortalNotifications(ana.customer_id);
+    expect(deAna.map((n) => n.kind)).toEqual(["in_production", "confirmed"]); // más reciente primero
+    expect(deAna.every((n) => n.folio === pedidoAna)).toBe(true);
+    expect(await countUnreadNotifications(ana.customer_id)).toBe(2);
+    expect(await countUnreadNotifications(beto.customer_id)).toBe(1);
+
+    // Abrir el seguimiento marca los de ESE pedido; los de otro cliente no se tocan.
+    await markNotificationsRead(ana.customer_id, pedidoAna);
+    expect(await countUnreadNotifications(ana.customer_id)).toBe(0);
+    expect(await countUnreadNotifications(beto.customer_id)).toBe(1);
+    // Y siguen ahí, solo que leídos.
+    expect(await listPortalNotifications(ana.customer_id)).toHaveLength(2);
+  });
+
+  it("marcar como leído con el folio de otro cliente no hace nada", async () => {
+    await markNotificationsRead(ana.customer_id, pedidoBeto);
+    expect(await countUnreadNotifications(beto.customer_id)).toBe(1);
+    expect(await countUnreadNotifications(ana.customer_id)).toBe(2);
+  });
+
+  it("el pulso solo trae lo del cliente y cambia cuando cambia el pedido", async () => {
+    const antes = await portalPulse(ana.customer_id);
+    expect(antes.orders.map((o) => o.folio)).toEqual([pedidoAna]);
+    expect(antes.unread).toBe(2);
+
+    const id = (
+      await sql<{ id: string }>`select id from orders where folio = ${pedidoAna}`.execute(db)
+    ).rows[0]!.id;
+    await mover(id, "ready_for_pickup");
+
+    const despues = await portalPulse(ana.customer_id);
+    expect(despues.orders[0]!.status).toBe("ready_for_pickup");
+    expect(despues.orders[0]!.updatedAt > antes.orders[0]!.updatedAt).toBe(true);
+    expect(despues.unread).toBe(3);
+    // El pulso de Beto no se enteró de nada de Ana.
+    const dePulsoBeto = await portalPulse(beto.customer_id);
+    expect(dePulsoBeto.orders.map((o) => o.folio)).toEqual([pedidoBeto]);
   });
 });

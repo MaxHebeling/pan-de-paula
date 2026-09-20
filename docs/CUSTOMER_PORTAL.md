@@ -148,6 +148,73 @@ El correo es la llave de acceso. Al cambiarlo desde el CRM, el cliente **sigue s
 sesiones abiertas, y queda un `CUSTOMER_PORTAL_ACCESS_RESET` en `audit_logs`. El CRM lo avisa en pantalla
 para que se le mande un enlace nuevo. Sin esto, quien tuviera el correo anterior seguiría dentro.
 
+## Mis pedidos, en vivo
+
+El portal muestra los pedidos del cliente **mientras están vivos** (`/portal/pedidos`), con su línea
+de tiempo, y los avisos que genera cada cambio. `/portal/compras` sigue siendo otra cosa: las ventas
+ya cerradas.
+
+### De dónde sale el estado
+
+Una sola fuente de verdad: la tabla `orders` que ya usa el CRM. El portal no guarda copias ni estados
+propios. La línea de tiempo (`portalTimeline` en `@pdp/domain`) **lee** los estados existentes y los
+agrupa en los cinco hitos que le importan a una persona:
+
+```
+  received      new · payment_pending
+  confirmed     confirmed · paid
+  preparing     in_production
+  ready         ready · ready_for_pickup · out_for_delivery   ("En camino" si es a domicilio)
+  done          delivered · completed
+```
+
+Las horas salen de `order_status_history`, que guarda **cada** cambio y nunca sobrescribe el
+anterior. Un pedido cancelado o reembolsado deja de avanzar: se muestra hasta dónde llegó y se dice
+que está cancelado, en vez de fingir que sigue en curso.
+
+### Por qué no hay Supabase Realtime
+
+Esta app habla con Postgres con su **propio rol** (`pdp_app`) por el pooler en modo transacción, y el
+portal tiene **sesión propia por cookie**, no Supabase Auth. Realtime exigiría exponer la clave
+anónima en el navegador y atar las políticas a usuarios de Supabase: un segundo sistema de identidad
+y una superficie pública que la migración `0080` cierra a propósito. Tampoco sirve `LISTEN/NOTIFY`:
+el pooler en modo transacción no mantiene la conexión.
+
+En su lugar se usa el mismo patrón que ya tiene el contador de pedidos sin ver del CRM: `LiveOrders`
+sondea `GET /api/portal/pulso` cada 10 s **solo con la pestaña visible**, y cuando algo cambió pide a
+Next que vuelva a renderizar en el servidor (`router.refresh()`). Así los datos siguen saliendo de
+las mismas consultas filtradas por sesión y no hay una segunda copia del estado en el navegador. Un
+solo temporizador, se detiene al ocultar la pestaña y se limpia al desmontar. Si la red falla se
+avisa ("Sin conexión…") en vez de enseñar un estado viejo como si fuera el de ahora.
+
+### Avisos
+
+Los genera la base, no la aplicación: un disparador sobre `order_status_history` (migración `0046`)
+escribe en `customer_notifications`. Como `status_history_id` es **único**, una misma transición no
+puede avisar dos veces aunque la operación se repita. Los textos viven en una sola función SQL
+(`customer_notification_text`), así que el portal —y el push, cuando exista— dicen exactamente lo
+mismo sin copiar frases por el código.
+
+No se avisa de: pedidos sin cliente identificado (mostrador anónimo), estados contables (`new`,
+`paid`, `completed`) ni cambios con fecha vieja (la importación histórica escribe historial con la
+fecha de la venta original; nadie quiere recibir hoy el aviso de un pedido de hace un año).
+
+Abrir el seguimiento marca como leídos los avisos de ese pedido. Se hace al montar la página y no en
+el render, porque Next precarga los enlaces y marcaría avisos que el cliente nunca abrió.
+
+### Cómo queda vinculado el pedido
+
+Por orden de fiabilidad, nunca por el nombre (hay homónimos):
+
+1. la **sesión del portal** — si compró con su cuenta abierta, es él;
+2. el vínculo explícito "ya soy cliente" (código, teléfono o correo que escribió);
+3. el teléfono del pedido;
+4. en el CRM, el buscador de cliente del pedido manual (código, teléfono, correo o nombre) — la
+   persona elige, el sistema no adivina.
+
+Da igual por dónde entre el pedido (sitio, portal, teléfono, mostrador): es el mismo `orders` y el
+mismo `customer_id`, así que aparece en su portal sin que nadie lo vincule a mano.
+
 ## Pruebas
 
 | Archivo                                              | Qué cubre                                                                                                                                                                                                                |
@@ -158,3 +225,6 @@ para que se le mande un enlace nuevo. Sin esto, quien tuviera el correo anterior
 | `packages/db/test/customer_required_fields.test.ts`  | La regla de 0045 en SQL: qué se rechaza, fechas imposibles, la excepción de importación, y que el histórico se completa sin duplicarse conservando código, QR, puntos y compras                                          |
 | `packages/domain/test/customer_registration.test.ts` | El espejo en el formulario: mensajes por campo, normalización de correo y teléfono, fechas inválidas                                                                                                                     |
 | `apps/admin/e2e/registro-obligatorio.spec.ts`        | El CRM en el navegador: campos obligatorios, rechazo del servidor, enlace de portal creado en el alta, aviso de datos pendientes y revocación de acceso al cambiar el correo                                             |
+| `packages/db/test/customer_notifications.test.ts`    | Los avisos cuelgan del historial: uno por transición, imposible duplicarlos, ninguno para pedidos sin cliente, ninguno cruzado entre clientes, ninguno por importación histórica                                         |
+| `packages/domain/test/portal_timeline.test.ts`       | Cada estado cae en su hito, la hora sale de la primera vez que pasó por ahí, el pedido cancelado deja de avanzar                                                                                                         |
+| `apps/web/e2e/pedidos-vivo.spec.ts`                  | El flujo completo en el navegador: el pedido aparece, el CRM lo mueve y el portal se actualiza sin recargar, con aviso, campana y línea de tiempo; y el pedido ajeno da 404                                              |
