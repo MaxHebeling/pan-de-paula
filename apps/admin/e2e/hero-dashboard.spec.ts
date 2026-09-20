@@ -104,11 +104,16 @@ test("el saludo, el icono y la hora siguen al momento del día de QUIEN mira", a
   browser,
 }) => {
   test.setTimeout(180_000);
+  /*
+   * Las horas llevan el desfase de Tijuana (−07:00 en septiembre) EXPLÍCITO. Sin él, `new Date` las
+   * interpreta en la zona de la máquina que corre la prueba: en esta Mac daba la mañana y en CI, que
+   * va en UTC, la madrugada. El instante debe ser el mismo en cualquier máquina.
+   */
   const casos = [
-    { hora: "2026-09-21T08:30:00", franja: "manana", saludo: "Buenos días" },
-    { hora: "2026-09-21T12:30:00", franja: "mediodia", saludo: "Buenas tardes" },
-    { hora: "2026-09-21T15:42:00", franja: "tarde", saludo: "Buenas tardes" },
-    { hora: "2026-09-21T21:10:00", franja: "noche", saludo: "Buenas noches" },
+    { hora: "2026-09-21T08:30:00-07:00", franja: "manana", saludo: "Buenos días" },
+    { hora: "2026-09-21T12:30:00-07:00", franja: "mediodia", saludo: "Buenas tardes" },
+    { hora: "2026-09-21T15:42:00-07:00", franja: "tarde", saludo: "Buenas tardes" },
+    { hora: "2026-09-21T21:10:00-07:00", franja: "noche", saludo: "Buenas noches" },
   ];
 
   for (const caso of casos) {
@@ -141,7 +146,7 @@ test("el reloj avanza solo, sin recargar la página", async ({ browser }) => {
    * no depende de la zona horaria del equipo que la corre, solo de lo que importa aquí — que el
    * número avance solo, sin recargar.
    */
-  await page.clock.pauseAt(new Date("2026-09-21T15:42:10"));
+  await page.clock.pauseAt(new Date("2026-09-21T15:42:10-06:00"));
   await entrar(page, ADMIN);
 
   const reloj = page.getByTestId("hero-hora");
