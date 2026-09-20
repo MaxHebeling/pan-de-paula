@@ -36,7 +36,7 @@
 2. Modo **Productivo**: URL `https://<dominio-del-sitio>/api/webhooks/mercadopago`. Modo **Prueba**: la misma ruta en el dominio de staging (o un túnel `https` local, p. ej. `cloudflared`/`ngrok`, apuntando a `:3106`).
 3. Eventos: marcar **Pagos** (`payment`) y, si se cobra con terminal Point o QR, **Órdenes** (`order`). Los demás (`merchant_order`, etc.) se aceptan y quedan como `ignored`.
 4. **Guardar** → aparece la **Clave secreta** → `MERCADOPAGO_WEBHOOK_SECRET`. Sin ella, **producción rechaza** toda notificación (500) y `development` acepta con un `warn`.
-5. Botón **Simular** del panel → debe responder `200`. La simulación llega con `data.id` ficticio: el sistema lo consulta, MP devuelve 404 → el evento queda `failed` y se reintenta hasta 8 veces (es lo esperado con ids simulados; con pagos reales se procesa).
+5. Botón **Simular** del panel → responde **500**, y eso es lo esperado: la simulación manda un `data.id` ficticio, el sistema lo consulta a la API, MP devuelve 404, el evento queda `failed` y MP reintenta (el cron también lo reintenta hasta 8 veces con backoff). Con un pago real se procesa y responde `200`. Un 401 en la simulación sí es problema: falta o no coincide `MERCADOPAGO_WEBHOOK_SECRET` en el entorno al que apunta la URL.
 
 Cómo se valida (documentado en <https://www.mercadopago.com.mx/developers/es/docs/your-integrations/notifications/webhooks>):
 
