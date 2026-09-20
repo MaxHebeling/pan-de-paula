@@ -8,10 +8,12 @@ import { dateMX, money } from "@/lib/format";
 import { getProgram, listTiers, loyaltyEnabled } from "@/lib/loyalty";
 import { getPortalCustomer, listPortalPurchases } from "@/lib/portal/data";
 import { listPortalOrders, portalPulse } from "@/lib/portal/orders";
+import { AppBanners } from "@/components/portal/AppBanners";
 import { LiveOrders } from "@/components/portal/LiveOrders";
 import { ORDER_STATUS_LABELS, OPEN_ORDER_STATUSES } from "@pdp/domain";
 import { requireCustomerSession } from "@/lib/portal/session";
 import { cardUrl, qrDataUrl } from "@/lib/qr";
+import { env } from "@/lib/env";
 import { getBusiness } from "@/lib/site";
 
 export default async function PortalHomePage({
@@ -58,6 +60,8 @@ export default async function PortalHomePage({
   return (
     <div className="space-y-6">
       <LiveOrders inicial={pulse} />
+      {/* En el inicio solo se ofrece instalar: el permiso de avisos se pide en "Mis pedidos". */}
+      <AppBanners vapidPublicKey={env().NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
       {welcome && (
         <p
           className="rounded-card border border-sage/40 bg-sage/10 px-4 py-3 text-sm text-ink"

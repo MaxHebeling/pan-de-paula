@@ -17,6 +17,11 @@ const schema = z.object({
   CRON_SECRET: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
+  // Notificaciones push (Web Push / VAPID). La pública viaja al navegador y no es un secreto;
+  // sin ellas el portal funciona igual, solo que sin avisos al teléfono.
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;
