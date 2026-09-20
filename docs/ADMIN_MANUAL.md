@@ -27,7 +27,7 @@
 | `/dashboard`  | `dashboard.read`    | Ventas de hoy y del mes (total, tickets, costo, reembolsos), pedidos abiertos y con pago pendiente, entregas de hoy, stock bajo/agotado, top productos 30 días                                                                         | Que la venta de hoy coincida con la caja; que no haya pedidos "pago pendiente" viejos                                     |
 | `/pos`        | `pos.sell`          | Punto de venta (ver `POS_MANUAL.md`)                                                                                                                                                                                                   | —                                                                                                                         |
 | `/pedidos`    | `orders.read/write` | Lista y detalle de pedidos (web, POS, Instagram, WhatsApp, admin): estado, pago, entrega, historial. Cambiar estado (`confirmado → en producción → listo → entregado`), cancelar (libera cupón), registrar pago manual (transferencia) | Pedidos web con pago aprobado deben estar en `paid`; cancelar solo pedidos sin venta (si ya hay venta: anular/reembolsar) |
-| `/produccion` | `production.*`      | Sugerencia diaria, registrar lotes, historial (ver `PRODUCTION_MANUAL.md`)                                                                                                                                                             | Lotes registrados el día que se hornean                                                                                   |
+| `/produccion` | `production.*`      | Sugerencia diaria, registrar lotes, historial y **productos especiales** (pestaña Especiales; ver `PRODUCTION_MANUAL.md`)                                                                                                              | Lotes registrados el día que se hornean                                                                                   |
 | `/inventario` | `inventory.*`       | Stock por producto, movimientos, mermas, conteos, insumos                                                                                                                                                                              | Que el nivel = suma de movimientos (botón/consulta de reconstrucción si hay dudas)                                        |
 | `/caja`       | `pos.register`      | Abrir/cerrar caja, esperado vs contado, diferencia                                                                                                                                                                                     | Una caja abierta a la vez; diferencias explicadas en nota                                                                 |
 
@@ -40,6 +40,28 @@
 | `/ingredientes` | `recipes.*`     | Insumos, unidad base, proveedor, **historial de precios**, stock mínimo                                                                                                                   | Precio por unidad = precio ÷ contenido                                                 |
 | `/recetas`      | `recipes.*`     | Receta por producto, rendimiento, costo por pieza, margen, ingredientes sin precio; pestaña **Hoja de costos** (`/recetas/hoja`) editable celda por celda; fórmulas visibles en cada fila | Margen objetivo; ninguna receta con "precios faltantes"                                |
 | `/precios`      | `catalog.write` | Precios regulares por canal (`all/web/pos`) y **promociones con vigencia**; historial                                                                                                     | Que la promo tenga fecha fin; el precio nuevo cierra al anterior automáticamente       |
+
+#### Productos especiales o temporales
+
+Lo navideño, de temporada o de edición limitada se da de alta en **`/produccion` › Especiales** (queda a un clic
+desde el botón **“+ Producto especial”** de Producción). **No es otro tipo de producto**: es un producto normal
+marcado con `is_temporary`, así que se vende en el POS, se hornea en el tablero, descuenta inventario, sale en
+reportes y se publica en la tienda con las mismas reglas que un pan de siempre. Solo cambia por dónde se
+administra: alta y edición rápida de **nombre, precio, stock y activo/inactivo** en una sola pantalla.
+
+- **Permisos**: crear y editar nombre y precio, `catalog.write`; capturar o ajustar el stock, `inventory.write`
+  (el mismo de las correcciones de inventario). Todo se valida en el servidor y queda auditado.
+- **Precio**: entra a `product_prices` con la misma función que `/precios`; el anterior se cierra y queda en el
+  historial. Cambiar el precio **nunca** modifica lo que ya se vendió.
+- **Stock**: el inicial entra como movimiento `INITIAL` (“alta de producto especial”) y los ajustes posteriores
+  como `CORRECTION`. No se inventan lotes de producción.
+- **Antes de crear** se busca un producto equivalente por nombre (sin acentos ni mayúsculas). Si ya existe y
+  está desactivado, la pantalla ofrece **reactivarlo** en lugar de duplicarlo; si solo se parece, avisa y pide
+  confirmar.
+- **Al terminar la temporada** se **desactiva** (nunca se borra): conserva ventas, pedidos, movimientos y
+  precios, y la temporada siguiente se reactiva la misma ficha.
+- Foto, descripción, categoría y fechas de temporada (`season_start`/`season_end`) se editan en la ficha del
+  producto (`/productos/[id]`) como en cualquier otro; la lista de Especiales muestra la temporada configurada.
 
 ### Clientes
 
@@ -163,6 +185,7 @@ aparecen con los números sustituidos en cada pantalla (▸ Fórmula).
 | `/recetas/[producto]`       | Todo el editor + merma %, margen objetivo, minutos de MO; botón **$** en cada línea registra un precio nuevo del insumo sin salir | `upsert_recipe_v2`; `record_ingredient_price`; **Aplicar precio sugerido** crea el precio regular |
 | `/ingredientes`             | Último precio (precio + contenido + unidad) y stock mínimo                                                                        | Nuevo precio histórico del insumo (nunca se edita el anterior); muestra costo unitario e impacto  |
 | `/productos`                | Precio POS, precio web, interruptores Activo / Web / POS / Destacado / Fav. POS                                                   | Precio regular nuevo; banderas del producto                                                       |
+| `/produccion` › Especiales  | Nombre, precio, stock e interruptor Activo de los productos temporales                                                            | Precio regular nuevo; corrección de inventario; `products.is_active`                              |
 | `/categorias`               | Nombre y orden                                                                                                                    | —                                                                                                 |
 | `/precios/[producto]`       | Nuevo precio con margen en vivo y botón **Usar sugerido**                                                                         | Precio regular nuevo                                                                              |
 | `/configuracion` › Fórmulas | Parámetros globales con **simulador** (elige un producto y compara guardado vs simulado antes de guardar)                         | `costing_settings` (auditado)                                                                     |

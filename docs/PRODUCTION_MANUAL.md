@@ -26,6 +26,27 @@ Así siempre se puede explicar por qué hay 14 croissants y no 20.
 **Corrige errores con un movimiento contrario**, no borrando: si registraste 24 y eran 12, registra una merma
 con motivo `error` por 12 (o una corrección desde inventario). Queda el rastro.
 
+## Productos especiales (`/produccion` → Especiales)
+
+Para lo **navideño, de temporada o de edición limitada** (Rosca de Reyes, pan de muerto, panqué navideño).
+El botón **“+ Producto especial”** está arriba en Producción y lleva a la pestaña **Especiales**.
+
+1. **Crear**: nombre, precio y stock inicial. Nada más: nace activo, visible en la tienda y en el POS, con
+   control de stock. El precio queda como precio regular y el stock entra como movimiento de inventario
+   (motivo “alta de producto especial”) — no se registra un lote de producción falso.
+2. **Editar**: en la misma lista, clic en la celda de nombre, precio o stock (Enter guarda, Esc cancela), o el
+   interruptor **Activo / Inactivo**. Cambiar el precio no altera las ventas ya hechas.
+3. **Producir y vender**: aparece en _Producción del día_ y en el punto de venta como cualquier producto.
+   Si el stock llega a cero, la tienda lo marca **Agotado**.
+4. **Al terminar la temporada**: **desactívalo** (interruptor en Inactivo). No se borra: conserva ventas,
+   pedidos, movimientos y precios. El año siguiente lo reactivas con el mismo interruptor.
+5. **Si ya existía**: al escribir un nombre que ya está en el catálogo, el sistema avisa y —si estaba
+   desactivado— ofrece **reactivarlo** en lugar de crear un duplicado.
+
+Permisos: crear y editar nombre/precio pide `catalog.write` (administración); el stock pide `inventory.write`,
+el mismo de las correcciones de inventario. La foto, la descripción, la categoría y las fechas de temporada se
+ponen en la ficha del producto (`/productos`).
+
 ## Mermas (`/inventario` → Merma)
 
 Cada pieza que no se vende se registra con motivo: `burnt` (quemado), `broken` (roto), `expired` (caducado),
