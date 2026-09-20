@@ -13,8 +13,22 @@ import { reconcileCart } from "../lib/cart/reconcile.ts";
 import type { CartLine } from "../lib/cart/types.ts";
 
 let ip = "203.0.113.20";
+/** `cookies` lo necesita el checkout para ver si hay sesión de portal abierta (aquí, ninguna). */
+const cookieJar = new Map<string, string>();
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-forwarded-for": ip }),
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = cookieJar.get(name);
+      return value ? { name, value } : undefined;
+    },
+    set: (name: string, value: string) => {
+      cookieJar.set(name, value);
+    },
+    delete: (name: string) => {
+      cookieJar.delete(name);
+    },
+  }),
 }));
 
 type CartActions = typeof import("../app/carrito/actions");

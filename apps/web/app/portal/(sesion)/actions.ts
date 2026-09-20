@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { logoutCustomer } from "@pdp/auth/customer";
 import { birthdaySchema, parsePhone } from "@pdp/domain";
 import { db, sql } from "@/lib/db";
+import { markNotificationsRead } from "@/lib/portal/orders";
 import { CUSTOMER_SESSION_COOKIE, requireCustomerSession } from "@/lib/portal/session";
 
 export type PortalProfileState = { ok?: string; error?: string; field?: string } | null;
@@ -72,4 +73,20 @@ export async function completePortalProfileAction(
   revalidatePath("/portal/perfil");
   revalidatePath("/portal");
   return { ok: "Listo, ya quedaron tus datos." };
+}
+
+/** Marca como leídos todos los avisos del cliente de la sesión. */
+export async function marcarAvisosLeidosAction(): Promise<void> {
+  const session = await requireCustomerSession();
+  await markNotificationsRead(session.customer.id);
+  revalidatePath("/portal/avisos");
+  revalidatePath("/portal/pedidos");
+  revalidatePath("/portal");
+}
+
+/** Marca como leídos los avisos de UN pedido del cliente (al abrir su seguimiento). */
+export async function marcarAvisosDelPedidoAction(folio: string): Promise<void> {
+  const session = await requireCustomerSession();
+  await markNotificationsRead(session.customer.id, folio);
+  revalidatePath("/portal", "layout");
 }

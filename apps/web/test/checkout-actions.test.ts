@@ -12,8 +12,26 @@ import { webTestDatabaseUrl } from "./db-url.ts";
 import { zonedToUtc } from "../lib/tz.ts";
 
 let ip = "203.0.113.10";
+/**
+ * `cookies` hace falta desde que el checkout mira si hay una SESIÓN de portal abierta para vincular
+ * el pedido a esa cuenta (es el vínculo más fiable). Aquí el tarro va vacío: estas pruebas son las
+ * del checkout anónimo, y el vínculo por sesión se prueba en test/portal.test.ts y en el E2E.
+ */
+const cookieJar = new Map<string, string>();
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-forwarded-for": ip }),
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = cookieJar.get(name);
+      return value ? { name, value } : undefined;
+    },
+    set: (name: string, value: string) => {
+      cookieJar.set(name, value);
+    },
+    delete: (name: string) => {
+      cookieJar.delete(name);
+    },
+  }),
 }));
 
 type Actions = typeof import("../app/checkout/actions");
