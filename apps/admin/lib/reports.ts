@@ -1,5 +1,5 @@
 import "server-only";
-import { csvCell } from "@pdp/domain";
+import { containsPattern, csvCell } from "@pdp/domain";
 import { db, sql, callFn } from "./db";
 import { todayLocal } from "./format";
 
@@ -229,6 +229,55 @@ export const topProducts = async (from: string, to: string, limit = 10) =>
       group by oi.product_name order by revenue_cents desc limit ${limit}`.execute(db())
   ).rows;
 
+/**
+ * Detalle de PAGOS del periodo: una fila por pago, con su método, su monto y su REFERENCIA CONTABLE.
+ *
+ * Es el grano que pide la conciliación: los reportes agregados (canales, caja) suman por método y ahí la
+ * referencia no existe. En una venta con varios pagos cada parte aparece en su propia fila, así que nunca
+ * se pierde qué referencia va con qué método y con qué monto.
+ * `metodo` y `ref` son los mismos filtros de la pantalla, para que el CSV exporte exactamente lo que se ve.
+ */
+export type PaymentDetailRow = {
+  id: string;
+  order_id: string;
+  folio: string;
+  created_at: Date;
+  method: string;
+  status: string;
+  amount_cents: number;
+  refunded_cents: number;
+  reference: string | null;
+  external_id: string | null;
+  staff_name: string | null;
+  voided_at: Date | null;
+  customer_name: string | null;
+};
+export const paymentsDetail = async (
+  from: string,
+  to: string,
+  opts: { metodo?: string; ref?: string; limit?: number } = {},
+) => {
+  const metodo = opts.metodo ?? "";
+  const ref = opts.ref ?? "";
+  return (
+    await sql<PaymentDetailRow>`
+      with rr as (select * from report_range(${from}, ${to}))
+      select p.id, p.order_id, o.folio, p.created_at, p.method::text as method, p.status::text as status,
+             p.amount_cents, p.reference, p.external_id, su.full_name as staff_name, s.voided_at, o.customer_name,
+             coalesce((select sum(r.amount_cents) from refunds r where r.payment_id = p.id and r.status <> 'failed'), 0)::int as refunded_cents
+      from payments p
+      join orders o on o.id = p.order_id
+      left join sales s on s.order_id = o.id
+      left join staff_users su on su.id = p.received_by, rr
+      where p.created_at >= rr.v_from and p.created_at < rr.v_to
+        and p.status in ('paid','partially_refunded','refunded')
+        and (${metodo} = '' or p.method::text = ${metodo})
+        and (${ref} = '' or p.reference ilike ${containsPattern(ref)})
+      order by p.created_at desc
+      limit ${opts.limit ?? 2000}`.execute(db())
+  ).rows;
+};
+
 export const inactiveCustomers = async (days: number, limit = 50) =>
   (
     await sql<{
@@ -288,13 +337,22 @@ export function toCsv(
 }
 
 export type ReportKind =
-  "diario" | "mensual" | "productos" | "clientes" | "canales" | "mermas" | "inventario" | "caja";
+  | "diario"
+  | "mensual"
+  | "productos"
+  | "clientes"
+  | "canales"
+  | "pagos"
+  | "mermas"
+  | "inventario"
+  | "caja";
 export const REPORT_KINDS: Array<{ key: ReportKind; label: string; href: string }> = [
   { key: "diario", label: "Diario", href: "/reportes" },
   { key: "mensual", label: "Mensual", href: "/reportes/mensual" },
   { key: "productos", label: "Rentabilidad por producto", href: "/reportes/productos" },
   { key: "clientes", label: "Clientes", href: "/reportes/clientes" },
   { key: "canales", label: "Canales y pagos", href: "/reportes/canales" },
+  { key: "pagos", label: "Pagos y referencias", href: "/reportes/pagos" },
   { key: "mermas", label: "Mermas", href: "/reportes/mermas" },
   { key: "inventario", label: "Conciliación de inventario", href: "/reportes/inventario" },
   { key: "caja", label: "Caja", href: "/reportes/caja" },
@@ -305,6 +363,7 @@ export async function exportRows(
   kind: ReportKind,
   from: string,
   to: string,
+  filters: { metodo?: string; ref?: string } = {},
 ): Promise<{
   filename: string;
   columns: Array<{ key: string; label: string }>;
@@ -405,6 +464,32 @@ export async function exportRows(
             refunded: pesos(p.refunded_cents),
           })),
         ],
+      };
+    }
+    case "pagos": {
+      const rows = await paymentsDetail(from, to, filters);
+      return {
+        filename: name,
+        columns: [
+          { key: "created_at", label: "Fecha" },
+          { key: "folio", label: "Folio" },
+          { key: "customer_name", label: "Cliente" },
+          { key: "method_label", label: "Método" },
+          { key: "reference_cell", label: "Referencia" },
+          { key: "amount", label: "Monto (MXN)" },
+          { key: "refunded", label: "Reembolsado (MXN)" },
+          { key: "status", label: "Estado" },
+          { key: "external_id", label: "ID Mercado Pago" },
+          { key: "staff_name", label: "Registró" },
+        ],
+        rows: rows.map((r) => ({
+          ...r,
+          method_label: PAYMENT_LABELS[r.method] ?? r.method,
+          // Sin referencia se exporta "—": el pago histórico no la tiene y no se inventa nada.
+          reference_cell: r.reference ?? "—",
+          amount: pesos(r.amount_cents),
+          refunded: r.refunded_cents ? pesos(r.refunded_cents) : "",
+        })),
       };
     }
     case "mermas": {

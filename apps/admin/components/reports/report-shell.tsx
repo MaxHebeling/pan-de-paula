@@ -28,10 +28,12 @@ export function ReportShell({
   ctx,
   title,
   children,
+  exportParams,
 }: {
   ctx: { range: Range; canExport: boolean; today: string; kind: ReportKind };
   title: string;
   children: React.ReactNode;
+  exportParams?: string;
 }) {
   return (
     <>
@@ -42,6 +44,7 @@ export function ReportShell({
         to={ctx.range.to}
         canExport={ctx.canExport}
         reportKey={ctx.kind}
+        exportParams={exportParams}
       />
       <ReportHeading
         title={title}
