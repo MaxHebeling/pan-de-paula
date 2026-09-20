@@ -10,10 +10,26 @@
 
 ## Acceso y roles
 
+### Dar de alta a alguien del equipo
+
+Desde **Usuarios → Nuevo**: con el correo configurado, la persona recibe su enlace para **crear su propia
+contraseña** (un solo uso, una hora) y nadie más la conoce; si no hay correo, el CRM muestra una contraseña
+temporal para entregarla a mano. También existe `bash scripts/alta-staff.sh <entorno> "Nombre <correo>" <rol>`
+para altas desde la terminal: no duplica (si el correo existe actualiza el rol y reactiva), nunca fija una
+contraseña conocida y no imprime el enlace — viaja en el correo. Sin `--apply` solo simula.
+
 - **Login** (`/login`): email + contraseña. 5 intentos fallidos bloquean la cuenta 15 minutos; también hay
   límite por IP. La sesión dura 14 días y se cierra desde el menú de cuenta. Cambio de contraseña en
   `/cuenta/contrasena` (obligatorio la primera vez para el admin sembrado).
-- **Roles** (`/usuarios`, permiso `staff.write`): `super_admin`, `owner` (todo), `manager` (todo menos usuarios),
+- **Encabezado del dashboard**: saluda por tu nombre de pila, muestra tu rol y, a la derecha, la hora en
+  vivo (se mueve sola, sin recargar), la fecha completa y **dónde estás tú**. La ciudad sale de la zona
+  horaria de tu dispositivo: no se te pide permiso de ubicación ni se manda nada a ningún servicio, y si la
+  zona no se reconoce dice "Ubicación no disponible" en vez de inventar un lugar. Ojo: es **tu** ciudad, no
+  la sucursal — si administras desde Tijuana un negocio de Monterrey, dirá Tijuana. El icono cambia con el
+  momento del día (amanecer, sol alto, atardecer, noche).
+- **Roles** (`/usuarios`, permiso `staff.write`): `ceo` (CEO) y `admin` (Administradora), ambos con acceso
+  completo y **separados a propósito** para poder diferenciarlos el día que haga falta sin tocar código;
+  `super_admin`, `owner` (todo), `manager` (todo menos usuarios),
   `cashier` (POS, caja, pedidos, clientes), `production` (producción, inventario, recetas), `sales`
   (pedidos, clientes, POS, reportes), `marketing` (Instagram, fidelización, cupones, reportes).
   Nadie edita a un rol superior al suyo. Desactiva usuarios en vez de borrarlos (auditoría).

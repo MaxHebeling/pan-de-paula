@@ -3,7 +3,8 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createPasswordReset, hashPassword, revokeAllSessions } from "@pdp/auth";
-import { db, withStaff } from "@/lib/db";
+import { isEmailConfigured, sendStaffInviteEmail } from "@pdp/integrations";
+import { db, sql, withStaff } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { bool, failure, str, zId, zodMessage } from "@/lib/forms";
 import type { ActionState } from "@/lib/action-state";
@@ -33,13 +34,17 @@ async function rolesAndRank(session: StaffSession): Promise<{ roles: RoleRow[]; 
 }
 
 /** Un usuario solo administra a otros de rango menor o igual al suyo, y solo asigna roles hasta su propio rango. */
-async function targetRank(
-  id: string,
-): Promise<{ rank: number; email: string; is_active: boolean } | null> {
+async function targetRank(id: string): Promise<{
+  rank: number;
+  email: string;
+  is_active: boolean;
+  full_name: string;
+  role_name: string;
+} | null> {
   const r = await db()
     .selectFrom("staff_users as u")
     .innerJoin("roles as r", "r.key", "u.role_key")
-    .select(["r.rank", "u.email", "u.is_active"])
+    .select(["r.rank", "u.email", "u.is_active", "u.full_name", "r.name as role_name"])
     .where("u.id", "=", id)
     .where("u.deleted_at", "is", null)
     .executeTakeFirst();
@@ -88,11 +93,57 @@ export async function createUser(_prev: ActionState, form: FormData): Promise<Ac
   } catch (e) {
     return failure("usuarios.create", e);
   }
+  /*
+   * Lo mejor es que la persona cree su propia contraseña: se le manda su enlace de un solo uso (el
+   * mismo mecanismo de "restablecer", no uno nuevo) y la contraseña temporal no la ve nadie. Si no
+   * hay proveedor de correo, o el envío falla, se muestra la temporal como hasta ahora: preferimos
+   * eso a dejar a alguien sin poder entrar.
+   */
+  const invitada = await invitar(parsed.data.email, parsed.data.full_name, role.name, true);
   revalidate();
+  if (invitada)
+    return {
+      ok: `Usuario ${parsed.data.email} creado. Le enviamos por correo su enlace para crear su contraseña (vence en 1 hora).`,
+    };
   return {
     ok: `Usuario ${parsed.data.email} creado. Copia la contraseña temporal ahora: no se volverá a mostrar.`,
     data: { email: parsed.data.email, password },
   };
+}
+
+/**
+ * Manda a esa persona su enlace de un solo uso para establecer contraseña. Devuelve `false` si no se
+ * pudo enviar (sin proveedor de correo o error del envío) para que quien llama ofrezca la alternativa.
+ * El enlace NUNCA se escribe en logs: solo viaja en el correo.
+ */
+async function invitar(
+  email: string,
+  fullName: string,
+  roleName: string,
+  isNew: boolean,
+): Promise<boolean> {
+  if (!isEmailConfigured()) return false;
+  try {
+    const r = await createPasswordReset(db(), email);
+    if (!r) return false;
+    const base = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3001").replace(/\/+$/, "");
+    const biz = await sql<{
+      name: string;
+    }>`select name from business_settings where id = 1`.execute(db());
+    const res = await sendStaffInviteEmail(email, {
+      businessName: biz.rows[0]?.name ?? "El Pan de Paula",
+      firstName: fullName.split(/\s+/)[0] ?? fullName,
+      roleName,
+      link: `${base}/restablecer?token=${encodeURIComponent(r.token)}`,
+      minutes: "60",
+      isNew,
+    });
+    if (!res.sent) console.error("[usuarios] la invitación no se pudo enviar", res.error);
+    return Boolean(res.sent);
+  } catch (e) {
+    console.error("[usuarios] la invitación falló", e);
+    return false;
+  }
 }
 
 const updateSchema = z.object({
@@ -171,8 +222,12 @@ export async function generateResetLink(id: string, _prev: ActionState): Promise
         })
         .execute(),
     );
+    // Si hay correo configurado, además se lo mandamos: es más seguro que pasarlo por WhatsApp.
+    const enviado = await invitar(target.email, target.full_name, target.role_name, false);
     return {
-      ok: "Enlace generado. Compártelo por un canal seguro; vence en 1 hora y sirve una sola vez.",
+      ok: enviado
+        ? `Enlace enviado a ${target.email}. Vence en 1 hora y sirve una sola vez; cópialo abajo si además quieres dárselo a mano.`
+        : "Enlace generado. Compártelo por un canal seguro; vence en 1 hora y sirve una sola vez.",
       data: { url },
     };
   } catch (e) {

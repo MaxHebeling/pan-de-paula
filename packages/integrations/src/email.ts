@@ -579,3 +579,59 @@ export async function sendBirthdayGreetingEmail(
 }
 
 export { NotConfiguredError };
+
+// ── Invitación al CRM (personal del negocio) ────────────────────────────────
+// No es el portal del cliente: esto va a quien trabaja en la panadería, y por eso habla de "acceso
+// al sistema" y no del club. Se usa cuando se da de alta a alguien o cuando se le reenvía su enlace
+// para establecer contraseña: en ninguno de los dos casos viaja una contraseña, solo un enlace de un
+// solo uso que caduca.
+
+export type StaffInviteData = {
+  businessName: string;
+  firstName: string;
+  /** Nombre del rol tal como se ve en el CRM ("CEO", "Administradora"…). */
+  roleName: string;
+  link: string;
+  minutes: string;
+  /** true cuando es su primer acceso (alta), false cuando es un restablecimiento. */
+  isNew: boolean;
+  logoUrl?: string | null;
+  siteUrl?: string | null;
+};
+
+export function renderStaffInviteHtml(data: StaffInviteData): string {
+  const titulo = data.isNew ? "Tu acceso al sistema" : "Restablece tu contraseña";
+  const inner = `
+<h1 style="font-family:Georgia,serif;font-weight:normal;font-size:22px;margin:0 0 4px;">${escapeHtml(titulo)}</h1>
+<p style="margin:16px 0 8px;">Hola ${escapeHtml(data.firstName)}, ${
+    data.isNew
+      ? `tienes acceso al sistema de ${escapeHtml(data.businessName)} como <strong>${escapeHtml(data.roleName)}</strong>.`
+      : `aquí está tu enlace para volver a entrar al sistema de ${escapeHtml(data.businessName)}.`
+  }</p>
+<p style="margin:0 0 8px;">Usa este enlace para crear tu contraseña. Nadie más la conoce, ni nosotros.</p>
+${button(data.link, data.isNew ? "Crear mi contraseña" : "Cambiar mi contraseña")}
+<div style="font-size:12px;color:${C.ink2};text-align:center;">Si el botón no funciona, copia este enlace:<br><a href="${safeUrl(data.link) ?? "#"}" style="color:${C.wine};word-break:break-all;">${escapeHtml(data.link)}</a></div>
+<p style="margin:16px 0 0;font-size:12px;color:${C.ink2};">El enlace caduca en ${escapeHtml(data.minutes)} minutos y sirve una sola vez. Es personal: no lo compartas. Si no lo esperabas, avisa a quien administra el sistema.</p>`;
+  return layout(
+    { businessName: data.businessName, logoUrl: data.logoUrl, siteUrl: data.siteUrl },
+    `${titulo} · ${data.businessName}`,
+    inner,
+    data.isNew ? "Crea tu contraseña para entrar" : "Tu enlace para cambiar la contraseña",
+  );
+}
+
+/** Envía la invitación/restablecimiento al personal. Sin proveedor configurado devuelve `{sent:false}`. */
+export async function sendStaffInviteEmail(
+  to: string,
+  data: StaffInviteData,
+): Promise<EmailResult> {
+  if (!isEmailConfigured()) return { sent: false, skipped: "not_configured" };
+  if (!safeUrl(data.link)) return { sent: false, error: "Enlace inválido" };
+  const titulo = data.isNew ? "Tu acceso al sistema" : "Restablece tu contraseña";
+  return sendEmail({
+    to,
+    subject: `${titulo} · ${data.businessName}`,
+    html: renderStaffInviteHtml(data),
+    text: `Hola ${data.firstName}, crea tu contraseña del sistema de ${data.businessName}: ${data.link}\nEl enlace caduca en ${data.minutes} minutos y sirve una sola vez.`,
+  });
+}
