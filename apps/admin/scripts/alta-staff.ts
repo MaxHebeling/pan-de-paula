@@ -41,11 +41,12 @@ async function main() {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(persona.email))
     throw new Error(`Correo inválido: ${persona.email}`);
 
-  const { db, pool } = createDb({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_SSL === "require",
-    max: 2,
-  });
+  /*
+   * Sin `ssl`: `createDb` lo resuelve con el entorno (DATABASE_SSL + DATABASE_CA_CERT). Pasarle
+   * `ssl: true` a mano descartaba la CA de Supabase y la conexión moría con "self-signed certificate
+   * in certificate chain".
+   */
+  const { db, pool } = createDb({ connectionString: process.env.DATABASE_URL, max: 2 });
   try {
     const rol = await sql<{ key: string; name: string }>`
       select key, name from roles where key = ${roleKey}`.execute(db);

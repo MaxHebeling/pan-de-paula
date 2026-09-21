@@ -49,20 +49,28 @@ type Cliente = {
 
 async function main() {
   const { destinos, apply } = parseArgs(process.argv.slice(2));
-  const { db, pool } = createDb({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_SSL === "require",
-    max: 2,
-  });
+  /*
+   * Sin `ssl`: `createDb` lo resuelve con el entorno (DATABASE_SSL + DATABASE_CA_CERT). Pasarle
+   * `ssl: true` a mano descartaba la CA de Supabase y la conexión moría con "self-signed certificate
+   * in certificate chain".
+   */
+  const { db, pool } = createDb({ connectionString: process.env.DATABASE_URL, max: 2 });
   try {
-    // Quién hace la operación, para la auditoría. El primer dueño activo, o SEED_ADMIN_EMAIL.
+    /*
+     * Quién queda como autor en la auditoría: alguien del equipo que PODRÍA hacer esto desde el CRM,
+     * es decir con permiso sobre clientes. Se prefiere SEED_ADMIN_EMAIL si está definido y, si no, el
+     * rol de mayor rango. Antes se exigía el rol `owner` y en producción no existe (es `super_admin`),
+     * así que el script no arrancaba.
+     */
     const staff = await sql<{ id: string; email: string }>`
-      select id, email::text as email from staff_users
-       where is_active and deleted_at is null
-         and (email = ${process.env.SEED_ADMIN_EMAIL ?? ""} or role_key = 'owner')
-       order by (email = ${process.env.SEED_ADMIN_EMAIL ?? ""}) desc, created_at limit 1`.execute(
-      db,
-    );
+      select u.id, u.email::text as email
+        from staff_users u
+        join roles r on r.key = u.role_key
+       where u.is_active and u.deleted_at is null
+         and exists (select 1 from role_permissions rp
+                      where rp.role_key = u.role_key and rp.permission_key = 'customers.write')
+       order by (u.email = ${process.env.SEED_ADMIN_EMAIL ?? ""}) desc, r.rank desc, u.created_at
+       limit 1`.execute(db);
     const staffId = staff.rows[0]?.id ?? null;
     if (!staffId) throw new Error("No hay ningún usuario del equipo para registrar la operación");
 
