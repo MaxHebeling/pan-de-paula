@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { PageHeader, Stat, Card, Table, Badge, Money, LinkButton } from "@/components/ui";
+import { DashboardHero } from "@/components/dashboard/hero";
 import { fmtDate, qty } from "@/lib/format";
 import { methodLabel, NO_REFERENCE } from "@/components/ops/payment-lines";
 
@@ -11,6 +12,11 @@ export default async function DashboardPage() {
   const session = await requireSession("dashboard.read");
   const canSeeOrders = hasPermission(session, "orders.read");
   const d = db();
+  // El nombre del rol tal como se ve en el CRM ("CEO", "Administradora"): la sesión trae la clave.
+  const rol = await sql<{
+    name: string;
+  }>`select name from roles where key = ${session.staff.roleKey}`.execute(d);
+  const rolName = rol.rows[0]?.name ?? session.staff.roleKey;
   const [today, month, open, stock, top, lowStock, cobros] = await Promise.all([
     sql<{ total: number; n: number; ticket: number; cost: number | null }>`
       select coalesce(sum(total_cents),0)::int as total, count(*)::int as n, coalesce(avg(total_cents),0)::int as ticket, sum(cost_cents)::int as cost
@@ -69,6 +75,8 @@ export default async function DashboardPage() {
   const profit = m.cost === null ? null : m.total - m.refunded - m.cost;
   return (
     <>
+      {/* Nombre y rol salen de la sesión; la hora, la fecha y el lugar, del dispositivo de quien mira. */}
+      <DashboardHero nombre={session.staff.fullName} rol={rolName} />
       <PageHeader
         title="Dashboard"
         subtitle="Lo que está pasando hoy en El Pan de Paula"

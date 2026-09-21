@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test --pass-with-no-tests",
-    "invitar-portal": "tsx scripts/invitar-portal.ts"
+    "invitar-portal": "tsx scripts/invitar-portal.ts",
+    "alta-staff": "tsx scripts/alta-staff.ts"
   },
   "dependencies": {
     "@pdp/auth": "workspace:*",
