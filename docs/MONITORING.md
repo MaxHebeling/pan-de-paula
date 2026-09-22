@@ -12,9 +12,19 @@ Tres capas: señales HTTP (¿responde?), errores de aplicación (Sentry/logs) y 
 | `GET /api/ready`                        | Conexión a Postgres + `count(*)` de `schema_migrations` (`dbHealth()`), latencia | `200 {ok:true, db:{ok, latencyMs, migrations}}` · `503` si falla |
 
 - `scripts/smoke.sh <web> <admin>` los consulta tras cada deploy (más `/`, `/menu`, `/login`).
-- **Acción externa pendiente**: dar de alta un monitor de uptime (UptimeRobot, Better Stack o el monitor de
-  Vercel) sobre `/api/ready` de **ambas** apps cada 1–5 min, con aviso por WhatsApp/email al operador y al dueño.
-  Umbral: 2 fallos consecutivos = alerta.
+- **Monitor activo**: `.github/workflows/monitor.yml` corre `scripts/monitor-check.sh` cada 5 minutos sobre
+  `/api/ready`, `/` y `/menu` de la tienda y `/api/ready` y `/login` del CRM. No le basta el 200: en las rutas de
+  salud exige que el cuerpo diga `ok:true`, porque una ruta inexistente también devuelve 200.
+  **Umbral: 2 fallos consecutivos** — cada sonda que falla se repite 20 s después, y solo entonces alerta.
+- Avisa **una vez al caer y una vez al reponerse**, no cada 5 minutos: la memoria entre corridas es un issue con
+  la etiqueta `uptime` (abierto al caer, cerrado al volver). Tres canales por si uno falla: correo por Resend a
+  `ALERT_EMAIL_TO`, el issue, y el correo que GitHub manda al dueño cuando el job falla.
+- Secretos en **Settings → Secrets → Actions**: `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL_TO` (separados por
+  comas). Sin ellos el monitor sigue funcionando, pero solo avisa por issue y por GitHub.
+- Probarlo a mano: `bash scripts/monitor-check.sh` (o con `WEB_URL`/`ADMIN_URL` para apuntar a staging), y la
+  cadena completa desde **Actions → Monitor → Run workflow**.
+- **Ojo**: GitHub desactiva los workflows programados de un repo sin actividad durante 60 días, y en horas pico
+  puede retrasar la corrida. Si el repo se queda quieto una temporada, revisar que el monitor siga encendido.
 - `version` debe coincidir con el sha del último tag `deploy-production-*` (ver `DEPLOYMENT.md`).
 
 ## 2. Errores de aplicación
@@ -185,19 +195,19 @@ pnpm --filter @pdp/db run migrate:status   # con DATABASE_URL del ambiente; debe
 
 ## 4. Resumen de alertas accionables
 
-| Señal                                                      | Umbral            | Canal            | Acción                                                       |
-| ---------------------------------------------------------- | ----------------- | ---------------- | ------------------------------------------------------------ |
-| `/api/ready` 503 (cualquiera de las apps)                  | 2 fallos seguidos | WhatsApp+email   | Runbook "No se puede vender en POS" / `ROLLBACK.md`          |
-| Sentry: issue nuevo en producción                          | 1                 | email/Slack      | Triage en < 1 h                                              |
-| `webhook_events` failed                                    | ≥ 1 / hora        | email            | Runbook MP                                                   |
-| `payment_mismatch` / `payment_on_cancelled_order` sin leer | ≥ 1               | email + CRM      | Conciliar en el panel de MP (reembolso/cobro)                |
-| `check-grants.sh` / bloque 9 de `db-integrity.sql` ≠ 0     | ≥ 1               | inmediato        | `pnpm db:migrate` (ejecuta `_post_migrate.sql`) + postmortem |
-| Pedido web pendiente con pago aprobado                     | > 30 min          | email            | Runbook MP                                                   |
-| `job_runs` failed o running > 1 h                          | ≥ 1               | email            | Revisar log del job, marcar failed                           |
-| Deriva de inventario                                       | > 0 filas         | email            | `rebuild_inventory_levels()` + postmortem                    |
-| Stock agotado de producto activo                           | ≥ 1               | notificación CRM | Producción                                                   |
-| Respaldo diario ausente                                    | > 26 h            | email            | `BACKUP_RESTORE.md`                                          |
-| Uso de pooler Supabase > 80 %                              | 5 min             | Supabase         | Revisar `max` del pool / fugas                               |
+| Señal                                                      | Umbral            | Canal                      | Acción                                                       |
+| ---------------------------------------------------------- | ----------------- | -------------------------- | ------------------------------------------------------------ |
+| `/api/ready` 503 (cualquiera de las apps)                  | 2 fallos seguidos | email + issue (automático) | Runbook "No se puede vender en POS" / `ROLLBACK.md`          |
+| Sentry: issue nuevo en producción                          | 1                 | email/Slack                | Triage en < 1 h                                              |
+| `webhook_events` failed                                    | ≥ 1 / hora        | email                      | Runbook MP                                                   |
+| `payment_mismatch` / `payment_on_cancelled_order` sin leer | ≥ 1               | email + CRM                | Conciliar en el panel de MP (reembolso/cobro)                |
+| `check-grants.sh` / bloque 9 de `db-integrity.sql` ≠ 0     | ≥ 1               | inmediato                  | `pnpm db:migrate` (ejecuta `_post_migrate.sql`) + postmortem |
+| Pedido web pendiente con pago aprobado                     | > 30 min          | email                      | Runbook MP                                                   |
+| `job_runs` failed o running > 1 h                          | ≥ 1               | email                      | Revisar log del job, marcar failed                           |
+| Deriva de inventario                                       | > 0 filas         | email                      | `rebuild_inventory_levels()` + postmortem                    |
+| Stock agotado de producto activo                           | ≥ 1               | notificación CRM           | Producción                                                   |
+| Respaldo diario ausente                                    | > 26 h            | email                      | `BACKUP_RESTORE.md`                                          |
+| Uso de pooler Supabase > 80 %                              | 5 min             | Supabase                   | Revisar `max` del pool / fugas                               |
 
-Hasta que exista automatización de alertas (acción externa), esta lista se revisa **a diario** desde el
-dashboard del CRM y una vez por semana con las consultas SQL.
+La primera fila está automatizada (monitor de disponibilidad, §1). El resto de la lista se revisa **a diario**
+desde el dashboard del CRM y una vez por semana con las consultas SQL.
