@@ -16,10 +16,24 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = await apiSession("pos.sell");
   if (!auth.ok) return auth.response;
-  const q = new URL(req.url).searchParams.get("q") ?? "";
+  const url = new URL(req.url);
+  const q = url.searchParams.get("q") ?? "";
   if (q.trim().length < 2) return NextResponse.json({ customers: [] });
   try {
     const customers = await searchCustomers(q);
+    /*
+     * Rastro de CÓMO se identificó al cliente en caja: sirve para entender después por qué una venta
+     * quedó sin cliente. Se guarda el método y si hubo resultado, nunca lo que se tecleó (puede ser un
+     * teléfono o un correo, y no hace falta conservarlo para esto).
+     */
+    await withStaff(db(), auth.session.staff.id, (trx) =>
+      callFn(trx, "emit_event", [
+        customers.length ? "CUSTOMER_LOOKUP_OK" : "CUSTOMER_LOOKUP_FAILED",
+        "customer",
+        customers[0]?.id ?? "",
+        JSON.stringify({ lookup_method: lookupMethod(q, url.searchParams.get("via")) }),
+      ]),
+    ).catch(() => {}); // el rastro nunca debe estorbar una venta
     return NextResponse.json({ customers });
   } catch (e) {
     return dbErrorResponse(e, "buscar cliente");
@@ -27,6 +41,17 @@ export async function GET(req: Request) {
 }
 
 const quickSchema = customerRegistrationCompleteSchema;
+
+/** Cómo se identificó al cliente, deducido de lo que se escribió (para la auditoría). */
+function lookupMethod(q: string, via: string | null): string {
+  if (via === "scanner") return "scanner";
+  const t = q.trim();
+  if (/^PDP-\d+$/i.test(t)) return "manual_code";
+  if (t.includes("@")) return "email";
+  if (/^[+0-9 ()-]{10,}$/.test(t)) return "phone";
+  if (t.length >= 20) return "qr";
+  return "name";
+}
 
 /**
  * POST {full_name, phone, email, birthday} → alta desde el POS (deduplica por teléfono/email).

@@ -68,6 +68,19 @@ export async function POST(req: Request) {
     const res = await withStaff(db(), auth.session.staff.id, (trx) =>
       callFn<PosCheckoutRow>(trx, "pos_checkout", [JSON.stringify(payload)]),
     );
+    /*
+     * Constancia de si la venta quedó con cliente. Es lo que permite responder después "¿por qué esta
+     * venta no tiene cliente?" sin adivinar: o nadie lo identificó, o la búsqueda falló (y eso también
+     * quedó registrado al buscar).
+     */
+    await withStaff(db(), auth.session.staff.id, (trx) =>
+      callFn(trx, "emit_event", [
+        input.customer_id ? "SALE_COMPLETED_WITH_CUSTOMER" : "SALE_COMPLETED_WITHOUT_CUSTOMER",
+        "sale",
+        res.sale_id,
+        JSON.stringify({ customer_id: input.customer_id ?? null, folio: res.folio }),
+      ]),
+    ).catch(() => {});
     let pointsBalance: number | null = null;
     if (input.customer_id) {
       const c = await sql<{
