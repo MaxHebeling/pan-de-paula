@@ -10,6 +10,7 @@ import {
   type CartLine,
 } from "@pdp/domain";
 import { apiFetch, NetworkError, postJson } from "./api";
+import { useScanner } from "./use-scanner";
 import { CartPanel } from "./cart-panel";
 import { CheckoutModal } from "./checkout-modal";
 import type { MpHandlers } from "./mp-payment";
@@ -212,6 +213,40 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
     setRewardsIssued([]);
     setRewardsAvailable([]);
   };
+
+  /*
+   * Lector de códigos USB o Bluetooth: funciona en cualquier punto de la pantalla, sin tener que
+   * poner el cursor en el campo del cliente. El aviso dice qué pasó —lo encontró o no— porque un
+   * lector que "no hizo nada" es peor que uno que falla en voz alta.
+   */
+  const [scanAviso, setScanAviso] = useState<string | null>(null);
+  const onScannerInput = useCallback(
+    async (codigo: string) => {
+      try {
+        const r = await apiFetch<{ customers: PosCustomer[] }>(
+          `/api/pos/customers?q=${encodeURIComponent(codigo)}&via=scanner`,
+        );
+        const found = r.ok ? r.data.customers[0] : undefined;
+        if (!found) {
+          setScanAviso("No se encontró ningún cliente con ese código.");
+          return;
+        }
+        selectCustomer(found);
+        setScanAviso(`Cliente: ${found.fullName} · ${found.publicCode}`);
+      } catch {
+        setScanAviso("No se pudo consultar el cliente. Inténtalo de nuevo.");
+      }
+    },
+    // selectCustomer se redefine en cada render pero no cambia de comportamiento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config.flags.loyalty],
+  );
+  useScanner((codigo) => void onScannerInput(codigo), !sale);
+  useEffect(() => {
+    if (!scanAviso) return;
+    const t = setTimeout(() => setScanAviso(null), 4000);
+    return () => clearTimeout(t);
+  }, [scanAviso]);
   async function redeemReward(r: RewardAvailable) {
     if (!customer) return;
     if (
@@ -524,6 +559,17 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
       {toast && (
         <p role="status" className={`st-${toast.tone} rounded-[var(--r-card)] px-4 py-2 text-sm`}>
           {toast.text}
+        </p>
+      )}
+
+      {/* Resultado de un código leído con lector físico: siempre se dice si entró o no. */}
+      {scanAviso && (
+        <p
+          role="status"
+          data-testid="scan-aviso"
+          className={`st-${scanAviso.startsWith("Cliente:") ? "green" : "amber"} rounded-[var(--r-card)] px-4 py-2 text-sm`}
+        >
+          {scanAviso}
         </p>
       )}
 

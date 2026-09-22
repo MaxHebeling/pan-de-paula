@@ -61,9 +61,14 @@ export default async function DashboardPage() {
           amount_cents: number;
           reference: string | null;
           created_at: Date;
+          customer_id: string | null;
+          customer_name: string | null;
         }>`
-      select p.id, p.order_id, o.folio, p.method::text as method, p.amount_cents, p.reference, p.created_at
-      from payments p join orders o on o.id = p.order_id cross join business_settings bs
+      select p.id, p.order_id, o.folio, p.method::text as method, p.amount_cents, p.reference, p.created_at,
+             o.customer_id, coalesce(c.full_name, o.customer_name) as customer_name
+      from payments p join orders o on o.id = p.order_id
+           left join customers c on c.id = o.customer_id
+           cross join business_settings bs
       where p.status in ('paid','partially_refunded','refunded')
         and (p.created_at at time zone bs.timezone)::date = (now() at time zone bs.timezone)::date
       order by p.created_at desc limit 12`.execute(d),
@@ -129,8 +134,9 @@ export default async function DashboardPage() {
                 <thead>
                   <tr>
                     <th>Pedido</th>
-                    {/* En móvil la hora cede su lugar: método + referencia + monto es lo que se concilia. */}
+                    {/* En móvil la hora cede su lugar: cliente + método + referencia + monto es lo que se concilia. */}
                     <th className="hidden sm:table-cell">Hora</th>
+                    <th>Cliente</th>
                     <th>Método</th>
                     <th>Referencia</th>
                     <th className="text-right">Monto</th>
@@ -148,6 +154,19 @@ export default async function DashboardPage() {
                         </Link>
                       </td>
                       <td className="hidden sm:table-cell">{fmtDate(p.created_at, "time")}</td>
+                      {/* El nombre lleva a su ficha cuando la venta quedó ligada a un cliente real. */}
+                      <td className={p.customer_id ? "" : "text-muted"}>
+                        {p.customer_id ? (
+                          <Link
+                            href={`/clientes/${p.customer_id}`}
+                            className="text-teal-d hover:underline"
+                          >
+                            {p.customer_name ?? "Ver cliente"}
+                          </Link>
+                        ) : (
+                          (p.customer_name ?? "Sin identificar")
+                        )}
+                      </td>
                       <td>{methodLabel(p.method)}</td>
                       <td className={p.reference ? "font-mono text-xs" : "text-muted"}>
                         {p.reference ?? NO_REFERENCE}

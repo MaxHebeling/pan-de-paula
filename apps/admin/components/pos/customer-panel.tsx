@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Cake, QrCode, UserPlus, X } from "lucide-react";
 import { DEFAULT_PHONE_COUNTRY } from "@pdp/domain";
 import { PhoneField } from "@/components/phone-field";
@@ -78,6 +78,19 @@ export function CustomerPanel({
     },
     [search],
   );
+
+  /*
+   * Buscar mientras se escribe. Antes solo se buscaba al pulsar Enter, y ese paso invisible era la
+   * trampa: quien tecleaba el código y seguía agregando productos se llevaba la venta SIN cliente,
+   * aunque el código quedara escrito en el campo. Con esto, escribir el código basta.
+   * 350 ms de espera para no consultar en cada tecla, y Enter sigue funcionando para quien lo use.
+   */
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 3) return;
+    const t = setTimeout(() => void search(term), 350);
+    return () => clearTimeout(t);
+  }, [query, search]);
 
   async function register() {
     setLoading(true);

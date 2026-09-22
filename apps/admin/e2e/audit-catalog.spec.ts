@@ -112,7 +112,14 @@ test.describe("Auditoría catálogo/clientes", () => {
     await page.getByRole("button", { name: "Aplicar ajuste" }).click();
     await expect(alertWith(page, "Puntos insuficientes")).toBeVisible({ timeout: 15_000 });
     await open(page, customerUrl);
-    await expect(page.getByText("40", { exact: true }).first()).toBeVisible();
+    // Se mira el recuadro de Puntos, no cualquier "40" de la pantalla: el contador de pedidos sin ver
+    // también puede mostrar ese número y hacía fallar la prueba por una coincidencia tonta.
+    await expect(
+      page
+        .locator("div")
+        .filter({ hasText: /^Puntos40/ })
+        .first(),
+    ).toBeVisible();
   });
 
   test("cupón vigente 'hoy' (zona del negocio) es válido en el probador", async ({ page }) => {
