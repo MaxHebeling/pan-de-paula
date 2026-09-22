@@ -49,7 +49,7 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 | --------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------: | ------------------------------------------------------------------------------------------ |
 | `/api/health` y `/api/ready` en ambas apps                                                                                                                |                    ✅                    | `apps/*/app/api/{health,ready}/route.ts`                                                   |
 | Sentry inicializado con release/environment y redacción de PII                                                                                            |            ✅ código / ⏳ DSN            | `apps/*/instrumentation.ts`, `apps/*/lib/sentry-options.ts` (`scrubEvent`)                 |
-| Monitor de uptime externo con alerta                                                                                                                      |                    ⏳                    | `MONITORING.md`                                                                            |
+| Monitor de uptime cada 5 min con alerta por correo e issue (umbral 2 fallos)                                                                              |                    ✅                    | `.github/workflows/monitor.yml`, `scripts/monitor-check.sh`, `MONITORING.md` §1            |
 | `job_runs` con lock + crons (`webhooks-retry` */15, `sessions-purge`, `stock-alerts`, `customer-events`); locks huérfanos se liberan solos (trigger 0015) | ✅ código / ⏳ plan Vercel Pro para */15 | `packages/integrations/src/jobs.ts`, `apps/*/vercel.json`, `apps/*/app/api/cron/*`, `0015` |
 | Webhooks idempotentes de Mercado Pago e Instagram + reintentos (incl. eventos huérfanos en `processing`) + conciliación de montos + consultas de alerta   |                    ✅                    | `apps/web/app/api/webhooks/*`, `apps/web/lib/webhooks/*`, `0060`, `0015`, `MONITORING.md`  |
 | Smoke E2E de solo lectura contra cualquier ambiente (`pnpm smoke:e2e`)                                                                                    |                    ✅                    | `apps/*/e2e/smoke.spec.ts`, `scripts/smoke-e2e.sh`, `DEPLOYMENT.md`                        |
@@ -101,7 +101,8 @@ Leyenda: ✅ existe en el repo y está probado · ⚠️ existe parcialmente / e
 - [ ] Supabase producción: `pdp_app` con contraseña, pooler transaction, `DATABASE_SSL=require`, PITR activo.
 - [ ] Vercel: 2 proyectos, root/build correctos, Node 22, variables de producción, dominios, auto-deploy por push desactivado.
 - [ ] Rama `main` protegida (PR + CI).
-- [ ] DSN de Sentry cargado en ambas apps; monitor de uptime en `/api/ready` de ambas apps; plan Vercel que permita el cron `*/15` (o scheduler externo).
+- [ ] DSN de Sentry cargado en ambas apps; plan Vercel que permita el cron `*/15` (o scheduler externo).
+- [x] Monitor de uptime sobre `/api/ready` de ambas apps, con alerta (workflow `Monitor`, cada 5 min).
 - [ ] Mercado Pago productivo: webhook + secret; prueba real de $1 y reembolso.
 - [ ] Meta/Instagram verificado (si se lanza el bot); Resend con dominio verificado.
 - [ ] Migración desde Sheets aplicada y verificada (`MIGRATION_SHEETS.md`); hoja original archivada.
