@@ -180,3 +180,12 @@ export function portalTimeline(
     })),
   };
 }
+
+/**
+ * Mínimo que acepta Mercado Pago en un cobro con terminal Point (MXN, en centavos).
+ *
+ * Es un límite de ELLOS, comprobado contra la cuenta real: por debajo de $5 la API rechaza la orden.
+ * Vive aquí porque lo necesitan los dos lados: la caja para no ofrecer el botón, y la integración
+ * para no llamar en balde.
+ */
+export const POINT_MIN_CENTS = 500;

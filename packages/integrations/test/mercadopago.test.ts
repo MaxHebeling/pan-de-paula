@@ -485,10 +485,38 @@ describe("REST con fetch mockeado", () => {
       external_reference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
       transactions: { payments: [{ amount: "120.00" }] },
       config: {
-        point: { terminal_id: "NEWLAND_N950__N950NCC303060616", print_on_terminal: "no_ticket" },
+        // Por defecto imprime AMBOS comprobantes: el cliente espera el suyo y el negocio necesita la
+        // copia firmada. Con `no_ticket` el mostrador se quedaba sin ningún papel.
+        point: { terminal_id: "NEWLAND_N950__N950NCC303060616", print_on_terminal: "both" },
       },
     });
     expect((init?.headers as Record<string, string>)["X-Idempotency-Key"]).toBe("point:1");
+  });
+
+  it("un cobro por debajo del mínimo de Mercado Pago se rechaza aquí, con un mensaje claro", async () => {
+    await expect(
+      createPointOrder({
+        deviceId: "NEWLAND_N950__N950NCC303060616",
+        amountCents: 100,
+        externalReference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
+        description: "Pan chico",
+      }),
+    ).rejects.toThrow(/al menos \$5\.00/);
+    // Y no se llamó a la API: el error se da antes, no a medio cobro con el cliente enfrente.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("respeta el tipo de comprobante cuando se pide explícitamente", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: "ORD02", status: "created" }, 201));
+    await createPointOrder({
+      deviceId: "NEWLAND_N950__N950NCC303060616",
+      amountCents: 12000,
+      externalReference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
+      description: "Pedido",
+      printOnTerminal: "buyer_ticket",
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
+    expect(body.config.point.print_on_terminal).toBe("buyer_ticket");
   });
 
   it("crea orden QR dinámica y devuelve qr_data", async () => {

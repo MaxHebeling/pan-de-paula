@@ -18,6 +18,7 @@
  * Dinero: la API usa decimales en pesos; aquí todo entra y sale en centavos enteros.
  */
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { POINT_MIN_CENTS } from "@pdp/domain";
 import { NotConfiguredError } from "./errors.ts";
 import { fetchWithResilience, HttpError } from "./http.ts";
 
@@ -483,7 +484,11 @@ export async function createPointOrder(input: {
   description: string;
   /** Clave de idempotencia (por defecto una por llamada). Reusar para reintentar la misma orden. */
   idempotencyKey?: string;
-  /** "no_ticket" | "seller_ticket" | "buyer_ticket" | "both"; default no_ticket. */
+  /**
+   * Qué imprime la terminal. Por defecto **ambos**: el cliente espera su comprobante y el negocio
+   * necesita la copia firmada para responder un contracargo. El default anterior (`no_ticket`) dejaba
+   * al mostrador sin ningún papel, que es justo lo que no se quiere en una panadería.
+   */
   printOnTerminal?: "no_ticket" | "seller_ticket" | "buyer_ticket" | "both";
   /** Duración ISO 8601 (default PT15M). */
   expirationTime?: string;
@@ -492,6 +497,12 @@ export async function createPointOrder(input: {
   if (!input.deviceId) throw new Error("Falta deviceId de la terminal Point");
   if (!Number.isInteger(input.amountCents) || input.amountCents <= 0)
     throw new Error("Monto inválido");
+  // Mercado Pago rechaza las órdenes de Point por debajo de $5. Se dice aquí, en español y antes de
+  // llamar, en vez de dejar que la caja reciba un error de la API a medio cobro.
+  if (input.amountCents < POINT_MIN_CENTS)
+    throw new Error(
+      `El cobro con terminal debe ser de al menos $${(POINT_MIN_CENTS / 100).toFixed(2)}. Cóbralo por otro medio.`,
+    );
   const body = {
     type: "point",
     external_reference: orderExternalReference(input.externalReference),
@@ -501,7 +512,7 @@ export async function createPointOrder(input: {
     config: {
       point: {
         terminal_id: input.deviceId,
-        print_on_terminal: input.printOnTerminal ?? "no_ticket",
+        print_on_terminal: input.printOnTerminal ?? "both",
       },
     },
   };
