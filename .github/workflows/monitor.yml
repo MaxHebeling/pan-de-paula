@@ -13,6 +13,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      simular_caida:
+        description: "Ensayo: apunta a un servidor que no existe para probar la cadena de aviso de punta a punta (abre el issue y manda el correo; la siguiente corrida sana lo cierra)"
+        type: boolean
+        default: false
 
 concurrency:
   group: monitor
@@ -35,69 +40,92 @@ jobs:
         continue-on-error: true
         run: bash scripts/monitor-check.sh
         env:
-          WEB_URL: https://www.pandepaula.com
-          ADMIN_URL: https://crm.pandepaula.com
+          # En un ensayo se apunta a un host que no resuelve: es la única forma de comprobar que la
+          # alarma suena sin esperar a una caída real. Una alarma que nunca se ha probado no sirve.
+          WEB_URL: ${{ inputs.simular_caida && 'https://ensayo-del-monitor.pandepaula.com' || 'https://www.pandepaula.com' }}
+          ADMIN_URL: ${{ inputs.simular_caida && 'https://ensayo-del-monitor.pandepaula.com' || 'https://crm.pandepaula.com' }}
+          # El ensayo no tiene por qué tardar 20 s por sonda: ya se sabe que van a fallar las dos veces.
+          REINTENTO_SEGUNDOS: ${{ inputs.simular_caida && '2' || '20' }}
 
       - name: Avisar
         env:
           GH_TOKEN: ${{ github.token }}
           ESTADO: ${{ steps.sonda.outputs.estado }}
           DETALLE: ${{ steps.sonda.outputs.detalle }}
+          ENSAYO: ${{ inputs.simular_caida }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
           CORRIDA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -uo pipefail
+          # El runner corre esto con `bash -e`, y aquí eso es peligroso: con `-e`, un `x=$(comando)`
+          # que falla mata el paso en el acto. Si la API de GitHub tropieza al abrir el issue, el
+          # paso moriría ANTES de mandar el correo — la alarma se callaría justo cuando hace falta.
+          # Por eso los tres avisos se disparan por separado y ninguno depende de que el otro salga.
+          set +e
 
           # Sin salida de la sonda no se sabe nada: se trata como caída, que es el lado seguro.
           [ -z "${ESTADO:-}" ] && ESTADO=caido && DETALLE="La sonda no pudo ejecutarse. Ver la corrida."
+          marca=""
+          [ "${ENSAYO:-false}" = "true" ] && marca="[ENSAYO] "
 
-          # Un solo correo por episodio, no uno cada 5 minutos.
           correo() {
-            local asunto="$1" cuerpo="$2"
+            local asunto="$1" cuerpo="$2" destinos codigo
             if [ -z "${RESEND_API_KEY:-}" ] || [ -z "${EMAIL_FROM:-}" ] || [ -z "${ALERT_EMAIL_TO:-}" ]; then
-              echo "· Correo no configurado (faltan secretos): el aviso queda en el issue y en GitHub."
+              echo "· Correo NO enviado: faltan secretos. El aviso queda en el issue y en GitHub."
               return 0
             fi
-            local destinos
             destinos=$(printf '%s' "$ALERT_EMAIL_TO" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep . | jq -R . | jq -sc .)
+            if [ -z "$destinos" ] || [ "$destinos" = "[]" ]; then
+              echo "· Correo NO enviado: ALERT_EMAIL_TO no tiene ninguna dirección."
+              return 0
+            fi
             jq -nc --arg from "$EMAIL_FROM" --argjson to "$destinos" --arg subject "$asunto" --arg text "$cuerpo" \
               '{from:$from, to:$to, subject:$subject, text:$text}' > /tmp/correo.json
-            local codigo
-            codigo=$(curl -sS -o /tmp/correo-resp.json -w '%{http_code}' -X POST https://api.resend.com/emails \
+            codigo=$(curl -sS -o /tmp/correo-resp.json -w '%{http_code}' --max-time 30 \
+              -X POST https://api.resend.com/emails \
               -H "Authorization: Bearer $RESEND_API_KEY" -H "Content-Type: application/json" \
               --data @/tmp/correo.json)
             # El cuerpo de la respuesta no se imprime: los registros de un repo público son visibles.
-            [ "$codigo" = "200" ] && echo "· Correo enviado." || echo "· Resend respondió $codigo."
+            if [ "$codigo" = "200" ]; then echo "· Correo enviado."; else echo "· Correo NO enviado: Resend respondió ${codigo:-sin respuesta}."; fi
           }
 
-          abierto=$(gh issue list --label uptime --state open --limit 1 --json number -q '.[0].number')
+          abierto=$(gh issue list --label uptime --state open --limit 1 --json number -q '.[0].number' 2>/dev/null)
 
           if [ "$ESTADO" = "caido" ]; then
             echo "$DETALLE"
-            if [ -z "$abierto" ]; then
-              gh label create uptime --color B60205 --description "Caída detectada por el monitor" 2>/dev/null || true
-              cuerpo="El monitor no obtuvo respuesta en dos intentos seguidos:
+            if [ -n "$abierto" ]; then
+              echo "· Ya estaba avisado en el issue #$abierto; no se repite el aviso."
+              exit 1
+            fi
+
+            cuerpo="${marca}El monitor no obtuvo respuesta en dos intentos seguidos:
 
           $DETALLE
 
           Qué hacer: docs/INCIDENT_RESPONSE.md · si fue un despliegue, docs/ROLLBACK.md.
           Corrida: $CORRIDA"
-              numero=$(gh issue create --label uptime --title "🔴 Caída: la tienda o el CRM no responden" \
-                --body "$cuerpo" | grep -oE '[0-9]+$')
-              echo "· Issue #$numero abierto."
-              correo "🔴 Pan de Paula: algo no responde" "$cuerpo"
+
+            # Primero el issue, pero su resultado no condiciona nada: el correo sale igual.
+            gh label create uptime --color B60205 --description "Caída detectada por el monitor" >/dev/null 2>&1
+            if salida=$(gh issue create --label uptime --title "${marca}🔴 Caída: la tienda o el CRM no responden" --body "$cuerpo" 2>&1); then
+              echo "· Issue abierto: $salida"
             else
-              echo "· Ya estaba avisado en el issue #$abierto; no se repite el aviso."
+              echo "· Issue NO abierto ($salida). El aviso va igual por correo."
             fi
+            correo "${marca}🔴 Pan de Paula: algo no responde" "$cuerpo"
             exit 1
           fi
 
           if [ -n "$abierto" ]; then
-            gh issue close "$abierto" --comment "✅ Todo volvió a responder. Corrida: $CORRIDA"
-            correo "✅ Pan de Paula: todo volvió a responder" "La tienda y el CRM responden con normalidad.
+            cuerpo="La tienda y el CRM responden con normalidad.
 
           Corrida: $CORRIDA"
-            echo "· Restablecido; issue #$abierto cerrado."
+            if gh issue close "$abierto" --comment "✅ Todo volvió a responder. Corrida: $CORRIDA" >/dev/null 2>&1; then
+              echo "· Restablecido; issue #$abierto cerrado."
+            else
+              echo "· Restablecido, pero el issue #$abierto no se pudo cerrar. Ciérralo a mano."
+            fi
+            correo "✅ Pan de Paula: todo volvió a responder" "$cuerpo"
           fi
