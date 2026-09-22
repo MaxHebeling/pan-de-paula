@@ -21,8 +21,15 @@ Tres capas: señales HTTP (¿responde?), errores de aplicación (Sentry/logs) y 
   `ALERT_EMAIL_TO`, el issue, y el correo que GitHub manda al dueño cuando el job falla.
 - Secretos en **Settings → Secrets → Actions**: `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL_TO` (separados por
   comas). Sin ellos el monitor sigue funcionando, pero solo avisa por issue y por GitHub.
-- Probarlo a mano: `bash scripts/monitor-check.sh` (o con `WEB_URL`/`ADMIN_URL` para apuntar a staging), y la
-  cadena completa desde **Actions → Monitor → Run workflow**.
+- Los tres avisos se disparan **por separado**: si GitHub no deja abrir el issue, el correo sale igual, y al
+  revés. El paso corre con `bash -e`, donde un `x=$(comando)` que falla mata el paso en el acto; por eso lo
+  primero que hace es `set +e` y cada canal comprueba su propio resultado. Una alarma que se calla porque falló
+  el canal de al lado no es una alarma.
+- Probarlo a mano: `bash scripts/monitor-check.sh` (o con `WEB_URL`/`ADMIN_URL` para apuntar a staging).
+- **Ensayo de la alarma completa**: **Actions → Monitor → Run workflow** con la casilla `simular_caida`. Apunta a
+  un servidor que no existe, así que abre el issue y manda el correo de verdad (con `[ENSAYO]` en el asunto y en
+  el título). La siguiente corrida normal lo cierra sola y manda el de restablecido. Conviene ensayarlo cuando se
+  cambie algo del aviso: es la única forma de saber que suena sin esperar a una caída real.
 - **Ojo**: GitHub desactiva los workflows programados de un repo sin actividad durante 60 días, y en horas pico
   puede retrasar la corrida. Si el repo se queda quieto una temporada, revisar que el monitor siga encendido.
 - `version` debe coincidir con el sha del último tag `deploy-production-*` (ver `DEPLOYMENT.md`).
