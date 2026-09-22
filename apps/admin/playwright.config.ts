@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+// Carga .env.local/.env igual que el resto del repo. Sin esto, las pruebas que hablan con la base
+// (leen `process.env.DATABASE_URL` directo, no por `databaseUrl()`) solo corrían en CI, donde la
+// variable viene del workflow: en local fallaban con "Falta DATABASE_URL" antes de abrir el navegador.
+import "../../packages/db/scripts/env.ts";
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3001";
 

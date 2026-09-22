@@ -33,7 +33,11 @@ export async function GET(req: Request) {
         customers[0]?.id ?? "",
         JSON.stringify({ lookup_method: lookupMethod(q, url.searchParams.get("via")) }),
       ]),
-    ).catch(() => {}); // el rastro nunca debe estorbar una venta
+    ).catch((e: unknown) => {
+      // El rastro nunca debe estorbar una venta, pero perderlo sin dejar constancia deja ciega
+      // justo a la auditoría que explica las ventas sin cliente.
+      console.error("[pos/customers] no se pudo registrar la búsqueda de cliente", e);
+    });
     return NextResponse.json({ customers });
   } catch (e) {
     return dbErrorResponse(e, "buscar cliente");

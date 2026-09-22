@@ -43,6 +43,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   agentRules: false,
   poweredByHeader: false,
+  /*
+   * Ambiente y versión para el Sentry DEL NAVEGADOR. En el cliente solo existen las variables
+   * `NEXT_PUBLIC_*`: `APP_ENV` y `VERCEL_GIT_COMMIT_SHA` valen `undefined` ahí, así que los errores de
+   * quien usa el CRM llegaban etiquetados `development` y sin versión. Una alerta filtrada por
+   * `environment:production` —la que recomienda MONITORING.md— no se disparaba nunca.
+   */
+  env: {
+    NEXT_PUBLIC_APP_ENV: process.env.APP_ENV ?? process.env.VERCEL_ENV ?? "development",
+    NEXT_PUBLIC_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
+  },
   transpilePackages: ["@pdp/db", "@pdp/domain", "@pdp/auth", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
   // Subida de imágenes de catálogo por server action (máximo 5 MB por imagen + campos del formulario).

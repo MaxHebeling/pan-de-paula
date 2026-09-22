@@ -15,6 +15,28 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [ "$ENV" = "production" ] && [ "$BRANCH" != "main" ]; then echo "Producción solo se despliega desde main (estás en $BRANCH)"; exit 1; fi
 SHA=$(git rev-parse --short HEAD)
 
+# Lo que se despliega tiene que ser exactamente lo que está publicado en GitHub. Sin esto, un `main`
+# local atrasado revierte en producción lo que otro mergeó, y uno adelantado publica commits que
+# nadie revisó y que no se pueden recuperar desde el repositorio.
+git fetch -q origin "$BRANCH" 2>/dev/null || { echo "La rama $BRANCH no existe en origin. Súbela antes de desplegar."; exit 1; }
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$BRANCH")" ]; then
+  echo "HEAD ($SHA) no coincide con origin/$BRANCH ($(git rev-parse --short "origin/$BRANCH")). Haz pull o push antes de desplegar."
+  exit 1
+fi
+
+# `pnpm verify` no incluye E2E: esas 128 pruebas solo corren en CI. Desplegar sin esperarlo es
+# desplegar sin ellas, así que aquí se exige que la CI de ESTE commit esté en verde.
+if [ "${SKIP_CI_CHECK:-0}" != "1" ] && command -v gh >/dev/null 2>&1; then
+  CI_STATE=$(gh run list --commit "$(git rev-parse HEAD)" --workflow=ci.yml --limit 1 --json status,conclusion \
+    -q '.[0] | "\(.status)/\(.conclusion // "-")"' 2>/dev/null || echo "")
+  case "$CI_STATE" in
+    completed/success) echo "  CI en verde para $SHA" ;;
+    "") echo "  (no se pudo consultar la CI de $SHA; sigue bajo tu responsabilidad)" ;;
+    completed/*) echo "La CI de $SHA terminó en '${CI_STATE#completed/}'. Arréglala, o SKIP_CI_CHECK=1 si sabes lo que haces."; exit 1 ;;
+    *) echo "La CI de $SHA todavía está corriendo. Espérala, o SKIP_CI_CHECK=1 si sabes lo que haces."; exit 1 ;;
+  esac
+fi
+
 echo "▶ [$ENV] 2/6 Calidad (lint, typecheck, tests, build) — con el entorno LOCAL, nunca con el de $ENV"
 # Importante: los tests corren contra DATABASE_URL_TEST local. El archivo .env.$ENV se carga DESPUÉS, en un subshell.
 unset NODE_ENV

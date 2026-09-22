@@ -85,6 +85,22 @@ async function cobrar(page: Page): Promise<string> {
   return r.rows[0]!.folio;
 }
 
+/**
+ * El rastro de auditoría que explica DESPUÉS por qué una venta quedó con cliente o sin él. Se prueba
+ * porque es lo único que responde esa pregunta cuando ya nadie recuerda qué pasó en la caja: si el
+ * evento deja de emitirse, no se nota en pantalla y la constancia desaparece en silencio.
+ */
+const eventos = (tipo: string, desde: number) =>
+  sql<{ n: number }>`select count(*)::int as n from domain_events
+                      where event_type = ${tipo} and id > ${desde}`
+    .execute(db)
+    .then((r) => r.rows[0]!.n);
+
+const ultimoEvento = () =>
+  sql<{ id: number }>`select coalesce(max(id), 0) as id from domain_events`
+    .execute(db)
+    .then((r) => Number(r.rows[0]!.id));
+
 const ventaDe = (folio: string) =>
   sql<{
     sale_customer: string | null;
@@ -99,6 +115,7 @@ const ventaDe = (folio: string) =>
 test("por código: el cliente queda en la venta, en su ficha y en el tablero", async ({ page }) => {
   test.setTimeout(180_000);
   await entrar(page);
+  const marca = await ultimoEvento();
   await page.goto("/pos");
 
   /*
@@ -122,6 +139,11 @@ test("por código: el cliente queda en la venta, en su ficha y en el tablero", a
     select total_orders, points_balance from customers where id = ${cliente.id}`.execute(db);
   expect(c.rows[0]!.total_orders).toBeGreaterThan(0);
   expect(c.rows[0]!.points_balance).toBeGreaterThan(0);
+
+  // Y queda constancia de ambas cosas: de que se encontró al cliente y de que la venta salió con él.
+  expect(await eventos("CUSTOMER_LOOKUP_OK", marca)).toBeGreaterThan(0);
+  expect(await eventos("SALE_COMPLETED_WITH_CUSTOMER", marca)).toBeGreaterThan(0);
+  expect(await eventos("SALE_COMPLETED_WITHOUT_CUSTOMER", marca)).toBe(0);
 
   // En su ficha aparece la compra…
   await page.goto(`/clientes/${cliente.id}`);
@@ -161,6 +183,7 @@ test("con lector de códigos: el QR del cliente lo identifica desde cualquier pa
 test("un código inexistente no inventa un cliente ni lo deja a medias", async ({ page }) => {
   test.setTimeout(120_000);
   const antes = await sql<{ n: number }>`select count(*)::int as n from customers`.execute(db);
+  const marca = await ultimoEvento();
   await entrar(page);
   await page.goto("/pos");
 
@@ -172,6 +195,8 @@ test("un código inexistente no inventa un cliente ni lo deja a medias", async (
   await expect(page.getByRole("button", { name: "Quitar cliente" })).toHaveCount(0);
   const despues = await sql<{ n: number }>`select count(*)::int as n from customers`.execute(db);
   expect(despues.rows[0]!.n).toBe(antes.rows[0]!.n);
+  // La búsqueda fallida también deja rastro: es la mitad que explica las ventas sin cliente.
+  expect(await eventos("CUSTOMER_LOOKUP_FAILED", marca)).toBeGreaterThan(0);
 });
 
 test("cambiar de cliente antes de cobrar: solo queda el último", async ({ page }) => {
@@ -200,12 +225,16 @@ test("cambiar de cliente antes de cobrar: solo queda el último", async ({ page 
 
 test("venta de mostrador: sin cliente, y sin inventar uno", async ({ page }) => {
   test.setTimeout(120_000);
+  const marca = await ultimoEvento();
   await entrar(page);
   await page.goto("/pos");
   const folio = await cobrar(page);
   const v = await ventaDe(folio);
   expect(v.sale_customer).toBeNull();
   expect(v.order_customer).toBeNull();
+  // Sin cliente también se deja constancia: "nadie lo identificó" es una respuesta, el silencio no.
+  expect(await eventos("SALE_COMPLETED_WITHOUT_CUSTOMER", marca)).toBeGreaterThan(0);
+  expect(await eventos("SALE_COMPLETED_WITH_CUSTOMER", marca)).toBe(0);
   // Y en el tablero se dice que no está identificado, sin inventar un "cliente general".
   await page.goto("/dashboard");
   await expect(

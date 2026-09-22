@@ -58,9 +58,14 @@ pnpm dev                 # ambas apps (web :3000, admin :3001)
 pnpm db:migrate | db:codegen | db:seed | db:reset -- --seed
 pnpm test | typecheck | lint | build | verify
 pnpm --filter @pdp/db test      # integración (usa DATABASE_URL_TEST)
+pnpm test:e2e                   # E2E Playwright: construye, levanta ambas apps y corre las 2 suites
 pnpm backup | restore:drill | deploy:staging | deploy:prod | rollback
 ```
 
 ## Tests de integración en paralelo
+
+`pnpm test:e2e` usa la base de desarrollo (`DATABASE_URL`), no la de pruebas, y **deja datos dentro**: corre
+`pnpm db:reset -- --seed` antes si quieres un resultado limpio. Acumular varias corridas sobre la misma base
+produce fallos que no son del código.
 
 `DATABASE_URL_TEST` puede apuntar a una base distinta por persona/agente (`postgres://localhost:5432/pdp_test_<nombre>`); el `global-setup` la recrea desde cero.

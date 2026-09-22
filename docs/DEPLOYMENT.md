@@ -65,12 +65,19 @@ Vincula el monorepo a ambos proyectos una sola vez desde la raíz: `vercel link 
 
 ## Qué hace `scripts/deploy.sh <staging|production>`
 
-1. **Árbol limpio y rama**: aborta si hay cambios sin commit; producción solo desde `main`.
+1. **Árbol limpio, rama y sincronía**: aborta si hay cambios sin commit; producción solo desde `main`; y `HEAD`
+   debe coincidir con `origin/<rama>`. Esto último importa: un `main` local atrasado revierte en producción lo que
+   otro mergeó, y uno adelantado publica commits que nadie revisó y que no se pueden recuperar del repositorio.
+   Además exige que la **CI de ese commit esté en verde** (`gh run list --commit …`): `pnpm verify` no incluye las
+   pruebas E2E, que solo corren en CI, así que desplegar sin esperarla es desplegar sin ellas. Si la CI sigue
+   corriendo, el deploy se detiene y lo dice. Escotilla consciente: `SKIP_CI_CHECK=1`.
 2. **Variables**: `node scripts/check-env.mjs <env>` (solo con lo cargado de `.env.<env>`; el `.env` local no rellena
    huecos fuera de development). Además de las obligatorias valida coherencia: `CRON_SECRET` ≥ 16 caracteres,
    `DATABASE_SSL=require`, URLs `https://`, y que ninguna integración quede a medias (p. ej. `MERCADOPAGO_ACCESS_TOKEN`
    sin `MERCADOPAGO_WEBHOOK_SECRET`, `RESEND_API_KEY` sin `EMAIL_FROM`, `STORAGE_DRIVER=supabase` sin sus claves).
 3. **Calidad**: `pnpm verify` = lint + typecheck + tests (unit + integración con `DATABASE_URL_TEST` local) + build.
+   **No incluye E2E** (tarda minutos y necesita las apps construidas y corriendo); de eso se encarga el paso 1 al
+   exigir la CI en verde. Para correrlas a mano: `pnpm test:e2e`.
 4. **Respaldo previo (solo producción)**: `scripts/backup.sh production pre-deploy-<sha>`; después `pnpm db:migrate`
    contra la base del ambiente. Las migraciones son aditivas, así que la app vieja sigue funcionando mientras se despliega.
 5. **Vercel**: `vercel deploy --yes` en `apps/web` y `apps/admin` (`--prod` en producción). Imprime ambas URLs.
