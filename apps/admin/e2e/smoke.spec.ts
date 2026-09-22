@@ -103,6 +103,29 @@ test.describe("@smoke admin", () => {
     expect(violations).toEqual([]);
   });
 
+  /*
+   * Que /login PINTE no prueba que se pueda entrar: la página se sirve igual aunque la base esté
+   * caída detrás. Esta comprobación recorre el camino completo —formulario, acción de servidor,
+   * consulta a `staff_users` y respuesta— sin necesitar la contraseña de nadie, así que corre
+   * SIEMPRE, también en el smoke contra producción después de cada despliegue.
+   *
+   * Usa un correo que no existe: ninguna cuenta real acumula intentos fallidos por esto.
+   */
+  test("el camino de entrada responde de verdad, sin necesitar credenciales", async ({ page }) => {
+    await page.goto("/login");
+    await page.waitForLoadState("domcontentloaded");
+    await fillField(page, "Correo", `smoke-${Date.now()}@no-existe.invalid`);
+    await fillField(page, "Contraseña", "contrasena-deliberadamente-incorrecta");
+    await page.getByRole("button", { name: "Entrar" }).click();
+    // El mensaje genérico es la prueba: llegó al servidor, consultó y contestó. Un 500 o un cuelgue
+    // —base inalcanzable, acción rota— no produce este texto.
+    await expect(page.locator('p[role="alert"]')).toHaveText("Correo o contraseña incorrectos.", {
+      timeout: 20_000,
+    });
+    // Y no deja entrar: sigue en /login, sin sesión.
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test("login con credenciales E2E y dashboard carga (solo si hay credenciales)", async ({
     page,
   }) => {
