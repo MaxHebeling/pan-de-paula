@@ -1,5 +1,9 @@
 # Auditoría 360° — Informe consolidado
 
+> **Seguimiento (22 de septiembre de 2026):** [2026-09-22.md](2026-09-22.md) — segunda auditoría completa sobre `main` 503271a,
+> después de seis bloques de funcionalidad nuevos. 6 defectos encontrados y corregidos (3 P2: Sentry etiquetaba producción
+> como `development`, la suite E2E no corría en local, y `deploy.sh` no exigía CI en verde). Health score 91/100.
+
 **Fecha:** 13 de septiembre de 2026 · **Alcance:** todo el monorepo (sitio público y tienda, CRM/POS, base de datos, integraciones, infraestructura) · **Base auditada:** `main` 576df36 · **Resultado publicado:** ver §11.
 
 Detalle por área, con inventario funcional, matriz completa y reproducciones:

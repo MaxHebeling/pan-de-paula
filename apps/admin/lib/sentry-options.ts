@@ -63,8 +63,14 @@ export { REDACTED };
 /** Opciones comunes a servidor, edge y cliente. */
 export function sentryBaseOptions(app: "web" | "admin") {
   return {
-    environment: process.env.APP_ENV ?? process.env.VERCEL_ENV ?? "development",
-    release: process.env.VERCEL_GIT_COMMIT_SHA ?? undefined,
+    // Las `NEXT_PUBLIC_*` primero porque son las únicas que existen en el navegador; en servidor y
+    // edge siguen valiendo las de siempre. `||` y no `??`: una cadena vacía no es un valor.
+    environment:
+      process.env.NEXT_PUBLIC_APP_ENV ||
+      process.env.APP_ENV ||
+      process.env.VERCEL_ENV ||
+      "development",
+    release: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_RELEASE || undefined,
     tracesSampleRate: 0.1,
     sendDefaultPii: false,
     beforeSend: scrubEvent,

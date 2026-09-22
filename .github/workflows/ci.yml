@@ -77,6 +77,21 @@ jobs:
         run: pnpm test
       - name: Auditoría de dependencias (alta severidad)
         run: pnpm audit --audit-level high --prod || (echo '::warning::Vulnerabilidades en dependencias' && exit 1)
+      # Sin claves VAPID el E2E de avisos se salta ENTERO ("no hay nada que ofrecer"), así que en CI
+      # nunca se comprobaba que el portal pide permiso explicando antes, que "Ahora no" se recuerda, ni
+      # que la suscripción queda en la cuenta correcta. Se generan efímeras: no son secretos de nadie.
+      # Va antes del build porque NEXT_PUBLIC_VAPID_PUBLIC_KEY se hornea en el bundle del navegador.
+      - name: Claves VAPID efímeras para el E2E de avisos
+        run: |
+          pnpm --filter @pdp/integrations exec node -e "
+            const { generateVAPIDKeys } = require('web-push');
+            const k = generateVAPIDKeys();
+            console.log('VAPID_PUBLIC_KEY=' + k.publicKey);
+            console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY=' + k.publicKey);
+            console.log('VAPID_PRIVATE_KEY=' + k.privateKey);
+            console.log('VAPID_SUBJECT=mailto:ci@pandepaula.invalid');
+          " >> "$GITHUB_ENV"
+
       - name: Build
         run: pnpm build
       - name: E2E (Playwright)

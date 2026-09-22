@@ -80,7 +80,11 @@ export async function POST(req: Request) {
         res.sale_id,
         JSON.stringify({ customer_id: input.customer_id ?? null, folio: res.folio }),
       ]),
-    ).catch(() => {});
+    ).catch((e: unknown) => {
+      // No se interrumpe la venta por la constancia, pero tampoco se pierde en silencio: si esto
+      // falla, la pregunta "¿por qué esta venta no tiene cliente?" se queda sin responder.
+      console.error("[pos/checkout] no se pudo registrar la constancia de la venta", e);
+    });
     let pointsBalance: number | null = null;
     if (input.customer_id) {
       const c = await sql<{
