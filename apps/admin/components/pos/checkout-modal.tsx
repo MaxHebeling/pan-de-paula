@@ -10,7 +10,13 @@ import {
   SplitSquareHorizontal,
   X,
 } from "lucide-react";
-import { changeDue, formatMXN, PAYMENT_METHOD_LABELS, quickTenderOptions } from "@pdp/domain";
+import {
+  changeDue,
+  formatMXN,
+  PAYMENT_METHOD_LABELS,
+  POINT_MIN_CENTS,
+  quickTenderOptions,
+} from "@pdp/domain";
 import { MpPayment, type MpHandlers } from "./mp-payment";
 import { Numpad } from "./numpad";
 import type { CheckoutPayment, PosConfig } from "./types";
@@ -117,8 +123,21 @@ function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp }: CheckoutM
     },
     { id: "card_terminal", label: "Tarjeta", icon: <CreditCard size={18} /> },
     { id: "transfer", label: "Transferencia", icon: <Landmark size={18} /> },
+    // Mercado Pago rechaza los cobros de terminal por debajo de $5: el botón se muestra deshabilitado
+    // y dice por qué, en vez de dejar que el cobro falle con el cliente enfrente.
     ...(mpPoint
-      ? [{ id: "mp_point" as Tab, label: "MP Point", icon: <Smartphone size={18} /> }]
+      ? [
+          {
+            id: "mp_point" as Tab,
+            label: "MP Point",
+            icon: <Smartphone size={18} />,
+            disabled: totalCents < POINT_MIN_CENTS,
+            hint:
+              totalCents < POINT_MIN_CENTS
+                ? `Mínimo ${formatMXN(POINT_MIN_CENTS)} con terminal`
+                : undefined,
+          },
+        ]
       : []),
     ...(mpQr ? [{ id: "mp_qr" as Tab, label: "MP QR", icon: <QrCode size={18} /> }] : []),
     { id: "split", label: "Dividido", icon: <SplitSquareHorizontal size={18} /> },
