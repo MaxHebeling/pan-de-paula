@@ -1,29 +1,29 @@
 # Fotografías de «Del horno a tu mesa»
 
-Fotos reales de la panadería, tomadas por el dueño. Al existir estos archivos, `lib/storyPhotos.ts` las
-detecta en cada petición y la sección cambia el arte SVG (`ProcessArt`) por la fotografía. No hay que
-tocar código para activarlas ni para quitarlas.
+Fotos reales de la panadería, tomadas por el dueño, una por cada paso del relato. Al existir estos
+archivos, `lib/storyPhotos.ts` las detecta en cada petición y la sección cambia el arte SVG
+(`ProcessArt`) por la fotografía. No hay que tocar código para activarlas ni para quitarlas.
 
-| Paso | Archivo             | Origen (Drive)      | Qué muestra                                             |
-| ---- | ------------------- | ------------------- | ------------------------------------------------------- |
-| 01   | `01-preparamos.jpg` | `Boleo.jpg`         | Manos boleando y un pan de muerto ya formado en la mesa |
-| 02   | `02-horneamos.jpg`  | `Resultado.jpg`     | Croissant partido a mano, con el alveolado a la vista   |
-| 03   | _pendiente_         | carpeta `EMPACAMOS` | —                                                       |
-| 04   | `04-disfrutas.jpg`  | `TU DISFRUTAS.jpg`  | La caja entregada, con la etiqueta de agradecimiento    |
+| Paso | Archivo             | Origen             | Qué muestra                                                       |
+| ---- | ------------------- | ------------------ | ----------------------------------------------------------------- |
+| 01   | `01-preparamos.jpg` | `PREPARAMOS.jpg`   | Un panadero laminando con rodillo una plancha de masa enharinada  |
+| 02   | `02-horneamos.jpg`  | `HORNEAMOS.jpg`    | Un croissant recién formado, aún crudo, a la entrada del horno    |
+| 03   | `03-empacamos.jpg`  | `EMPACAMOS.jpg`    | Cajas ya empacadas con la etiqueta «Muchas gracias por tu compra» |
+| 04   | `04-disfrutas.jpg`  | `TU DISFRUTAS.jpg` | Una mano sostiene la caja del pedido recién recogido              |
 
-El paso **03 Empacamos** sigue con su ilustración SVG: la subcarpeta `EMPACAMOS` de Drive no expone su
-contenido públicamente. En cuanto se comparta, basta con dejar aquí `03-empacamos.jpg` y la sección lo toma
-sola. La mezcla de foto e ilustración está contemplada por diseño (`Partial<Record<ProcessStepKey, …>>`).
-
-Queda fuera, sin paso al que pertenecer, `Fermentado 2.jpg` (charolas de croissants fermentando): es una
-buena foto, pero «fermentar» no es ninguno de los cuatro pasos del relato actual y etiquetarla como otra
-cosa sería mentir sobre el proceso.
+El texto alternativo de cada una vive en `lib/storyPhotos.ts` y describe **lo que se ve**, no lo que
+diría el paso: la foto de «Horneamos» es un croissant entrando al horno, no saliendo, y decir lo
+contrario sería mentirle a quien navega con lector de pantalla.
 
 ## Preparación
 
-Formato 4:5, 1200 × 1500 px, JPEG calidad 86 (mozjpeg). Se respeta la orientación EXIF y el recorte se
-encuadra a mano sobre el sujeto: el recorte automático por saliencia dejaba el croissant abajo y medio
-cuadro de techo. Los originales de teléfono son 2256 × 4000; al reencodificar se eliminan los metadatos,
-incluida la ubicación GPS.
+Formato 4:5, 1200 × 1500 px, JPEG calidad 86 (mozjpeg). Se respeta la orientación EXIF y el encuadre
+se decide a mano, foto por foto: dos de los originales son horizontales (4032 × 2268 y 3365 × 2096) y
+un recorte automático a vertical los habría partido por donde no es. En «Preparamos» además se cierra
+el cuadro sobre las manos y la masa, porque a cuadro completo la mitad superior era mandil.
 
-Para reemplazar una foto basta con sobrescribir el archivo respetando la proporción 4:5.
+Al reencodificar se eliminan los metadatos, incluida la ubicación GPS del teléfono. Ninguna foto se
+retocó ni se generó.
+
+Para reemplazar una foto basta con sobrescribir el archivo respetando la proporción 4:5, y actualizar
+su `alt` en `lib/storyPhotos.ts` si cambia lo que muestra.

@@ -55,6 +55,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@pdp/auth", "@pdp/db", "@pdp/domain", "@pdp/integrations"],
   serverExternalPackages: ["pg", "@node-rs/argon2"],
   images: {
+    // Las fotos de `public/story` llevan la huella del archivo en la URL (ver lib/storyPhotos.ts).
+    // Sin declararlo aquí, next/image rechaza cualquier imagen local con query string.
+    localPatterns: [{ pathname: "/story/**" }, { pathname: "/**", search: "" }],
     qualities: [60, 75],
     formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
