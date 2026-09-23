@@ -1,0 +1,6 @@
+{
+  "name": "pdp-promo",
+  "private": true,
+  "type": "module",
+  "description": "Producción del video promocional del CRM. Fuera del workspace de pnpm a propósito: nada de esto entra al runtime de la aplicación."
+}
