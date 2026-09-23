@@ -188,3 +188,27 @@ select target_entity, action, count(*) from import_rows where batch_id = '<batch
 -- Ventas históricas importadas
 select folio, placed_at, customer_name, total_cents from orders where source_ref like 'import:%' order by placed_at;
 ```
+
+## Cambio de temporada (hoja «PRODUCTOS PAN DE PAULA»)
+
+La hoja del dueño es la fuente de verdad del catálogo, y la señal de «ya no se vende» son las **filas
+ocultas**: así las marca él. `scripts/temporada.sh` lee esa señal del `.xlsx` y la aplica.
+
+```bash
+bash scripts/temporada.sh production            # simulación + reporte, no escribe nada
+bash scripts/temporada.sh production --apply    # respaldo, catálogo y fotos
+```
+
+- **Retirar no es borrar.** Un producto oculto queda `is_active=false` y fuera de web y de caja, pero
+  conserva sus ventas, sus puntos y su historial de precios. La integridad histórica no se negocia.
+- **El número de la hoja se guarda como `sku`** (`PDP-07`). Desde ahí el emparejamiento es por
+  identificador estable y no por nombre: la hoja de septiembre traía dos erratas de tecleo
+  («Kougn-amann Churro», «Kouig-amann Guayaba») que por nombre habrían creado productos duplicados.
+- **Un producto nuevo hereda el perfil** (categoría, unidad, stock, preventa) del producto existente
+  más parecido, en el mismo `INSERT`. Si no hay ninguno parecido, no se da de alta y el reporte lo
+  dice: es mejor que alguien decida a que el guion adivine.
+- **Idempotente.** Correrlo dos veces dice «sin cambios». Comprobado restaurando un respaldo de
+  producción en una base local y aplicando dos veces seguidas.
+- El reporte queda en `packages/db/import/reports/temporada-<fecha>.md` (ignorado por git, como el
+  resto de los reportes de importación) con las cuatro secciones: asociados, retirados, sin imagen,
+  imágenes sin producto y conflictos.
