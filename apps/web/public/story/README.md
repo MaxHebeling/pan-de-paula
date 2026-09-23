@@ -4,12 +4,12 @@ Fotos reales de la panadería, tomadas por el dueño. Al existir estos archivos,
 detecta en cada petición y la sección cambia el arte SVG (`ProcessArt`) por la fotografía. No hay que
 tocar código para activarlas ni para quitarlas.
 
-| Paso | Archivo               | Origen (Drive)     | Qué muestra                                             |
-| ---- | --------------------- | ------------------ | ------------------------------------------------------- |
-| 01   | `01-preparamos.jpg`   | `Boleo.jpg`        | Manos boleando y un pan de muerto ya formado en la mesa |
-| 02   | `02-horneamos.jpg`    | `Resultado.jpg`    | Croissant partido a mano, con el alveolado a la vista   |
-| 03   | _pendiente_           | carpeta `EMPACAMOS`| —                                                       |
-| 04   | `04-disfrutas.jpg`    | `TU DISFRUTAS.jpg` | La caja entregada, con la etiqueta de agradecimiento    |
+| Paso | Archivo             | Origen (Drive)      | Qué muestra                                             |
+| ---- | ------------------- | ------------------- | ------------------------------------------------------- |
+| 01   | `01-preparamos.jpg` | `Boleo.jpg`         | Manos boleando y un pan de muerto ya formado en la mesa |
+| 02   | `02-horneamos.jpg`  | `Resultado.jpg`     | Croissant partido a mano, con el alveolado a la vista   |
+| 03   | _pendiente_         | carpeta `EMPACAMOS` | —                                                       |
+| 04   | `04-disfrutas.jpg`  | `TU DISFRUTAS.jpg`  | La caja entregada, con la etiqueta de agradecimiento    |
 
 El paso **03 Empacamos** sigue con su ilustración SVG: la subcarpeta `EMPACAMOS` de Drive no expone su
 contenido públicamente. En cuanto se comparta, basta con dejar aquí `03-empacamos.jpg` y la sección lo toma
