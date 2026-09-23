@@ -81,7 +81,7 @@ type Fila = {
 };
 
 const celda = (v: unknown): string => {
-  if (v == null) return "";
+  if (v === null || v === undefined) return "";
   if (typeof v === "object" && v !== null && "richText" in v)
     return (v as { richText: Array<{ text: string }> }).richText.map((t) => t.text).join("");
   return String(v).trim();
@@ -126,7 +126,8 @@ type Prod = {
 
 const client = new pg.Client({ connectionString: databaseUrl("app"), ssl: sslConfig() });
 await client.connect();
-const q = async <T>(t: string, p: unknown[] = []) => (await client.query<T>(t, p)).rows;
+const q = async <T extends pg.QueryResultRow>(t: string, p: unknown[] = []) =>
+  (await client.query<T>(t, p)).rows;
 
 const productos = await q<Prod>(`
   select p.id::text, p.name, p.sku, p.is_active, p.show_on_web, p.show_on_pos, p.short_description,
@@ -154,7 +155,7 @@ const usados = new Set<string>();
 const conflictos: Array<{ tipo: string; detalle: string }> = [];
 
 const emparejar = (f: Fila): Match => {
-  if (f.numero != null) {
+  if (f.numero !== null) {
     const p = porSku.get(`PDP-${String(f.numero).padStart(2, "0")}`);
     if (p) return { fila: f, prod: p, via: "sku" };
   }
@@ -217,7 +218,7 @@ const plan: Cambio[] = [];
 
 for (const m of mVisibles) {
   const f = m.fila;
-  const sku = f.numero != null ? `PDP-${String(f.numero).padStart(2, "0")}` : null;
+  const sku = f.numero !== null ? `PDP-${String(f.numero).padStart(2, "0")}` : null;
   if (!m.prod) {
     const molde = moldePara(f.nombre);
     plan.push({
@@ -235,7 +236,7 @@ for (const m of mVisibles) {
   if (!p.show_on_web) difs.push("mostrar en web");
   if (!p.show_on_pos) difs.push("mostrar en caja");
   if (sku && p.sku !== sku) difs.push(`sku ${p.sku ?? "—"} → ${sku}`);
-  if (f.precioCents != null && p.price_cents !== f.precioCents)
+  if (f.precioCents !== null && p.price_cents !== f.precioCents)
     difs.push(
       `precio $${((p.price_cents ?? 0) / 100).toFixed(2)} → $${(f.precioCents / 100).toFixed(2)}`,
     );
@@ -301,9 +302,9 @@ if (carpetaFotos) {
       };
     });
 }
-const fotoDe = new Map(fotos.filter((f) => f.numero != null).map((f) => [f.numero!, f]));
+const fotoDe = new Map(fotos.filter((f) => f.numero !== null).map((f) => [f.numero!, f]));
 const numerosDuplicados = fotos
-  .filter((f) => f.numero != null)
+  .filter((f) => f.numero !== null)
   .reduce<Record<number, number>>((a, f) => ((a[f.numero!] = (a[f.numero!] ?? 0) + 1), a), {});
 for (const [n, c] of Object.entries(numerosDuplicados))
   if (c > 1)
@@ -314,14 +315,14 @@ for (const [n, c] of Object.entries(numerosDuplicados))
  * catálogo. Contar solo el lote diría que faltan veinte fotos que en realidad llevan meses publicadas.
  */
 const sinFoto = mVisibles.filter(
-  (m) => (m.fila.numero == null || !fotoDe.has(m.fila.numero)) && (m.prod?.fotos ?? 0) === 0,
+  (m) => (m.fila.numero === null || !fotoDe.has(m.fila.numero)) && (m.prod?.fotos ?? 0) === 0,
 );
 const fotosSinProducto = fotos.filter(
-  (f) => f.numero == null || !visibles.some((v) => v.numero === f.numero),
+  (f) => f.numero === null || !visibles.some((v) => v.numero === f.numero),
 );
 // Discrepancia de nombre entre la foto y la hoja: se avisa, no se corrige sola.
 for (const m of mVisibles) {
-  const f = m.fila.numero != null ? fotoDe.get(m.fila.numero) : undefined;
+  const f = m.fila.numero !== null ? fotoDe.get(m.fila.numero) : undefined;
   if (f && norm(f.nombre) !== norm(m.fila.nombre))
     conflictos.push({
       tipo: "nombre distinto entre foto y hoja",
@@ -347,7 +348,7 @@ p();
 p("| # | Producto | Precio | Foto | Estado |");
 p("| --- | --- | --- | --- | --- |");
 for (const m of mVisibles) {
-  const f = m.fila.numero != null ? fotoDe.get(m.fila.numero) : undefined;
+  const f = m.fila.numero !== null ? fotoDe.get(m.fila.numero) : undefined;
   const estado = !m.prod
     ? "**alta nueva**"
     : plan.some((c) => c.nombre === m.prod!.name && c.accion === "ACTUALIZA")
@@ -379,7 +380,7 @@ p();
 p(`## Imágenes sin producto (${fotosSinProducto.length})`);
 p();
 for (const f of fotosSinProducto)
-  p(`- \`${f.archivo}\`${f.numero != null ? ` (número ${f.numero})` : " (sin número)"}`);
+  p(`- \`${f.archivo}\`${f.numero !== null ? ` (número ${f.numero})` : " (sin número)"}`);
 if (!fotosSinProducto.length) p("Ninguna.");
 p();
 p(`## Conflictos (${conflictos.length})`);
@@ -422,7 +423,7 @@ try {
 
   for (const m of mVisibles) {
     const f = m.fila;
-    const sku = f.numero != null ? `PDP-${String(f.numero).padStart(2, "0")}` : null;
+    const sku = f.numero !== null ? `PDP-${String(f.numero).padStart(2, "0")}` : null;
     if (!m.prod) {
       /*
        * Alta. Los campos operativos (categoría, unidad, si lleva stock, si acepta preventa) se COPIAN
@@ -455,7 +456,7 @@ try {
         continue;
       }
       // Canal `all`, como el resto del catálogo: con precios por canal `current_price_cents()` no los ve.
-      if (f.precioCents != null)
+      if (f.precioCents !== null)
         await client.query(`select set_regular_price($1::uuid, 'all'::price_channel, $2, $3)`, [
           id,
           f.precioCents,
@@ -471,7 +472,7 @@ try {
         where id = $1`,
       [m.prod.id, sku, f.descripcion],
     );
-    if (f.precioCents != null && m.prod.price_cents !== f.precioCents)
+    if (f.precioCents !== null && m.prod.price_cents !== f.precioCents)
       await client.query(`select set_regular_price($1::uuid, 'all'::price_channel, $2, $3)`, [
         m.prod.id,
         f.precioCents,
