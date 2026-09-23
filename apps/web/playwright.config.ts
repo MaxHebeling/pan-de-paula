@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 // Carga .env.local/.env igual que el resto del repo. Sin esto, las pruebas que hablan con la base
 // (leen `process.env.DATABASE_URL` directo, no por `databaseUrl()`) solo corrían en CI, donde la
 // variable viene del workflow: en local fallaban con "Falta DATABASE_URL" antes de abrir el navegador.
-import "../../packages/db/scripts/env.ts";
+//
+// Pero NO contra un ambiente ya desplegado (`E2E_NO_SERVER=1`, el smoke posterior al deploy): ahí el
+// `.env` describe esta máquina, no el servidor. Cargarlo hacía que el smoke contra producción
+// intentara entrar con las credenciales del admin local y fallara después de desplegar.
+if (!process.env.E2E_NO_SERVER) await import("../../packages/db/scripts/env.ts");
 
 const baseURL = process.env.E2E_WEB_URL ?? "http://localhost:3000";
 
