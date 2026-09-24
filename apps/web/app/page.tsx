@@ -20,7 +20,15 @@ import { listCategories, listFeatured, listProducts, listPromos } from "@/lib/ca
 import { getProgram, listActiveRewards, listTiers, loyaltyEnabled } from "@/lib/loyalty";
 import { mercadoPagoAvailable } from "@/lib/orders";
 import { qrDataUrl } from "@/lib/qr";
-import { fulfillmentOptions, fullAddress, getBusiness, nowFor, openStatus } from "@/lib/site";
+import {
+  fulfillmentOptions,
+  fullAddress,
+  getBusiness,
+  mapEmbedUrl,
+  mapsLinkUrl,
+  nowFor,
+  openStatus,
+} from "@/lib/site";
 import { getStoryPhotos } from "@/lib/storyPhotos";
 
 export const metadata: Metadata = {
@@ -124,6 +132,8 @@ export default async function HomePage() {
         point={business.pickupPoints[0]}
         address={fullAddress(business)}
         instagram={business.instagramHandle}
+        mapEmbed={mapEmbedUrl(business)}
+        mapsUrl={mapsLinkUrl(business)}
       />
       <ClubSection
         qrDataUrl={joinQr}

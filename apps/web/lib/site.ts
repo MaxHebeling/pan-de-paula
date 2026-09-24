@@ -173,6 +173,26 @@ export function fullAddress(b: Business): string | null {
 }
 
 /**
+ * Mapa del negocio. Sin clave de API: el buscador de Google acepta la dirección tal cual y la
+ * resuelve —comprobado contra la dirección real del negocio—. `policies.map_embed_url` permite fijar
+ * un lugar concreto el día que el geocodificador falle o se quiera apuntar a la ficha del local.
+ */
+export function mapEmbedUrl(b: Business): string | null {
+  const fijo = b.policies.map_embed_url?.trim();
+  if (fijo) return fijo;
+  const dir = fullAddress(b);
+  // `z=16` acerca a la manzana: con el encuadre ancho de la portada, el zoom por omisión dejaba
+  // medio mapa en mar abierto.
+  return dir ? `https://www.google.com/maps?q=${encodeURIComponent(dir)}&z=16&output=embed` : null;
+}
+
+/** Enlace para abrir la ubicación en la app de Google Maps, o en su sitio si no está instalada. */
+export function mapsLinkUrl(b: Business): string | null {
+  const dir = fullAddress(b);
+  return dir ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir)}` : null;
+}
+
+/**
  * Teléfono/WhatsApp a dígitos para enlaces wa.me / tel:. Misma regla que el CRM
  * (`phoneToE164Digits` de `@pdp/domain`): México se marca con 52 + 10 dígitos y un número guardado
  * en E.164 ya trae su prefijo.

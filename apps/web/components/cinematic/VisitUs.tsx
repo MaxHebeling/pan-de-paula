@@ -17,6 +17,8 @@ export function VisitUs({
   point,
   address,
   instagram,
+  mapEmbed,
+  mapsUrl,
 }: {
   status: OpenStatus;
   hours: BusinessHour[];
@@ -24,6 +26,9 @@ export function VisitUs({
   point: PickupPoint | undefined;
   address: string | null;
   instagram: string | null;
+  /** Mapa incrustado; si falta, la sección se queda con la dirección y el enlace. */
+  mapEmbed: string | null;
+  mapsUrl: string | null;
 }) {
   const detail = statusDetail(status);
   const igUrl = instagramUrl(instagram);
@@ -95,6 +100,38 @@ export function VisitUs({
             <Arrow />
           </Link>
         </Reveal>
+
+        {mapEmbed && mapsUrl && (
+          <Reveal delay={150} className="cin-map-slot">
+            <div className="cin-map">
+              {/*
+               * El iframe es decoración: no recibe foco ni clics, para que el mapa entero sea un solo
+               * destino —un toque en el móvil— y no una trampa de scroll dentro de la página.
+               */}
+              <iframe
+                src={mapEmbed}
+                title=""
+                aria-hidden="true"
+                tabIndex={-1}
+                className="cin-map-frame"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cin-map-open"
+                aria-label="Abrir la ubicación de la panadería en Google Maps"
+              >
+                <span className="cin-map-label">
+                  <span>Abrir en Google Maps</span>
+                  <Arrow />
+                </span>
+              </a>
+            </div>
+          </Reveal>
+        )}
       </div>
     </section>
   );
