@@ -23,6 +23,8 @@ export type Policies = {
   delivery_fee_cents?: number;
   delivery_zone?: string;
   map_embed_url?: string;
+  /** Enlace de la ficha del negocio en Google Maps (el que se comparte desde la app). */
+  maps_url?: string;
 };
 
 export type PickupPoint = {
@@ -74,6 +76,7 @@ function policiesFrom(raw: unknown): Policies {
     terms: str("terms"),
     delivery_zone: str("delivery_zone"),
     map_embed_url: str("map_embed_url"),
+    maps_url: str("maps_url"),
     delivery_fee_cents: fee,
   };
 }
@@ -186,8 +189,14 @@ export function mapEmbedUrl(b: Business): string | null {
   return dir ? `https://www.google.com/maps?q=${encodeURIComponent(dir)}&z=16&output=embed` : null;
 }
 
-/** Enlace para abrir la ubicación en la app de Google Maps, o en su sitio si no está instalada. */
+/**
+ * Enlace para abrir la ubicación en la app de Google Maps, o en su sitio si no está instalada.
+ * Si hay ficha del negocio (`policies.maps_url`) se usa esa: abre el local con su nombre, sus fotos
+ * y sus reseñas, no una búsqueda por texto que puede caer en el portal de enfrente.
+ */
 export function mapsLinkUrl(b: Business): string | null {
+  const ficha = b.policies.maps_url?.trim();
+  if (ficha) return ficha;
   const dir = fullAddress(b);
   return dir ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir)}` : null;
 }
