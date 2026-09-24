@@ -1382,10 +1382,74 @@ body:has([data-hero]) footer .container-x {
   gap: 0.5rem 1.5rem;
   margin-top: 1.25rem;
 }
+/*
+ * Mapa de la sección 08. Discreto a propósito: una banda baja, no un panel. En escritorio cruza las
+ * dos columnas por debajo, así que el horario conserva su columna entera y no pierde protagonismo;
+ * en móvil la retícula apila y el mapa queda al final, después del horario.
+ */
+.cin-map {
+  position: relative;
+  overflow: hidden;
+  height: 170px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-cream-2);
+}
+.cin-map-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Decoración: el destino es el enlace que lo cubre, no el mapa. */
+  pointer-events: none;
+}
+.cin-map-open {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0.85rem;
+  /*
+   * La etiqueta va arriba a la derecha: abajo tapaba la atribución de Google («Datos del mapa»,
+   * «Condiciones»), que debe quedar visible, y a la izquierda choca con el botón propio del mapa.
+   */
+  background: linear-gradient(to bottom, rgba(31, 42, 58, 0.28), rgba(31, 42, 58, 0) 42%);
+}
+.cin-map-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-cream);
+  box-shadow: var(--shadow-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.cin-map-open:hover .cin-map-label,
+.cin-map-open:focus-visible .cin-map-label {
+  background: var(--color-ink);
+  color: var(--color-cream);
+}
+.cin-map-open:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
 @media (min-width: 1024px) {
   .cin-visit-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: clamp(3rem, 7vw, 7rem);
+  }
+  /* El hijo de la retícula es el envoltorio de revelado, no el mapa: la banda se declara en él. */
+  .cin-map-slot {
+    grid-column: 1 / -1;
+  }
+  .cin-map {
+    height: 210px;
   }
 }
 

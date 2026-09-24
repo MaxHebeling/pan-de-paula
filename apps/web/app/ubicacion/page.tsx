@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fullAddress, getBusiness, instagramUrl, whatsappLink } from "@/lib/site";
+import { fullAddress, getBusiness, instagramUrl, mapEmbedUrl, whatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Ubicación",
@@ -13,7 +13,7 @@ export default async function LocationPage() {
   const wa = whatsappLink(business, "Hola, ¿me comparten la ubicación de la panadería?");
   const ig = instagramUrl(business.instagramHandle);
   const points = business.pickupPoints;
-  const mapEmbed = business.policies.map_embed_url;
+  const mapEmbed = mapEmbedUrl(business);
   return (
     <div className="container-x max-w-4xl py-10 sm:py-14">
       <p className="eyebrow mb-2">Ubicación</p>
