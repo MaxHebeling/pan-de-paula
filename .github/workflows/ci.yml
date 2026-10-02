@@ -100,7 +100,14 @@ jobs:
       # de credencial; el cotejo contra los valores de verdad corre en la máquina del operador.
       - name: Secretos en el bundle del navegador
         run: bash scripts/check-client-bundle.sh
+      # Tope propio del paso. El E2E tarda ~5 min con sus 103 pruebas; 12 dejan margen de sobra.
+      # Existe porque en el PR #43 las 103 pruebas PASARON en 4,8 min y después el paso se quedó
+      # colgado 16 minutos sin salir —el `pnpm start` del webServer no termina de morir—, hasta que el
+      # job se cortó a los 25. El resultado se reportaba como "el job excedió el tiempo máximo", que no
+      # dice nada: parecía una CI lenta y era un proceso que no cierra. Con el tope aquí, un cuelgue
+      # falla en 12 minutos y señala al paso culpable.
       - name: E2E (Playwright)
+        timeout-minutes: 12
         run: |
           pnpm --filter @pdp/web exec playwright install --with-deps chromium
           pnpm test:e2e

@@ -44,8 +44,14 @@ updates:
       interval: monthly
     open-pull-requests-limit: 3
     groups:
+      # SOLO parches y menores van juntos. Los mayores llegan de uno en uno, igual que en el bloque de
+      # npm: el primer PR que generó este archivo subía checkout v4→v7, setup-node v4→v7,
+      # pnpm/action-setup v4→v6 y upload-artifact v4→v7 en un solo cambio, y cuando la CI se cayó no
+      # había manera de saber cuál de los cuatro era. Agrupar mayores es exactamente lo que este mismo
+      # archivo dice que no hay que hacer dos líneas más arriba.
       acciones:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     commit-message:
       prefix: "deps(actions)"
     labels: ["dependencias"]
