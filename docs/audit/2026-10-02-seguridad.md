@@ -51,14 +51,7 @@ un merge se bloqueó. Producción sigue en `ca7749d` con la versión vulnerable.
 
 ### 🟠 Alto
 
-**2. El registro de Supabase Auth está abierto.** `GET /auth/v1/settings` devuelve
-`disable_signup: false` y `external.email: true`. La app **no usa Supabase Auth** (identidad propia en
-`staff_sessions` / `customer_sessions`), así que es superficie de ataque pura: cualquiera con la clave
-pública puede crear filas en `auth.users` y disparar correos de confirmación desde el proyecto.
-→ **Acción externa**: no se puede cambiar desde el repositorio. Ver §Acciones externas.
-No se probó a crear un usuario de verdad: habría sido escribir en producción.
-
-**3. Credenciales de pago en vivo disponibles en Preview.** `MERCADOPAGO_ACCESS_TOKEN` y
+**2. Credenciales de pago en vivo disponibles en Preview.** `MERCADOPAGO_ACCESS_TOKEN` y
 `MERCADOPAGO_WEBHOOK_SECRET` son el **mismo valor** en Production y Preview, así que un despliegue de
 preview puede generar cobros reales. Mitigado porque las previews exigen Vercel SSO, pero viola
 mínimo privilegio y la regla de no hacer transacciones reales sin autorización.
@@ -67,6 +60,19 @@ la borra de **todos** los entornos (ver `feedback_vercel_env_rm_borra_todo`), de
 token. No se toca a ciegas en una tienda abierta.
 
 ### 🟡 Medio
+
+**3. El registro de Supabase Auth está abierto.** `GET /auth/v1/settings` devuelve
+`disable_signup: false`, `external.email: true` y `mailer_autoconfirm: false`. Cualquiera con la clave
+publicable —que es pública por diseño— puede crear filas en `auth.users` y consumir la cuota de correo
+del proyecto con confirmaciones.
+
+Por qué es **medio y no alto**: la app no usa Supabase Auth en absoluto (la identidad vive en
+`staff_sessions` y `customer_sessions`, y `auth.users` no tiene relación con ninguna tabla nuestra),
+así que un usuario creado así **no obtiene acceso a nada**. No es escalada de privilegios: es
+superficie innecesaria y un vector de abuso de cuota.
+
+No se probó a crear un usuario de verdad: habría sido escribir en producción.
+→ **Acción externa**: se cierra en el panel, no desde el repositorio.
 
 **4. La comprobación CSRF no decidía sin `Origin`.** `proxy.ts` rechazaba una mutación cuyo `Origin`
 no coincidía con el `Host`, pero si la petición no traía `Origin` la dejaba pasar.
