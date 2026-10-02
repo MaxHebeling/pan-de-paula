@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Cliente de PostgreSQL 17
         # El runner trae el cliente 16 y el servidor es 17: pg_dump se niega a volcar un servidor más
