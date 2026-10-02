@@ -1,0 +1,153 @@
+# Respaldo diario de la base de producción.
+#
+# Antes de esto solo había respaldo cuando alguien desplegaba (`deploy.sh` hace uno previo). Entre el
+# 22 y el 30 de septiembre de 2026 no hubo despliegues, así que no hubo respaldo propio en ocho días.
+# Para un negocio que registra ventas todos los viernes, eso es perder el turno entero si algo sale mal.
+#
+# El volcado NO se sube como artifact de Actions: este repositorio es público y los artifacts de un
+# repositorio público los descarga cualquiera. Va cifrado a un bucket privado (scripts/backup-remoto.sh).
+#
+# Este workflow nunca corre desde un pull request, así que un fork no puede leer los secretos.
+#
+# Lo que este respaldo NO sustituye: el simulacro de restauración completo (`pnpm restore:drill`), que
+# sigue siendo manual. El script comprueba que el archivo se descifra y que `pg_restore` lo lee, no que
+# la base reconstruida funcione.
+name: Respaldo
+
+on:
+  schedule:
+    # 12:00 UTC = 5:00 a.m. en Tijuana: después de que cierra el viernes y antes de que abra el negocio.
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: respaldo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  diario:
+    name: Volcado cifrado a bucket privado
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cliente de PostgreSQL 17
+        # El runner trae el cliente 16 y el servidor es 17: pg_dump se niega a volcar un servidor más
+        # nuevo que él ("server version mismatch"), así que hay que instalar el 17 del repositorio PGDG.
+        run: |
+          set -euo pipefail
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc |
+            sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" |
+            sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Respaldar y subir
+        id: respaldo
+        # Que falle no debe saltarse el aviso: el paso siguiente decide y es el que termina en rojo.
+        continue-on-error: true
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_RETENTION_DAYS: "30"
+        run: |
+          set -euo pipefail
+          for v in BACKUP_DATABASE_URL BACKUP_PASSPHRASE SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            [ -n "${!v:-}" ] || { echo "Falta el secreto $v"; exit 1; }
+          done
+
+          # `backup.sh` lee .env.production. Se escribe aquí con lo mínimo y con umask 077; el runner es
+          # de un solo uso y el archivo nunca sale de él.
+          umask 077
+          {
+            printf 'DATABASE_URL=%s\n' "$BACKUP_DATABASE_URL"
+            printf 'BACKUP_DATABASE_URL=%s\n' "$BACKUP_DATABASE_URL"
+            printf 'DATABASE_SSL=require\n'
+          } > .env.production
+
+          bash scripts/backup.sh production diario
+          ARCHIVO=$(ls -t backups/pdp-production-*.dump | head -1)
+          bash scripts/backup-remoto.sh "$ARCHIVO"
+
+          TABLAS=$(pg_restore --list "$ARCHIVO" | grep -c 'TABLE DATA' || true)
+          echo "tablas=$TABLAS" >> "$GITHUB_OUTPUT"
+          echo "tamano=$(du -h "$ARCHIVO" | cut -f1)" >> "$GITHUB_OUTPUT"
+          echo "- Respaldo del $(date -u +%Y-%m-%d) · $TABLAS tablas con datos · $(du -h "$ARCHIVO" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+          # El volcado en claro no debe sobrevivir al paso, ni siquiera en un runner efímero.
+          rm -f .env.production backups/pdp-production-*.dump
+
+      - name: Avisar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTADO: ${{ steps.respaldo.outcome }}
+          TABLAS: ${{ steps.respaldo.outputs.tablas }}
+          TAMANO: ${{ steps.respaldo.outputs.tamano }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          CORRIDA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          # Igual que en el monitor: el runner usa `bash -e` y ahí un `x=$(comando)` que falla mata el
+          # paso en el acto. Si la API de GitHub tropieza, el correo no debe morir con ella.
+          set +e
+
+          correo() {
+            local asunto="$1" cuerpo="$2" destinos codigo
+            if [ -z "${RESEND_API_KEY:-}" ] || [ -z "${EMAIL_FROM:-}" ] || [ -z "${ALERT_EMAIL_TO:-}" ]; then
+              echo "· Correo NO enviado: faltan secretos."
+              return 0
+            fi
+            destinos=$(printf '%s' "$ALERT_EMAIL_TO" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | grep . | jq -R . | jq -sc .)
+            [ -n "$destinos" ] && [ "$destinos" != "[]" ] || { echo "· Correo NO enviado: ALERT_EMAIL_TO vacío."; return 0; }
+            jq -nc --arg from "$EMAIL_FROM" --argjson to "$destinos" --arg subject "$asunto" --arg text "$cuerpo" \
+              '{from:$from, to:$to, subject:$subject, text:$text}' > /tmp/correo.json
+            codigo=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+              -X POST https://api.resend.com/emails \
+              -H "Authorization: Bearer $RESEND_API_KEY" -H "Content-Type: application/json" \
+              --data @/tmp/correo.json)
+            [ "$codigo" = "200" ] && echo "· Correo enviado." || echo "· Correo NO enviado: Resend respondió ${codigo:-sin respuesta}."
+          }
+
+          # El issue hace de memoria entre corridas: sin él, una semana de fallos manda siete correos iguales.
+          abierto=$(gh issue list --label respaldo --state open --limit 1 --json number -q '.[0].number' 2>/dev/null)
+
+          if [ "$RESULTADO" != "success" ]; then
+            cuerpo="El respaldo diario de la base de producción falló.
+
+          No hay copia nueva de hoy. La última buena es la anterior del bucket privado db-backups.
+          Qué hacer: docs/BACKUP_RESTORE.md · o a mano con \`pnpm backup production\`.
+          Corrida: $CORRIDA"
+            if [ -n "$abierto" ]; then
+              echo "· Ya estaba avisado en el issue #$abierto."
+              exit 1
+            fi
+            gh label create respaldo --color B60205 --description "Falló el respaldo diario" >/dev/null 2>&1
+            if salida=$(gh issue create --label respaldo --title "🔴 El respaldo diario falló" --body "$cuerpo" 2>&1); then
+              echo "· Issue abierto: $salida"
+            else
+              echo "· Issue NO abierto ($salida). El aviso va por correo."
+            fi
+            correo "🔴 Pan de Paula: el respaldo diario falló" "$cuerpo"
+            exit 1
+          fi
+
+          echo "· Respaldo OK: ${TABLAS:-?} tablas, ${TAMANO:-?}."
+          if [ -n "$abierto" ]; then
+            cuerpo="El respaldo diario volvió a funcionar: ${TABLAS:-?} tablas, ${TAMANO:-?}.
+
+          Corrida: $CORRIDA"
+            gh issue close "$abierto" --comment "✅ Respaldo restablecido. Corrida: $CORRIDA" >/dev/null 2>&1 &&
+              echo "· Issue #$abierto cerrado." || echo "· No se pudo cerrar el issue #$abierto; ciérralo a mano."
+            correo "✅ Pan de Paula: el respaldo diario volvió a funcionar" "$cuerpo"
+          fi
