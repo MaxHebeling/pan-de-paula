@@ -94,6 +94,12 @@ jobs:
 
       - name: Build
         run: pnpm build
+      # Va justo después del build porque revisa el RESULTADO: en Next basta importar un módulo de
+      # servidor desde un componente cliente para que su valor quede horneado en un chunk, y eso no se
+      # ve leyendo el código. Aquí no hay secretos reales, así que solo aplica la detección por forma
+      # de credencial; el cotejo contra los valores de verdad corre en la máquina del operador.
+      - name: Secretos en el bundle del navegador
+        run: bash scripts/check-client-bundle.sh
       - name: E2E (Playwright)
         run: |
           pnpm --filter @pdp/web exec playwright install --with-deps chromium

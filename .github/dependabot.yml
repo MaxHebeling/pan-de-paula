@@ -1,0 +1,51 @@
+# Actualizaciones de dependencias.
+#
+# Por qué hacía falta: el 24 de septiembre la CI estaba verde y el 30 fallaba sin que nadie tocara el
+# código — se publicaron avisos nuevos, uno crítico en Next que llevaba días corriendo en producción.
+# Nadie se enteró hasta que un merge se bloqueó. Dependabot convierte ese silencio en un pull request.
+#
+# Las alertas y los arreglos de seguridad automáticos se encienden en la configuración del repositorio
+# (Settings → Code security), no aquí; este archivo gobierna las actualizaciones ORDINARIAS.
+#
+# Agrupado a propósito: diez PR sueltos de parches no los revisa nadie, y lo que no se revisa se
+# mergea a ciegas. Los parches y menores van juntos; los mayores vienen solos, porque rompen.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "13:00" # 6 a.m. en Tijuana: el PR está listo antes de que empiece el día
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      parches-y-menores:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Los mayores se suben a mano: en este monorepo arrastran el framework entero.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+    labels: ["dependencias"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      acciones:
+        patterns: ["*"]
+    commit-message:
+      prefix: "deps(actions)"
+    labels: ["dependencias"]

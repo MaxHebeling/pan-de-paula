@@ -4,6 +4,12 @@ import { z } from "zod";
 const schema = z.object({
   APP_ENV: z.enum(["development", "staging", "production"]).default("development"),
   DATABASE_URL: z.string().min(1, "Falta DATABASE_URL"),
+  // OJO: hoy esta variable NO protege nada. Se exige aquí y en `scripts/check-env.mjs`, pero ningún
+  // módulo la lee: las sesiones del staff son un token aleatorio de 32 bytes guardado como sha256 en
+  // `staff_sessions` (`packages/auth/src/session.ts`), no una cookie firmada con este secreto.
+  // Se deja porque romper el contrato de entorno de dos proyectos de Vercel no gana seguridad, pero
+  // nadie debe asumir que rotarla invalida sesiones ni que compartirla entre ambientes las expone.
+  // Si algún día se firma algo, que sea con esta y se borre este comentario.
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET debe tener 32+ caracteres"),
   NEXT_PUBLIC_SITE_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default("http://localhost:3001"),

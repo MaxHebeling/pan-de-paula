@@ -42,11 +42,25 @@ export function proxy(req: NextRequest) {
       headers: new Headers({ ...Object.fromEntries(req.headers), "x-pathname": pathname }),
     },
   });
-  // Protección CSRF para TODA mutación, también en rutas públicas (p. ej. /api/auth/logout): Origin debe coincidir con Host.
+  // Protección CSRF para TODA mutación, también en rutas públicas (p. ej. /api/auth/logout).
+  //
+  // Dos señales, porque ninguna llega siempre:
+  //  - `Origin` debe coincidir con `Host`. Es la comprobación principal, pero si la petición no trae
+  //    `Origin` no dice nada, y entonces no se puede decidir con ella.
+  //  - `Sec-Fetch-Site` lo pone el navegador, no el documento que lanza la petición, y un atacante no
+  //    puede falsearlo. Cuando vale `cross-site` se rechaza aunque no haya `Origin`.
+  //
+  // Solo se rechaza cuando una de las dos señales está presente y acusa: los clientes que no son
+  // navegadores (el smoke test, curl, los crons) no mandan ninguna de las dos y deben seguir pasando.
+  // La defensa de fondo sigue siendo la cookie `SameSite=Lax`, que el navegador no envía en una
+  // petición POST de otro sitio; esto es la capa de arriba.
   if (MUTATING.has(req.method)) {
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
     if (origin && host && originHost(origin) !== host) {
+      return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
+    }
+    if (req.headers.get("sec-fetch-site") === "cross-site") {
       return NextResponse.json({ error: "Origen no permitido" }, { status: 403 });
     }
   }
