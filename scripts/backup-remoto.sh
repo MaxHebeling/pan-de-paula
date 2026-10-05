@@ -30,8 +30,21 @@ AUTH=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
 CIFRADO=(-aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -pass env:BACKUP_PASSPHRASE)
 
 NOMBRE="$(basename "$ORIGEN").enc"
-DESTINO="$(mktemp -t pdp-backup-enc)"
-VERIFICA="$(mktemp -t pdp-backup-ver)"
+# `mktemp -t PREFIJO` funciona en macOS pero NO en Linux: ahí `-t` trata el argumento como plantilla y
+# exige al menos tres X, así que fallaba con «too few X's in template» justo en el runner. Esta forma
+# —ruta completa con XXXXXXXX— se comporta igual en los dos.
+DESTINO="$(mktemp "${TMPDIR:-/tmp}/pdp-backup-enc.XXXXXXXX")"
+VERIFICA="$(mktemp "${TMPDIR:-/tmp}/pdp-backup-ver.XXXXXXXX")"
+
+# macOS trae `shasum`; en Linux lo normal es `sha256sum`. Se resuelve una vez y no en cada llamada.
+if command -v sha256sum >/dev/null 2>&1; then
+  suma_sha256() { sha256sum "$1" | cut -d" " -f1; }
+elif command -v shasum >/dev/null 2>&1; then
+  suma_sha256() { shasum -a 256 "$1" | cut -d" " -f1; }
+else
+  echo "✗ No hay sha256sum ni shasum: sin ellos no se puede comprobar que el cifrado es reversible."
+  exit 2
+fi
 trap 'rm -f "$DESTINO" "$VERIFICA"' EXIT
 
 echo "▶ 1/5 Cifrando $(basename "$ORIGEN") ($(du -h "$ORIGEN" | cut -f1))"
@@ -39,8 +52,8 @@ openssl enc "${CIFRADO[@]}" -salt -in "$ORIGEN" -out "$DESTINO"
 
 echo "▶ 2/5 Comprobando que se puede descifrar"
 openssl enc -d "${CIFRADO[@]}" -in "$DESTINO" -out "$VERIFICA"
-SUMA_ORIGEN=$(shasum -a 256 "$ORIGEN" | cut -d' ' -f1)
-SUMA_VUELTA=$(shasum -a 256 "$VERIFICA" | cut -d' ' -f1)
+SUMA_ORIGEN=$(suma_sha256 "$ORIGEN")
+SUMA_VUELTA=$(suma_sha256 "$VERIFICA")
 if [ "$SUMA_ORIGEN" != "$SUMA_VUELTA" ]; then
   echo "✗ El descifrado no reproduce el original. No se sube nada."
   exit 1
