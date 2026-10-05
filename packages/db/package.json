@@ -25,8 +25,8 @@
     "@node-rs/argon2": "2.2.1",
     "dotenv": "17.4.2",
     "exceljs": "4.4.0",
-    "kysely": "0.29.5",
-    "pg": "8.23.0"
+    "kysely": "0.29.6",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@pdp/config": "workspace:*",
@@ -35,7 +35,7 @@
     "@types/pg": "8.23.1",
     "eslint": "9.39.5",
     "kysely-codegen": "0.20.0",
-    "tsx": "4.23.13",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }
