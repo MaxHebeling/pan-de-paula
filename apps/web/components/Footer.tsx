@@ -5,6 +5,48 @@ import { fullAddress, instagramUrl, whatsappLink, type Business } from "@/lib/si
 import { Logo } from "./Logo";
 import { Reveal } from "./Reveal";
 
+/**
+ * Crédito de autoría. El pincelazo es un SVG, no un `border-bottom`: un subrayado recto se lee como
+ * un enlace cualquiera, y lo que se quiere aquí es una firma. El trazo tiene el grosor desigual
+ * —entra apoyado, engorda en el centro y se levanta afilado— y se descubre de izquierda a derecha,
+ * así que parece una pasada de pincel y no una barra que aparece.
+ *
+ * `preserveAspectRatio="none"` deja que el trazo se estire al ancho exacto de la palabra, sea el que
+ * sea. Solo cubre «iKingdom», no la frase entera: una firma se pone sobre el nombre.
+ */
+function CreditoIkingdom() {
+  return (
+    <a
+      href="https://www.ikingdom.org"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group/ik inline-flex items-baseline gap-1 text-ink-2 transition-colors duration-200 hover:text-ink"
+    >
+      <span>Desarrollado por</span>
+      <span className="pincelazo font-medium">
+        iKingdom
+        <svg
+          className="pincelazo-trazo"
+          viewBox="0 0 200 12"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          {/* El perfil cuenta el gesto: apoya a la izquierda (grosor 1.6 sobre 12), engorda al
+              cruzar (2.1) y se levanta afilado a la derecha (0.6), con la espina subiendo un poco.
+              Con grosor constante sería un subrayado; es el adelgazamiento final lo que lo vuelve
+              una pasada. Y con la diferencia muy marcada deja de parecer un pincel y parece una cuña:
+              el rango va de 1.6 a 0.6, no de 2.6 a 0.8. */}
+          <path
+            d="M3 6.5C22 5 50 4.2 80 4.2c40 0 80 .4 117 .7l.3.6c-37.3.1-77.3.7-117.3.8-30 .1-56 .7-76.7 1.8Z"
+            fill="currentColor"
+          />
+        </svg>
+      </span>
+    </a>
+  );
+}
+
 /** Pie de página. Entrada progresiva sutil por columnas (jerarquía D: casi estático). */
 export function Footer({ business }: { business: Business }) {
   const address = fullAddress(business);
@@ -132,6 +174,9 @@ export function Footer({ business }: { business: Business }) {
             © {new Date().getFullYear()} {business.legalName ?? business.name}. Hecho con amor.
           </p>
           <p>Panadería artesanal · Pedidos en línea con recolección programada.</p>
+          <p>
+            <CreditoIkingdom />
+          </p>
         </div>
       </div>
     </footer>
