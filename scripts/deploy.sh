@@ -6,8 +6,12 @@ cd "$(dirname "$0")/.."
 ENV="${1:-staging}"
 [[ "$ENV" == "staging" || "$ENV" == "production" ]] || { echo "Uso: deploy.sh staging|production"; exit 2; }
 
+# shellcheck source=scripts/entorno.sh
+source "$(dirname "$0")/entorno.sh"
 ENV_FILE=".env.$ENV"
-[ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE (copia .env.example y completa). Nunca lo subas a git."; exit 2; }
+# Se comprueba AQUÍ y se carga mucho más abajo, ya pasadas las pruebas: así no se corren veinte
+# minutos de verificación para morir al final porque faltaba una variable.
+entorno_disponible "$ENV"
 
 echo "▶ [$ENV] 1/6 Verificando árbol limpio y rama"
 if [ -n "$(git status --porcelain)" ]; then echo "Hay cambios sin commit. Aborta."; exit 1; fi
@@ -43,7 +47,7 @@ unset NODE_ENV
 pnpm verify
 
 # A partir de aquí, entorno del destino (subshell: no contamina el resto de la sesión)
-set -a; source "$ENV_FILE"; set +a
+cargar_entorno "$ENV"
 export APP_ENV="$ENV"
 if [[ "$DATABASE_URL" == *localhost* || "$DATABASE_URL" == *127.0.0.1* ]]; then echo "DATABASE_URL de $ENV apunta a localhost. Aborta."; exit 1; fi
 

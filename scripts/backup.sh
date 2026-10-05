@@ -4,12 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ENV="${1:-local}"; LABEL="${2:-manual}"
-if [ "$ENV" != "local" ]; then
-  [ -f ".env.$ENV" ] || { echo "Falta .env.$ENV"; exit 2; }
-  set -a; source ".env.$ENV"; set +a
-else
-  set -a; source .env; set +a
-fi
+# shellcheck source=scripts/entorno.sh
+source "$(dirname "$0")/entorno.sh"
+cargar_entorno "$ENV"
 : "${DATABASE_URL:?Falta DATABASE_URL}"
 # Respaldo: usa BACKUP_DATABASE_URL si existe (pooler en modo sesión, puerto 5432); si no, DATABASE_URL.
 SRC="${BACKUP_DATABASE_URL:-$DATABASE_URL}"
