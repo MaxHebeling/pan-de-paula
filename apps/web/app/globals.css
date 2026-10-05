@@ -237,3 +237,50 @@ body {
   background-image: radial-gradient(rgba(31, 42, 58, 0.035) 1px, transparent 1px);
   background-size: 22px 22px;
 }
+
+/* Pincelazo de la firma del pie (ver components/Footer.tsx → CreditoIkingdom) */
+.pincelazo {
+  position: relative;
+  display: inline-block;
+  /* El trazo se sale un poco de la caja del texto; sin esto, los extremos afilados se cortan. */
+  white-space: nowrap;
+}
+.pincelazo-trazo {
+  position: absolute;
+  /* Sobresale a los lados: un pincel no arranca ni termina justo en la letra.
+     El ancho va explícito, no con `left` + `right`: un SVG es un elemento reemplazado y, con
+     `width: auto`, calcula su ancho a partir de la proporción del viewBox (200×12) en vez de
+     estirarse entre los dos bordes. Así medía 84 px sobre una palabra de 54 y el trazo se salía. */
+  left: -0.16em;
+  width: calc(100% + 0.32em);
+  bottom: -0.14em;
+  height: 0.46em;
+  color: var(--color-crust);
+  pointer-events: none;
+  /* `clip-path` y no `transform: scaleX`: escalar deformaría el afilado de los extremos y el trazo
+     se vería estirado al entrar. Recortando, el pincel pasa y el grosor se mantiene. */
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.42s var(--ease-premium);
+}
+@media (hover: hover) {
+  .pincelazo:hover .pincelazo-trazo,
+  a:hover > .pincelazo .pincelazo-trazo {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* Con teclado se ve igual que con ratón: si no, el enlace pierde la única señal de que es un enlace. */
+a:focus-visible > .pincelazo .pincelazo-trazo {
+  clip-path: inset(0 0 0 0);
+}
+/* En táctil no existe el hover, así que el pincelazo no llegaría a verse nunca: ahí se deja puesto.
+   La firma se ve igual en todas partes; lo que cambia es si además se dibuja o ya está dibujada. */
+@media (hover: none) {
+  .pincelazo-trazo {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pincelazo-trazo {
+    transition: none;
+  }
+}
