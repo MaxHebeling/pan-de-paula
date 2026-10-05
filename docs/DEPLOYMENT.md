@@ -56,12 +56,49 @@ repo) para que **la única vía a producción sea `deploy.sh`**; así nunca sube
 Vincula el monorepo a ambos proyectos una sola vez desde la raíz: `vercel link --repo --yes --scope max-ab784c70` (crea `.vercel/repo.json`, ignorado por git). Los proyectos ya existen: `pan-de-paula-web` (`prj_E9OqTGtAEBtdiD9qaUHqouU6jLNE`, root `apps/web`) y `pan-de-paula-admin` (`prj_bHF8vS3Ec58pELW0rZHD2uzWK8Qj`, root `apps/admin`), conectados a `MaxHebeling/pan-de-paula` con build `pnpm turbo run build --filter=@pdp/<app>` y Node 22
 (crea `apps/*/.vercel`, ignorado en git). Requiere `vercel` CLI autenticado.
 
-### Archivos de entorno locales
+### De dónde salen las variables
 
-`deploy.sh` lee `.env.staging` o `.env.production` en la raíz (ignorados por git). Contienen al menos
-`DATABASE_URL`, `DATABASE_SSL=require`, `SESSION_SECRET`, `NEXT_PUBLIC_*`, `CRON_SECRET` y, en producción,
-`MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`, `SENTRY_DSN`, `RESEND_API_KEY`, `EMAIL_FROM`
-(`scripts/check-env.mjs` los exige).
+Los scripts aceptan **dos caminos** (`scripts/entorno.sh` decide cuál):
+
+1. **Archivo** `.env.staging` / `.env.production` en la raíz, ignorado por git.
+2. **Variables ya en el entorno**, que es lo que deja 1Password:
+
+   ```bash
+   op run --env-file=.env.production.tpl -- pnpm deploy:prod
+   ```
+
+   Los `.tpl` solo llevan referencias `op://`, nunca valores, así que pueden existir sin riesgo. Si
+   `op` pide sesión: `eval $(op signin)`.
+
+Sin archivo y sin variables, los scripts explican el comando de arriba en vez de decir solo «falta el
+archivo». Antes exigían el archivo y nada más, así que después de mover los secretos a 1Password el
+sistema se quedó sin forma de desplegar aunque las credenciales estuvieran disponibles.
+
+`scripts/vercel-setup.sh` es la excepción: lee el archivo línea por línea para saber qué nombres subir
+a Vercel, así que necesita el archivo de verdad (`op inject -i .env.production.tpl -o .env.production`,
+y bórralo al terminar).
+
+Hagan falta por el camino que sea: `DATABASE_URL`, `DATABASE_SSL=require`, `SESSION_SECRET`,
+`NEXT_PUBLIC_*`, `CRON_SECRET` y, en producción, `MERCADOPAGO_ACCESS_TOKEN`,
+`MERCADOPAGO_WEBHOOK_SECRET`, `SENTRY_DSN`, `RESEND_API_KEY`, `EMAIL_FROM` (`scripts/check-env.mjs`
+los exige), más `BACKUP_DATABASE_URL` y `MIGRATE_DATABASE_URL`.
+
+#### `MIGRATE_DATABASE_URL`: tiene que ser el rol DUEÑO
+
+No basta con la URL de la app. El migrador crea `schema_migrations` y, aunque no haya nada pendiente,
+corre `_post_migrate.sql`, que revoca permisos, concede a `pdp_app`, activa RLS y crea políticas sobre
+tablas cuyo dueño es `postgres`. Con `pdp_app` el despliegue muere con `permission denied for schema
+public` incluso con 35 de 35 migraciones aplicadas.
+
+```
+MIGRATE_DATABASE_URL=postgres://postgres.<ref>:<contraseña>@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+```
+
+La contraseña es la de la base del proyecto (Supabase → Settings → Database), **no** la de `pdp_app`.
+Restablecerla ahí no afecta al sitio ni al CRM, que entran con `pdp_app`.
+
+**No se arregla concediendo `CREATE` a `pdp_app`**: eso le daría DDL permanente al rol que atiende el
+tráfico público, al revés de lo que persigue `docs/audit/2026-10-02-seguridad.md`.
 
 ## Qué hace `scripts/deploy.sh <staging|production>`
 

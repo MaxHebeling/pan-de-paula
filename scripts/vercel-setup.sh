@@ -5,7 +5,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ENV="${1:?staging|production}"; TEAM="${2:-max-ab784c70}"
-ENV_FILE=".env.$ENV"; [ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE"; exit 2; }
+# Este script sí necesita el ARCHIVO: no carga variables, las lee línea por línea para subirlas a
+# Vercel. Con `op run` las variables estarían en el entorno pero no sabría cuáles subir ni con qué
+# nombre, así que aquí no sirve el camino de `entorno.sh`.
+ENV_FILE=".env.$ENV"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Falta $ENV_FILE, y este script necesita el archivo (lee los nombres de las variables, no sus valores)."
+  [ -f "$ENV_FILE.tpl" ] && echo "Para materializarlo desde 1Password: op inject -i $ENV_FILE.tpl -o $ENV_FILE  (bórralo al terminar)."
+  exit 2
+fi
 VENV="production"; [ "$ENV" = "staging" ] && VENV="preview"
 
 setup_app() {

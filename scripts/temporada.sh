@@ -17,9 +17,9 @@ HOJA="${HOJA:-packages/db/import/catalogo/2026-09-23-temporada.xlsx}"
 FOTOS="${FOTOS:-packages/db/import/fotos/2026-09-23}"
 [ -f "$HOJA" ] || { echo "Falta la hoja $HOJA"; exit 2; }
 
-if [ "$ENV" = "local" ]; then ENV_FILE=.env; else ENV_FILE=".env.$ENV"; fi
-[ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE"; exit 2; }
-set -a; source "$ENV_FILE"; set +a
+# shellcheck source=scripts/entorno.sh
+source "$(dirname "$0")/entorno.sh"
+cargar_entorno "$ENV"
 : "${DATABASE_URL:?Falta DATABASE_URL}"
 if [ "${DATABASE_SSL:-disable}" = "require" ]; then
   export PGSSLMODE=verify-full PGSSLROOTCERT="$(pwd)/certs/supabase-root-2021-ca.pem"

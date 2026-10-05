@@ -9,8 +9,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ENV="${1:?entorno: local | staging | production}"
 shift
-if [ "$ENV" = "local" ]; then ENV_FILE=.env; else ENV_FILE=".env.$ENV"; fi
-[ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE"; exit 2; }
-set -a; source "$ENV_FILE"; set +a
+# shellcheck source=scripts/entorno.sh
+source "$(dirname "$0")/entorno.sh"
+cargar_entorno "$ENV"
 : "${DATABASE_URL:?Falta DATABASE_URL}"
 pnpm --filter @pdp/admin run invitar-portal "$@"

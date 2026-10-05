@@ -13,9 +13,9 @@ ENV="${1:-local}"
 MODE="${2:---dry-run}"
 case "$MODE" in --dry-run | --apply) ;; *) echo "Modo inválido: $MODE"; exit 2 ;; esac
 
-if [ "$ENV" = "local" ]; then ENV_FILE=.env; else ENV_FILE=".env.$ENV"; fi
-[ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE"; exit 2; }
-set -a; source "$ENV_FILE"; set +a
+# shellcheck source=scripts/entorno.sh
+source "$(dirname "$0")/entorno.sh"
+cargar_entorno "$ENV"
 : "${DATABASE_URL:?Falta DATABASE_URL}"
 if [ "${DATABASE_SSL:-disable}" = "require" ]; then
   export PGSSLMODE=verify-full PGSSLROOTCERT="$(pwd)/certs/supabase-root-2021-ca.pem"
