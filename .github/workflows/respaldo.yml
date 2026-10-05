@@ -47,7 +47,20 @@ jobs:
             sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
+
+          # Instalar el 17 no basta: en Ubuntu `/usr/bin/pg_dump` es un envoltorio que siguió
+          # resolviendo al 16 del sistema, así que el volcado moría con «server version mismatch»
+          # (servidor 17.6, pg_dump 16.15) DESPUÉS de instalar el 17 correctamente. Hay que poner el
+          # directorio del 17 al frente del PATH para los pasos siguientes.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+
+          # Y se COMPRUEBA, no se imprime. La versión antes solo se mostraba: el paso terminaba en
+          # verde con un pg_dump inservible a la vista de cualquiera que leyera el registro, y el
+          # fallo aparecía dos pasos más tarde disfrazado de problema del servidor.
+          v=$(pg_dump --version | grep -oE '[0-9]+' | head -1)
+          echo "pg_dump: $(pg_dump --version)"
+          [ "$v" = "17" ] || { echo "✗ pg_dump es de la línea $v y el servidor es 17: el volcado fallaría"; exit 1; }
 
       - name: Respaldar y subir
         id: respaldo
