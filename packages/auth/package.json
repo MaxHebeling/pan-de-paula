@@ -16,7 +16,7 @@
     "build": "echo 'no build (source package)'"
   },
   "dependencies": {
-    "@node-rs/argon2": "2.2.1",
+    "@node-rs/argon2": "2.2.2",
     "@pdp/db": "workspace:*"
   },
   "devDependencies": {
@@ -25,7 +25,7 @@
     "@types/pg": "8.23.1",
     "dotenv": "17.4.2",
     "eslint": "9.39.5",
-    "pg": "8.23.0",
+    "pg": "8.23.1",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }
