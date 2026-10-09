@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@pdp/config": "workspace:*",
-    "@types/node": "22.20.2",
+    "@types/node": "26.6.4",
     "eslint": "9.39.5",
     "typescript": "5.9.3",
     "vitest": "4.1.11"

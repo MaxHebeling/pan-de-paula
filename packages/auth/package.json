@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@pdp/config": "workspace:*",
-    "@types/node": "22.20.2",
+    "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
     "dotenv": "17.4.2",
     "eslint": "9.39.5",
