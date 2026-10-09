@@ -99,6 +99,23 @@ jobs:
           # El volcado en claro no debe sobrevivir al paso, ni siquiera en un runner efímero.
           rm -f .env.production backups/pdp-production-*.dump
 
+      - name: Latido a HEBELING CORE
+        # Avisa al monitor central que el respaldo de hoy terminó bien. Si el latido no llega en 26 h
+        # (el respaldo no corrió, por ejemplo porque GitHub desactivó el cron programado), CORE abre un
+        # incidente. Va antes de «Avisar» porque ese paso termina en rojo a propósito cuando el respaldo falla.
+        # La URL es un secreto: este repositorio es público. Si falta o CORE no responde, no pasa nada.
+        if: steps.respaldo.outcome == 'success'
+        continue-on-error: true
+        env:
+          CORE_HEARTBEAT_URL: ${{ secrets.CORE_HEARTBEAT_RESPALDO_URL }}
+        run: |
+          [ -n "${CORE_HEARTBEAT_URL:-}" ] || { echo "· Latido no configurado."; exit 0; }
+          if curl -fsS -o /dev/null --max-time 10 -X POST "$CORE_HEARTBEAT_URL"; then
+            echo "· Latido enviado a HEBELING CORE."
+          else
+            echo "· Latido NO enviado (CORE no respondió). El respaldo no se ve afectado."
+          fi
+
       - name: Avisar
         env:
           GH_TOKEN: ${{ github.token }}
