@@ -485,12 +485,43 @@ describe("REST con fetch mockeado", () => {
       external_reference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
       transactions: { payments: [{ amount: "120.00" }] },
       config: {
-        // Por defecto imprime AMBOS comprobantes: el cliente espera el suyo y el negocio necesita la
-        // copia firmada. Con `no_ticket` el mostrador se quedaba sin ningún papel.
-        point: { terminal_id: "NEWLAND_N950__N950NCC303060616", print_on_terminal: "both" },
+        // `seller_ticket`: imprime la copia del negocio, la que hace falta para un contracargo.
+        // NO se puede pedir "both": ver la prueba de abajo.
+        point: {
+          terminal_id: "NEWLAND_N950__N950NCC303060616",
+          print_on_terminal: "seller_ticket",
+        },
       },
     });
     expect((init?.headers as Record<string, string>)["X-Idempotency-Key"]).toBe("point:1");
+  });
+
+  it("print_on_terminal nunca sale con un valor que la API rechaza (regresión: «both» rompía TODO cobro)", async () => {
+    // La API de Órdenes solo acepta `seller_ticket` y `no_ticket`. Comprobado contra la API real el
+    // 2026-10-10: con `both` responde
+    //   «'$.config.point.print_on_terminal' - value must be one of 'seller_ticket', 'no_ticket'»
+    // y la orden no se crea, así que el cobro con terminal fallaba SIEMPRE. Esta misma prueba lo daba
+    // por bueno: con `fetch` simulado la API nunca contesta y el doble fijó un valor que ella rechaza.
+    //
+    // Por eso no se comprueba un valor concreto sino que pertenezca al conjunto permitido: si alguien
+    // vuelve a "mejorarlo", falla acá y no en el mostrador.
+    const PERMITIDOS = ["seller_ticket", "no_ticket"];
+
+    for (const pedido of [undefined, "no_ticket", "seller_ticket"] as const) {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ id: "ORD-X", status: "created", type: "point" }, 201),
+      );
+      await createPointOrder({
+        deviceId: "NEWLAND_N950__N950NCC303060616",
+        amountCents: 12000,
+        externalReference: "ref-regresion",
+        description: "Regresión print_on_terminal",
+        ...(pedido ? { printOnTerminal: pedido } : {}),
+      });
+      const [, init] = fetchMock.mock.calls.at(-1)!;
+      const enviado = JSON.parse(String(init?.body)).config.point.print_on_terminal;
+      expect(PERMITIDOS, `valor enviado: ${enviado}`).toContain(enviado);
+    }
   });
 
   it("un cobro por debajo del mínimo de Mercado Pago se rechaza aquí, con un mensaje claro", async () => {
@@ -506,17 +537,17 @@ describe("REST con fetch mockeado", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("respeta el tipo de comprobante cuando se pide explícitamente", async () => {
+  it("respeta el tipo de comprobante cuando se pide explícitamente (uno de los dos que acepta la API)", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: "ORD02", status: "created" }, 201));
     await createPointOrder({
       deviceId: "NEWLAND_N950__N950NCC303060616",
       amountCents: 12000,
       externalReference: "0b4a7c8e-1d2f-4a5b-8c9d-0e1f2a3b4c5d",
       description: "Pedido",
-      printOnTerminal: "buyer_ticket",
+      printOnTerminal: "no_ticket",
     });
     const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
-    expect(body.config.point.print_on_terminal).toBe("buyer_ticket");
+    expect(body.config.point.print_on_terminal).toBe("no_ticket");
   });
 
   it("crea orden QR dinámica y devuelve qr_data", async () => {
