@@ -485,11 +485,15 @@ export async function createPointOrder(input: {
   /** Clave de idempotencia (por defecto una por llamada). Reusar para reintentar la misma orden. */
   idempotencyKey?: string;
   /**
-   * Qué imprime la terminal. Por defecto **ambos**: el cliente espera su comprobante y el negocio
-   * necesita la copia firmada para responder un contracargo. El default anterior (`no_ticket`) dejaba
-   * al mostrador sin ningún papel, que es justo lo que no se quiere en una panadería.
+   * Qué imprime la terminal. La API de Órdenes solo acepta DOS valores: `seller_ticket` y `no_ticket`.
+   * Comprobado contra la API real (2026-10-10): con `both` o `buyer_ticket` responde
+   * «'$.config.point.print_on_terminal' - value must be one of 'seller_ticket', 'no_ticket'» y la
+   * orden NO se crea, así que el cobro con terminal falla siempre.
+   *
+   * El default es `seller_ticket`: imprime la copia del negocio, que es la que hace falta para
+   * responder un contracargo. Un `both` bienintencionado dejó la terminal sin poder cobrar.
    */
-  printOnTerminal?: "no_ticket" | "seller_ticket" | "buyer_ticket" | "both";
+  printOnTerminal?: "no_ticket" | "seller_ticket";
   /** Duración ISO 8601 (default PT15M). */
   expirationTime?: string;
 }): Promise<{ orderId: string; status: string }> {
@@ -512,7 +516,7 @@ export async function createPointOrder(input: {
     config: {
       point: {
         terminal_id: input.deviceId,
-        print_on_terminal: input.printOnTerminal ?? "both",
+        print_on_terminal: input.printOnTerminal ?? "seller_ticket",
       },
     },
   };
