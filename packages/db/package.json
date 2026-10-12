@@ -31,7 +31,7 @@
   "devDependencies": {
     "@pdp/config": "workspace:*",
     "@pdp/domain": "workspace:*",
-    "@types/node": "22.20.2",
+    "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
     "eslint": "9.39.5",
     "kysely-codegen": "0.20.0",
