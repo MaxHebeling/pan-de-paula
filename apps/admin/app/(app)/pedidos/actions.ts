@@ -11,7 +11,7 @@ import {
   emailSchema,
 } from "@pdp/domain";
 import { deliverPendingPushes, isEmailConfigured, sendReceiptEmail } from "@pdp/integrations";
-import { requireSession } from "@/lib/auth";
+import { hasPermission, requireSession } from "@/lib/auth";
 import { db, sql, callFn, withStaff } from "@/lib/db";
 import { fail, parseMoneyCents, str, type ActionResult } from "@/lib/ops";
 import type { FormState } from "@/components/ops/action-form";
@@ -301,6 +301,18 @@ export async function searchCustomersAction(q: string): Promise<
   await requireSession("orders.write");
   const term = q.trim();
   if (term.length < 2) return { ok: true, data: [] };
+  /*
+   * Buscar por teléfono solo si el término trae dígitos.
+   *
+   * Antes, cuando no los traía, se pasaba un byte NUL como centinela "imposible". Postgres NO
+   * admite el byte 0 en texto —responde `null character not permitted`—, así que la consulta
+   * entera fallaba: buscar un cliente POR NOMBRE, que es el caso normal del alta manual, no
+   * devolvía nada. El NUL estaba además incrustado literalmente en este archivo, lo que hacía
+   * que `grep` lo tratara como binario y no mostrara ninguna coincidencia.
+   *
+   * No hace falta centinela: si no hay dígitos, la comparación de teléfono no se evalúa.
+   */
+  const soloDigitos = term.replace(/[^0-9]/g, "");
   try {
     const r = await sql<{
       id: string;
@@ -313,7 +325,8 @@ export async function searchCustomersAction(q: string): Promise<
       union
       (select id, full_name, phone::text, email::text, public_code from customers
         where deleted_at is null and merged_into_id is null
-          and (full_name ilike ${containsPattern(term)} or phone::text like '%' || ${term.replace(/[^0-9]/g, "") || " "} || '%')
+          and (full_name ilike ${containsPattern(term)}
+               or (${soloDigitos} <> '' and phone::text like '%' || ${soloDigitos} || '%'))
         order by last_purchase_at desc nulls last limit 8)
       limit 8`.execute(db());
     return { ok: true, data: r.rows };
@@ -525,4 +538,60 @@ export async function sendReceiptAction(_prev: FormState, form: FormData): Promi
   return errorMessage
     ? { error: `No se pudo enviar: ${errorMessage}` }
     : { ok: true, message: `Comprobante enviado a ${parsed.data.to}` };
+}
+
+/**
+ * Envía un pedido guardado al punto de venta para cobrar su saldo pendiente.
+ *
+ * NO cobra. Enviar y cobrar son dos acciones distintas y esta es solo la primera: marca el pedido
+ * como disponible en el punto de venta y, si quien lo envía además puede vender, lo lleva a la
+ * pantalla de cobro. El cobro sigue exigiendo la confirmación explícita del operador y lo ejecuta
+ * `record_payment`, que es el mismo motor que usa el POS y el que ya vive en `paymentAction`: aquí
+ * no hay un segundo camino de cobro.
+ *
+ * Idempotente de verdad, en la base y no deshabilitando el botón: `queue_order_for_pos` bloquea la
+ * fila del pedido y solo escribe una fecha, así que dos clics, un reintento, una recarga o dos
+ * operadores a la vez recuperan el MISMO pedido en cola. No crea pedidos, pagos, ventas,
+ * movimientos de inventario ni de caja.
+ *
+ * Permiso: `orders.write`, porque modifica el pedido. Llevar a la pantalla de cobro exige además
+ * `pos.sell`; quien no lo tenga recibe la confirmación de que quedó en la cola y nada más.
+ */
+export async function enviarAPosAction(_prev: FormState, form: FormData): Promise<FormState> {
+  const session = await requireSession("orders.write");
+  const parsed = z.object({ order_id: uuid }).safeParse({ order_id: str(form, "order_id") });
+  if (!parsed.success) return { error: "Pedido inválido" };
+
+  let destino: string | null = null;
+  try {
+    const r = await withStaff(db(), session.staff.id, (trx) =>
+      callFn<{
+        queued: boolean;
+        already?: boolean;
+        reason?: string;
+        order_id: string;
+        folio: string;
+        balance_cents: number;
+      }>(trx, "queue_order_for_pos", [parsed.data.order_id]),
+    );
+    if (!r.queued) {
+      return r.reason === "already_paid"
+        ? { error: "Este pedido ya está pagado." }
+        : { error: "El pedido no se puede cobrar." };
+    }
+    if (!hasPermission(session, "pos.sell")) {
+      return {
+        ok: true,
+        message: r.already
+          ? `${r.folio} ya está disponible en el Punto de Venta.`
+          : `${r.folio} enviado al Punto de Venta. Pendiente de cobro.`,
+      };
+    }
+    destino = `/pos/cobrar/${r.order_id}`;
+  } catch (e) {
+    return fail(e, "pedido_a_pos");
+  }
+  // `redirect` lanza una excepción de control que Next intercepta, así que va FUERA del try: dentro,
+  // el `catch` la trataría como un fallo del cobro y mostraría un error donde todo salió bien.
+  redirect(destino);
 }
