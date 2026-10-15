@@ -26,6 +26,13 @@ export const NAV: NavItem[] = [
     group: "operacion",
   },
   {
+    href: "/pos/pendientes",
+    label: "Pendientes de cobro",
+    icon: "🧾",
+    permission: "pos.sell",
+    group: "operacion",
+  },
+  {
     href: "/pedidos",
     label: "Pedidos",
     icon: "📋",
