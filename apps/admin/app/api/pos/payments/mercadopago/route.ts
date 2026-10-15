@@ -21,9 +21,29 @@ import type { MpStartResult } from "@/components/pos/types";
 
 export const dynamic = "force-dynamic";
 
-const schema = posCheckoutSchema.omit({ payments: true }).extend({
-  kind: z.enum(["point", "qr"]),
-});
+/*
+ * Dos formas de iniciar un cobro con Mercado Pago:
+ *
+ *  · Venta nueva del POS: llegan los renglones y se crea el pedido, como siempre.
+ *  · Pedido que YA EXISTE (`existing_order_id`, desde /pos/cobrar/[id]): no se crea nada y se cobra
+ *    su SALDO. Sin esta rama, cada intento con Mercado Pago sobre un pedido guardado creaba un
+ *    pedido nuevo y duplicado.
+ *
+ * `items` pasa a ser opcional porque un pedido existente ya tiene los suyos; el `refine` garantiza
+ * que sin pedido existente sigan siendo obligatorios. El esquema compartido no se toca: otros
+ * llamadores dependen de él.
+ */
+const schema = posCheckoutSchema
+  .omit({ payments: true, items: true })
+  .extend({
+    kind: z.enum(["point", "qr"]),
+    existing_order_id: z.string().uuid().optional(),
+    items: posCheckoutSchema.shape.items.optional(),
+  })
+  .refine((v) => Boolean(v.existing_order_id) || (v.items?.length ?? 0) > 0, {
+    message: "Hacen falta renglones para crear el pedido",
+    path: ["items"],
+  });
 
 /** Traduce fallas del adaptador de Mercado Pago a un mensaje claro para la cajera. */
 function mpErrorResponse(e: unknown, kind: "point" | "qr") {
@@ -64,8 +84,10 @@ export async function POST(req: Request) {
   if (!parsed.success)
     return jsonError(400, parsed.error.issues[0]?.message ?? "Datos inválidos", "VALIDATION");
   const input = parsed.data;
+  // Solo aplica a una venta nueva: en un pedido que ya existe, sus descuentos se autorizaron al
+  // crearlo y aquí no llegan renglones que revisar.
   if (
-    input.items.some((i) => (i.discount_cents ?? 0) > 0) &&
+    input.items?.some((i) => (i.discount_cents ?? 0) > 0) &&
     !hasPermission(auth.session, "pos.refund")
   ) {
     return jsonError(
@@ -95,66 +117,103 @@ export async function POST(req: Request) {
 
   const register = await getOpenRegister();
   const staffId = auth.session.staff.id;
-  const { kind, ...orderInput } = input;
+  const { kind, existing_order_id: _ignorado, ...orderInput } = input;
 
   // 1) Pedido (idempotente por idempotency_key). Si ya existe y ya tiene pago MP pendiente, reutilizamos.
   let orderId: string;
   let folio: string;
   let totalCents: number;
   try {
-    orderId = await withStaff(db(), staffId, (trx) =>
-      callFn<string>(trx, "create_order", [
-        JSON.stringify({
-          ...orderInput,
-          channel: "pos",
-          register_session_id: register?.id ?? null,
-        }),
-      ]),
-    );
-    const o = await sql<{
-      folio: string;
-      total_cents: number;
-      status: string;
-      sale_id: string | null;
-    }>`select o.folio, o.total_cents, o.status, s.id as sale_id from orders o left join sales s on s.order_id = o.id where o.id = ${orderId}::uuid`.execute(
-      db(),
-    );
-    const row = o.rows[0]!;
-    folio = row.folio;
-    totalCents = row.total_cents;
-    if (row.sale_id) {
-      return NextResponse.json({ orderId, folio, totalCents, mpOrderId: "", alreadyPaid: true });
-    }
-    if (row.status === "cancelled") {
-      return jsonError(
-        409,
-        "Este intento de cobro ya fue cancelado. Inicia uno nuevo.",
-        "ORDER_CANCELLED",
+    if (input.existing_order_id) {
+      /*
+       * Pedido existente: NO se crea nada. Y el importe que va a Mercado Pago es el SALDO, no el
+       * total: con un anticipo de $100 sobre $250, cobrar el total le sacaría al cliente $250 y le
+       * dejaría el pedido sobrepagado.
+       */
+      const ex = await sql<{
+        folio: string;
+        status: string;
+        total_cents: number;
+        paid_cents: number;
+        sale_id: string | null;
+      }>`select o.folio, o.status::text as status, o.total_cents, o.paid_cents, s.id as sale_id
+           from orders o left join sales s on s.order_id = o.id and s.voided_at is null
+          where o.id = ${input.existing_order_id}::uuid`.execute(db());
+      const row = ex.rows[0];
+      if (!row) return jsonError(404, "El pedido no existe", "NOT_FOUND");
+      if (row.status === "cancelled" || row.status === "refunded")
+        return jsonError(
+          409,
+          `El pedido está ${row.status} y no se puede cobrar`,
+          "ORDER_NOT_PAYABLE",
+        );
+      const saldo = row.total_cents - row.paid_cents;
+      if (saldo <= 0 || row.sale_id)
+        return NextResponse.json({
+          orderId: input.existing_order_id,
+          folio: row.folio,
+          totalCents: saldo,
+          mpOrderId: "",
+          alreadyPaid: true,
+        });
+      orderId = input.existing_order_id;
+      folio = row.folio;
+      totalCents = saldo;
+    } else {
+      orderId = await withStaff(db(), staffId, (trx) =>
+        callFn<string>(trx, "create_order", [
+          JSON.stringify({
+            ...orderInput,
+            channel: "pos",
+            register_session_id: register?.id ?? null,
+          }),
+        ]),
       );
-    }
-    const existing = await sql<{
-      external_id: string | null;
-      metadata: { qr_data?: string } | null;
-    }>`select external_id, metadata from payments where order_id = ${orderId}::uuid and provider = 'mercadopago' and status = 'pending' order by created_at desc limit 1`.execute(
-      db(),
-    );
-    const prev = existing.rows[0];
-    if (prev?.external_id) {
-      const out: MpStartResult = {
-        orderId,
-        folio,
-        totalCents,
-        mpOrderId: prev.external_id,
-        qrData: prev.metadata?.qr_data,
-      };
-      return NextResponse.json(out);
-    }
-    if (totalCents <= 0) {
-      return jsonError(
-        409,
-        "El total es $0: cobra sin Mercado Pago (la recompensa cubre todo).",
-        "ZERO_TOTAL",
+      const o = await sql<{
+        folio: string;
+        total_cents: number;
+        status: string;
+        sale_id: string | null;
+      }>`select o.folio, o.total_cents, o.status, s.id as sale_id from orders o left join sales s on s.order_id = o.id where o.id = ${orderId}::uuid`.execute(
+        db(),
       );
+      const row = o.rows[0]!;
+      folio = row.folio;
+      totalCents = row.total_cents;
+      if (row.sale_id) {
+        return NextResponse.json({ orderId, folio, totalCents, mpOrderId: "", alreadyPaid: true });
+      }
+      if (row.status === "cancelled") {
+        return jsonError(
+          409,
+          "Este intento de cobro ya fue cancelado. Inicia uno nuevo.",
+          "ORDER_CANCELLED",
+        );
+      }
+      const existing = await sql<{
+        external_id: string | null;
+        metadata: { qr_data?: string } | null;
+      }>`select external_id, metadata from payments where order_id = ${orderId}::uuid and provider = 'mercadopago' and status = 'pending' order by created_at desc limit 1`.execute(
+        db(),
+      );
+      const prev = existing.rows[0];
+      if (prev?.external_id) {
+        const out: MpStartResult = {
+          orderId,
+          folio,
+          totalCents,
+          mpOrderId: prev.external_id,
+          qrData: prev.metadata?.qr_data,
+        };
+        return NextResponse.json(out);
+      }
+      if (totalCents <= 0) {
+        return jsonError(
+          409,
+          "El total es $0: cobra sin Mercado Pago (la recompensa cubre todo).",
+          "ZERO_TOTAL",
+        );
+      }
     }
   } catch (e) {
     return dbErrorResponse(e, "create_order (MP)");
