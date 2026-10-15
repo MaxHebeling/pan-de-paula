@@ -2,7 +2,7 @@
 import { useDeferredValue, useMemo, useState, type RefObject } from "react";
 import Image from "next/image";
 import { Search, Star, X } from "lucide-react";
-import { formatMXN } from "@pdp/domain";
+import { blockedByStock, formatMXN } from "@pdp/domain";
 import type { PosCatalog, PosProduct } from "./types";
 
 type Group = { main: PosProduct; variants: PosProduct[] };
@@ -22,7 +22,14 @@ function matches(p: PosProduct, q: string) {
 
 function StockBadge({ p, allowNegative }: { p: PosProduct; allowNegative: boolean }) {
   if (!p.trackStock) return null;
-  if (p.level === "out")
+  if (p.level === "out") {
+    // Sin piezas pero se hornea por encargo: es información, no un impedimento. Llamarle "Agotado"
+    // hacía que la caja creyera que no podía cobrarlo, y es el estado normal de casi todo el
+    // catálogo. "Agotado" en rojo queda solo para lo que de verdad no se puede vender.
+    if (p.allowPreorder)
+      return (
+        <span className="st-blue pill px-2 py-0.5 text-[11px] font-semibold">Bajo pedido</span>
+      );
     return (
       <span
         className={`pill px-2 py-0.5 text-[11px] font-semibold ${allowNegative ? "st-amber" : "st-red"}`}
@@ -30,6 +37,7 @@ function StockBadge({ p, allowNegative }: { p: PosProduct; allowNegative: boolea
         Agotado
       </span>
     );
+  }
   if (p.level === "low")
     return (
       <span className="st-amber pill px-2 py-0.5 text-[11px] font-semibold">Quedan {p.onHand}</span>
@@ -248,7 +256,10 @@ function ProductCard({
               onClick={() => onAdd(v)}
               aria-label={`Agregar ${main.name} ${v.variantLabel}`}
               className={`pill flex min-h-11 items-center gap-1.5 px-3 text-sm font-medium transition active:scale-95 disabled:opacity-50 ${
-                v.level === "out" && v.trackStock ? "st-amber" : "bg-black/5 hover:bg-black/10"
+                // Ámbar solo para la variante que de verdad no se puede vender. Una variante que se
+                // hornea por encargo vive en cero y teñirla de aviso es la misma mentira que la
+                // insignia "Agotado" de arriba.
+                blockedByStock(v) ? "st-amber" : "bg-black/5 hover:bg-black/10"
               }`}
             >
               {v.variantLabel}

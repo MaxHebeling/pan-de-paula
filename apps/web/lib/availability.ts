@@ -1,4 +1,6 @@
 /** Reglas de disponibilidad y badges de un producto (cliente y servidor; sin acceso a datos). */
+import { blockedByStock, isOutOfStock } from "@pdp/domain";
+
 export type ProductLike = {
   tags: string[];
   categorySlug: string | null;
@@ -24,7 +26,7 @@ export type Availability = {
 
 export function availability(p: ProductLike): Availability {
   const badges: Badge[] = [];
-  const soldOut = p.trackStock && p.onHand <= 0;
+  const soldOut = isOutOfStock(p);
   const promo =
     p.priceCents !== null && p.regularPriceCents !== null && p.priceCents < p.regularPriceCents;
   if (promo) badges.push({ key: "promo", label: "Promo" });
@@ -33,7 +35,7 @@ export function availability(p: ProductLike): Availability {
   if (p.seasonStart || p.seasonEnd || p.categorySlug === "temporada")
     badges.push({ key: "temporada", label: "Temporada" });
   if (p.requiresPreorder) badges.push({ key: "pedido", label: "Bajo pedido" });
-  if (soldOut && !p.allowPreorder) {
+  if (blockedByStock(p)) {
     badges.push({ key: "agotado", label: "Agotado" });
     return { canAdd: false, soldOut, badges, note: "Por ahora no hay piezas disponibles." };
   }

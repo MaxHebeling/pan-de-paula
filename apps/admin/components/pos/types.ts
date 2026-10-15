@@ -18,6 +18,11 @@ export type PosProduct = {
   trackStock: boolean;
   onHand: number;
   level: StockLevel;
+  /**
+   * Admite preventa: se hornea por encargo. Un producto en cero con esto en `true` NO está
+   * agotado y debe seguir cobrándose. Es el discriminador de `blockedByStock` (@pdp/domain).
+   */
+  allowPreorder: boolean;
 };
 
 export type PosCategory = { id: string; name: string; slug: string };
