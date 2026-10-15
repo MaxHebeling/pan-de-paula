@@ -12,7 +12,8 @@ import { cardUrl, qrDataUrl } from "@/lib/qr";
 import { getBusiness } from "@/lib/site";
 
 type Props = {
-  params: Promise<{ token: string }>;
+  /** Ruta comodín: un lector que decodifica «%2F» parte el token en varios segmentos. */
+  params: Promise<{ token: string[] }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -21,7 +22,8 @@ export const metadata: Metadata = { title: "Mi tarjeta", robots: { index: false,
 export default async function CardPage({ params, searchParams }: Props) {
   const { token } = await params;
   const sp = await searchParams;
-  const customer = await findCustomerByQrToken(token);
+  // Los segmentos se vuelven a juntar con «/»: es el token original, tal como está en la base.
+  const customer = await findCustomerByQrToken(token.join("/"));
   if (!customer) notFound();
   const [business, program, tiers, rewards] = await Promise.all([
     getBusiness(),

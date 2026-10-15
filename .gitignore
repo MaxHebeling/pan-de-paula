@@ -21,3 +21,4 @@ backups/*.sql
 packages/db/import/reports/*.md
 .secrets.*.local
 .deploys-*.log
+AGENTS.md

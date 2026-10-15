@@ -25,6 +25,8 @@ export type RewardView = {
   valueCents: number | null;
   productName: string | null;
   minTierKey: string | null;
+  /** Fin de vigencia, si la recompensa la tiene. El filtro ya descarta las vencidas; esto es para mostrarla. */
+  endsAt: Date | null;
 };
 
 export const getProgram = cache(async (): Promise<ProgramView> => {
@@ -95,6 +97,7 @@ export const listActiveRewards = cache(async (): Promise<RewardView[]> => {
       valueCents: r.value_cents,
       productName: r.product_name,
       minTierKey: r.min_tier_key,
+      endsAt: r.ends_at,
     }));
 });
 
