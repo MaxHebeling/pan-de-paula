@@ -21,8 +21,8 @@ export const HERO_FILM = {
     { key: "origen", from: 0, to: 0.2, title: "Hecho con tiempo" },
     { key: "laminado", from: 0.2, to: 0.4, title: "Laminado a mano" },
     { key: "forma", from: 0.4, to: 0.6, title: "Pieza por pieza" },
-    { key: "horno", from: 0.6, to: 0.82, title: "Recién horneado" },
-    { key: "resultado", from: 0.82, to: 1, title: "El Pan de Paula" },
+    { key: "horno", from: 0.6, to: 0.79, title: "Recién horneado" },
+    { key: "resultado", from: 0.79, to: 1, title: "El Pan de Paula" },
   ],
   /** Hasta qué progreso se ve la entrada (titular, texto y botones) antes de ceder a la película. */
   entranceUntil: 0.08,

@@ -1,8 +1,9 @@
 # Película de la portada · «Del amasado al aroma»
 
-> Estado: **integración funcional pendiente de material audiovisual.** El motor, la alternativa estática, los
-> textos y las pruebas están implementados; **la película final no existe todavía.** Mientras no haya archivos en
-> `apps/web/public/film/`, la portada es exactamente la estática de siempre (foto real, titular y botones).
+> Estado: **hero completo en vista previa (local).** Película generada con Higgsfield a partir de las fotos reales
+> del croissant (ver «Producción realizada»), dos composiciones + pósters en `apps/web/public/film/`. Falta la
+> revisión de Max y las pruebas en dispositivos reales antes de publicar. Sin esos archivos, la portada es
+> exactamente la estática de siempre (foto real, titular y botones).
 
 ## Qué hace
 
@@ -45,15 +46,15 @@ elige el texto de la escena (HTML, nunca dentro del video) y el cierre con el lo
 - **No se activa** sin JS, con `prefers-reduced-motion`, con «ahorro de datos» ni en rutas tranquilas.
 - **Tratamiento cálido:** degradados café/caramelo para legibilidad; sin negro dominante, sin partículas.
 
-## Storyboard (≈15 s, 24 fps; los tramos se ajustan al montaje final)
+## Storyboard (18 s, 24 fps; tramos ajustados al montaje final)
 
 | #   | Escena               | Tramo    | Texto                                | Plano                                                                                                                              | Evitar                                  |
 | --- | -------------------- | -------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | 1   | El origen            | 0–20 %   | Hecho con tiempo                     | Primerísimo plano: harina cayendo sobre la mesa de trabajo; mantequilla y masa fresca como secundarios. Luz lateral cálida y suave | Ingredientes flotando, mesa saturada    |
 | 2   | El trabajo artesanal | 20–40 %  | Laminado a mano                      | La cámara acompaña el rodillo y los pliegues; acercamiento a las capas. Harina en suspensión mínima                                | Técnicas que la panadería no usa        |
 | 3   | La forma             | 40–60 %  | Pieza por pieza                      | El triángulo de masa se enrolla hasta formar el croissant, movimiento continuo                                                     | Cambios de tamaño, capas o geometría    |
-| 4   | El horno             | 60–82 %  | Recién horneado                      | Luz cálida; condensación del horneado hasta el dorado                                                                              | Fuego, humo abundante, aspecto quemado  |
-| 5   | El resultado         | 82–100 % | (cierre con logo y botones, en HTML) | Croissant terminado sobre papel o superficie clara; se lee el laminado y la corteza. **Debe funcionar como foto fija**             | Accesorios que compitan con el producto |
+| 4   | El horno             | 60–79 %  | Recién horneado                      | Luz cálida; condensación del horneado hasta el dorado                                                                              | Fuego, humo abundante, aspecto quemado  |
+| 5   | El resultado         | 79–100 % | (cierre con logo y botones, en HTML) | Croissant terminado sobre papel o superficie clara; se lee el laminado y la corteza. **Debe funcionar como foto fija**             | Accesorios que compitan con el producto |
 
 Continuidad: misma luz, misma mesa y **el mismo croissant de El Pan de Paula** en todas las escenas (referencias:
 `public/editorial/hero-pastries.webp`, `public/story/01-preparamos.jpg`, `02-horneamos.jpg` y las fotos del Croissant
@@ -68,6 +69,24 @@ Natural del catálogo). Las fotografías con personas no se alteran ni se regene
   croissant como referencia por escena; no aceptar planos que cambien el producto.
 - Dos composiciones pensadas por separado: **horizontal 16:9** (texto abajo al centro) y **vertical 9:16** (producto
   en el tercio superior, aire abajo para el texto). La vertical no es un recorte automático de la horizontal.
+
+### Producción realizada (2026-10-14)
+
+Generada, no filmada: sirve hasta que exista material real de la panadería (sigue siendo la opción preferente).
+
+- **Referencias subidas:** Croissant Natural del catálogo, `02-horneamos.jpg` (croissant crudo), `01-preparamos.jpg`
+  (solo referencia de mesa y luz; la persona no aparece ni se regenera) y `hero-pastries.webp` (luz editorial).
+- **Fotogramas clave:** Nano Banana 2.1, 2K, uno por escena y formato, más «croissant crudo en el horno» para que el
+  horno sea un solo plano (crece y se dora) y no un morph entre lugares. Repetidos: croissant crudo (salió en espiral)
+  y horno vertical (mitad inferior negra).
+- **Clips:** Kling 3.0 Pro, 4 s, sin audio. Escenas 1–3 parten de su fotograma; horno = inicio crudo → final dorado;
+  resultado = mismo fotograma al inicio y al final (queda quieto, sirve como foto fija).
+- **Montaje:** 5 clips con fundidos de 0.5 s → 18 s (cortes a mitad de fundido: 21 %, 40 %, 60 %, 79 %). Horizontal
+  CRF 25 → 6.6 MB; vertical CRF 28 → 4.4 MB.
+- **Costo:** 90 créditos (15 imágenes × 2 + 10 clips × 6).
+- **Revisado clip por clip:** producto estable en todas las escenas. Notas menores: en la harina horizontal aparece una
+  rebanada junto a la mantequilla (fondo, desenfocada); la órbita del croissant crudo horizontal termina mirándolo de
+  punta (perspectiva, queda bajo el fundido).
 
 ## Entrega de archivos
 
@@ -114,7 +133,6 @@ Comprobar además: Safari y Chrome reales, un iPhone y un Android reales, rotaci
 
 ## Pendiente
 
-1. La película (dos composiciones + pósters). Sin ella, el estado sigue siendo «integración funcional con material
-   provisional».
+1. Revisión y visto bueno de Max sobre la película generada (o reemplazo por material filmado en la panadería).
 2. Pruebas en dispositivos reales (hasta ahora: Chromium y WebKit de Playwright, escritorio e iPhone emulado).
 3. Medición con la película final: peso, inicio de carga y respuesta al buscar con red lenta.

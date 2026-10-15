@@ -344,6 +344,13 @@ html[data-motion="on"]
   .cin-film-menu {
   display: none;
 }
+/* En la entrada el salto no tapa la línea de entrega: queda invisible hasta recibir el foco del teclado */
+html[data-motion="on"]
+  [data-film="ready"]:not([data-film-entered])
+  .cin-film-skip:not(:focus-visible) {
+  opacity: 0;
+  pointer-events: none;
+}
 html[data-motion="on"] [data-film="ready"] :is(.cin-film-menu, .cin-film-skip):focus-visible {
   outline: 2px solid var(--color-gold-soft);
   outline-offset: 3px;
