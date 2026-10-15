@@ -59,8 +59,14 @@ export async function findCustomer(q: string): Promise<PublicCustomer | null> {
   return r.rows[0] ? map(r.rows[0]) : null;
 }
 
-/** Forma de un qr_token (base64 de 18 bytes = 24 caracteres; se admite margen por si cambia la longitud). */
-const QR_TOKEN_RE = /^[A-Za-z0-9+/=]{16,64}$/;
+/**
+ * Forma de un qr_token: 24 caracteres (18 bytes), con margen por si cambia la longitud.
+ *
+ * Se admiten los dos alfabetos a propósito. Los tokens históricos son base64 estándar (`+` y `/`,
+ * el default de la migración 0004) y los nuevos son base64url (`-` y `_`, migración 0083): las
+ * tarjetas ya repartidas tienen que seguir funcionando.
+ */
+const QR_TOKEN_RE = /^[A-Za-z0-9+/=_-]{16,64}$/;
 export const isQrToken = (s: string): boolean => QR_TOKEN_RE.test(s);
 
 /**
@@ -84,11 +90,34 @@ export function partialName(fullName: string): string {
   return second ? `${first} ${second}.` : first;
 }
 
-/** Los tokens de QR son base64 con "/" y "+": se codifican para la URL y se decodifican aquí. */
+/**
+ * Devuelve el token tal como está guardado, deshaciendo lo que los lectores de QR le hacen.
+ *
+ * El token histórico es base64 estándar, así que puede llevar `+` y `/`. `cardUrl` los codifica
+ * (`%2B`, `%2F`) y así la URL es correcta — pero el QR impreso lo lee una cámara, y muchas
+ * decodifican antes de navegar. Medido contra producción el 15/10/2026, con el MISMO token:
+ *
+ *   /mi-tarjeta/<token con %2F>  → 200
+ *   /mi-tarjeta/<token con / >   → 404   ← el lector decodificó
+ *   /mi-tarjeta/<token con %20>  → 404   ← el lector trató el `+` como espacio
+ *
+ * Afectaba a 9 de los 14 socios: los 4 cuyo token lleva `/` y los 6 que llevan `+` (uno, ambos).
+ * Por eso fallaba "solo a algunos" y parecía aleatorio.
+ *
+ * Se arregla sin reemitir ninguna tarjeta: la ruta es comodín (`[...token]`) y vuelve a unir los
+ * segmentos con `/`, y aquí se restituye el `+` que llegó como espacio. Un espacio nunca es parte
+ * de un token legítimo, así que la conversión no puede confundir dos tokens distintos.
+ */
 export function decodeToken(raw: string): string {
-  try {
-    return raw.includes("%") ? decodeURIComponent(raw) : raw;
-  } catch {
-    return raw;
+  let t = raw;
+  if (t.includes("%")) {
+    try {
+      t = decodeURIComponent(t);
+    } catch {
+      // Secuencia de escape mal formada: se sigue con el valor tal cual.
+    }
   }
+  // El recorte va ANTES de restituir el `+`: si no, un espacio al final se convertiría en un `+`
+  // que ya nadie quita y el token dejaría de coincidir.
+  return t.trim().replace(/ /g, "+");
 }
