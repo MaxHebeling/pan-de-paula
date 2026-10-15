@@ -65,10 +65,17 @@ async function typeOnNumpad(page: Page, cents: number) {
 /** Producto de auditoría con stock fijo (idempotente entre corridas). */
 async function ensureProduct(name: string, slug: string, priceCents: number, stock: number) {
   const cat = await one<{ id: string }>(sql`select id from categories order by sort_order limit 1`);
+  /*
+   * `allow_preorder = false` explícito: estos fixtures son artículos con existencias limitadas, que
+   * es lo que asumen las pruebas de esta suite (el bloqueo por stock, la carrera por la última
+   * pieza, el aviso de "agotado"). La columna viene en `true` por omisión porque esta panadería
+   * hornea por encargo, y con preventa un cero NO agota el producto: `finalize_sale` lo deja pasar
+   * (migración 0081). Dejarlo implícito hacía que la prueba de concurrencia midiera otra cosa.
+   */
   const p = await one<{ id: string }>(sql`
-    insert into products(name, slug, category_id, track_stock, show_on_pos, show_on_web, is_active)
-    values (${name}, ${slug}, ${cat.id}::uuid, true, true, true, true)
-    on conflict (slug) do update set name = excluded.name, is_active = true, show_on_pos = true, deleted_at = null
+    insert into products(name, slug, category_id, track_stock, allow_preorder, show_on_pos, show_on_web, is_active)
+    values (${name}, ${slug}, ${cat.id}::uuid, true, false, true, true, true)
+    on conflict (slug) do update set name = excluded.name, is_active = true, allow_preorder = false, show_on_pos = true, deleted_at = null
     returning id`);
   await sql`delete from product_prices where product_id = ${p.id}::uuid`.execute(db);
   await sql`insert into product_prices(product_id, channel, kind, price_cents) values (${p.id}::uuid, 'all', 'regular', ${priceCents})`.execute(
