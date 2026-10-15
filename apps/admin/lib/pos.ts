@@ -204,12 +204,13 @@ export async function loadPosCatalog(): Promise<PosCatalog> {
       primary_image_url: string | null;
       pos_favorite: boolean;
       track_stock: boolean;
+      allow_preorder: boolean;
       on_hand: string | number | null;
       level: StockLevel | null;
     }>`
       select cp.id, cp.name, cp.sku, cp.parent_id, cp.variant_label, cp.category_id, cp.category_name,
              cp.pos_price_cents, cp.primary_image_url, cp.pos_favorite, cp.track_stock,
-             ss.on_hand, ss.level
+             cp.allow_preorder, ss.on_hand, ss.level
       from catalog_products cp
       left join stock_status ss on ss.product_id = cp.id
       where cp.is_active and cp.show_on_pos
@@ -229,6 +230,7 @@ export async function loadPosCatalog(): Promise<PosCatalog> {
     trackStock: p.track_stock,
     onHand: Number(p.on_hand ?? 0),
     level: p.track_stock ? (p.level ?? "ok") : "ok",
+    allowPreorder: p.allow_preorder,
   }));
   return { categories: cats.rows, products };
 }

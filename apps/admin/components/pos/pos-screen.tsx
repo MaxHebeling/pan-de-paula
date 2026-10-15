@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ShoppingBag, Wallet } from "lucide-react";
 import {
+  blockedByStock,
   cartTotals,
   formatMXN,
   newIdempotencyKey,
@@ -124,7 +125,9 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
         say("amber", `${p.name} no tiene precio configurado`);
         return;
       }
-      if (p.trackStock && p.level === "out" && !config.business.allowNegativeStock) {
+      // Agotado de verdad = sin piezas Y sin preventa. Un producto que se hornea por encargo está
+      // en cero casi siempre y debe poder cobrarse: antes se bloqueaban 17 de 21 por confundirlos.
+      if (!config.business.allowNegativeStock && blockedByStock(p)) {
         say("red", `${p.name} está agotado`);
         return;
       }
