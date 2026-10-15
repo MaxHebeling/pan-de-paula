@@ -1,19 +1,15 @@
 import { notFound } from "next/navigation";
-import { randomUUID } from "node:crypto";
 import { PAYMENT_METHOD_LABELS } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Card, Table, Badge, Money, LinkButton, Alert } from "@/components/ui";
-import { ActionForm } from "@/components/ops/action-form";
-import { PendingButton } from "@/components/ops/pending-button";
-import { Field } from "@/components/ops/field";
 import { fmtDate, qty } from "@/lib/format";
 import { balanceCents, collectState, loadOrderForCollect } from "@/lib/orderCollect";
-import { paymentAction } from "../../../pedidos/actions";
+import { loadPosConfig } from "@/lib/pos";
+import { CobroPedido } from "./CobroPedido";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cobrar pedido" };
 
-const METHODS = Object.keys(PAYMENT_METHOD_LABELS).filter((m) => m !== "points");
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MODALIDAD: Record<string, string> = {
@@ -47,7 +43,11 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
   const estado = collectState(o);
   // Cobrar escribe en el pedido, así que exige `orders.write` igual que en el detalle. Un vendedor
   // sin ese permiso puede consultar el pedido aquí pero no registrar el pago.
-  const puedeCobrar = estado === "cobrable" && hasPermission(session, "orders.write");
+  // Cobrar en caja exige `pos.sell`, que `requireSession` ya garantizó al entrar: el cajero es
+  // quien cobra. Antes se pedía además `orders.write` y eso dejaba fuera justo a quien está en el
+  // mostrador.
+  const puedeCobrar = estado === "cobrable";
+  const posConfig = await loadPosConfig(session);
   const pagosConfirmados = o.payments.filter((p) => p.status === "paid");
   const pagosEnVuelo = o.payments.filter(
     (p) => p.status === "pending" || p.status === "authorized",
@@ -154,66 +154,13 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
           </Card>
 
           {puedeCobrar && (
-            <Card title="Registrar el cobro">
-              <ActionForm action={paymentAction} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <input type="hidden" name="order_id" value={o.id} />
-                {/*
-                 * Clave de idempotencia nueva por render. Un doble clic sobre ESTE formulario manda
-                 * la misma clave y `record_payment` devuelve el pago ya registrado en lugar de
-                 * cobrar dos veces; recargar la pantalla genera otra clave, que es lo correcto
-                 * porque entonces sí se trata de un pago distinto (un abono posterior).
-                 */}
-                <input type="hidden" name="idempotency_key" value={`pos-cobro-${randomUUID()}`} />
-                <Field label="Método" htmlFor="cobro-metodo">
-                  <select
-                    id="cobro-metodo"
-                    name="method"
-                    className="input min-h-11"
-                    defaultValue="cash"
-                  >
-                    {METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {PAYMENT_METHOD_LABELS[m as keyof typeof PAYMENT_METHOD_LABELS]}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Monto a cobrar (MXN)" htmlFor="cobro-monto">
-                  <input
-                    id="cobro-monto"
-                    name="amount"
-                    inputMode="decimal"
-                    className="input min-h-11"
-                    defaultValue={(saldo / 100).toFixed(2)}
-                    required
-                  />
-                </Field>
-                <Field label="Recibido (efectivo)" htmlFor="cobro-recibido">
-                  <input
-                    id="cobro-recibido"
-                    name="tendered"
-                    inputMode="decimal"
-                    className="input min-h-11"
-                    placeholder="opcional"
-                  />
-                </Field>
-                <Field label="Referencia contable" htmlFor="cobro-ref">
-                  <input
-                    id="cobro-ref"
-                    name="reference"
-                    className="input min-h-11 font-mono"
-                    placeholder="clave de rastreo / folio"
-                    maxLength={80}
-                    autoComplete="off"
-                  />
-                </Field>
-                <div className="col-span-2 sm:col-span-4">
-                  <PendingButton className="btn btn-confirm min-h-11" pendingLabel="Cobrando…">
-                    Confirmar cobro de {(saldo / 100).toFixed(2)} MXN
-                  </PendingButton>
-                </div>
-              </ActionForm>
-            </Card>
+            <CobroPedido
+              orderId={o.id}
+              folio={o.folio}
+              balanceCents={saldo}
+              config={posConfig}
+              volverA={`/pedidos/${o.id}`}
+            />
           )}
         </div>
 
