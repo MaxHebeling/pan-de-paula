@@ -639,6 +639,14 @@ export interface Orders {
   payment_status: Generated<PaymentStatus>;
   pickup_point_id: string | null;
   placed_at: Generated<Timestamp>;
+  /**
+   * Cuándo se envió al punto de venta para cobrar. Null = no enviado. No implica pago ni entrega.
+   */
+  pos_queued_at: Timestamp | null;
+  /**
+   * Quién lo envió. Se conserva aunque el usuario se desactive (on delete set null).
+   */
+  pos_queued_by: string | null;
   public_token: Generated<string>;
   refunded_cents: Generated<number>;
   reward_redemption_id: string | null;

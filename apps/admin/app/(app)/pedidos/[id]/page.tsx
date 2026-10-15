@@ -21,9 +21,11 @@ import {
   type OrderStatus,
 } from "@pdp/domain";
 import { fmtDate, qty } from "@/lib/format";
+import { collectState } from "@/lib/orderCollect";
 import {
   cancelOrderAction,
   changeStatusAction,
+  enviarAPosAction,
   notesAction,
   paymentAction,
   refundAction,
@@ -140,12 +142,14 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     cancel_reason: string | null;
     sale_id: string | null;
     voided_at: Date | null;
+    pos_queued_at: Date | null;
     business: string;
   }>`select o.id, o.folio, o.channel::text as channel, o.status::text as status, o.payment_status::text as payment_status, o.fulfillment_type::text as fulfillment_type,
             o.customer_id, o.customer_name, o.customer_phone, o.customer_email, c.public_code as customer_code, c.points_balance,
             pp.name as pickup_name, o.delivery_address, o.scheduled_for,
             o.subtotal_cents, o.discount_cents, o.delivery_fee_cents, o.tax_cents, o.tip_cents, o.total_cents, o.paid_cents, o.refunded_cents,
             o.coupon_code, o.notes, o.internal_notes, o.source_ref, su.full_name as created_by_name, o.placed_at, o.cancel_reason,
+            o.pos_queued_at,
             s.id as sale_id, s.voided_at, (select name from business_settings where id = 1) as business
      from orders o
      left join customers c on c.id = o.customer_id
@@ -254,6 +258,15 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   );
   const canCancel = canTransition(o.status, "cancelled") && !o.sale_id;
   const canPay = canWrite && balance > 0 && !["cancelled", "refunded"].includes(o.status);
+  /*
+   * Disponibilidad en el punto de venta. Son tres cosas distintas y se mantienen separadas, como
+   * pide el flujo: el estado operativo del pedido (`o.status`), el estado del pago
+   * (`o.payment_status` / saldo) y si está en la cola del punto de venta (`pos_queued_at`).
+   * Enviarlo no lo cobra, y cobrarlo no lo entrega.
+   */
+  const estadoCobro = collectState(o);
+  const enCola = o.pos_queued_at !== null;
+  const puedeVenderEnPos = hasPermission(session, "pos.sell");
   const wa = whatsappNumber(o.customer_phone);
   const waHref = wa ? `https://wa.me/${wa}?text=${encodeURIComponent(waMessage(o))}` : null;
   const emailEnabled = (flag.rows[0]?.enabled ?? false) && isEmailConfigured();
@@ -341,6 +354,40 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         actions={
           <>
             <UnreadBadge />
+            {estadoCobro === "cobrable" && canWrite && (
+              <ActionForm action={enviarAPosAction} className="contents">
+                <input type="hidden" name="order_id" value={o.id} />
+                <PendingButton
+                  className="btn btn-primary"
+                  pendingLabel={enCola ? "Abriendo…" : "Enviando…"}
+                >
+                  {enCola ? "Abrir en Punto de Venta" : "Enviar a Punto de Venta"}
+                </PendingButton>
+              </ActionForm>
+            )}
+            {estadoCobro === "cobrable" && !canWrite && puedeVenderEnPos && enCola && (
+              <LinkButton href={`/pos/cobrar/${o.id}`} variant="secondary">
+                Abrir en Punto de Venta
+              </LinkButton>
+            )}
+            {estadoCobro === "pagado" && (
+              <span className="flex items-center gap-2">
+                <Badge tone="green">Pagado</Badge>
+                <a
+                  href={`/pedidos/${o.id}/recibo`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary"
+                >
+                  Ver comprobante
+                </a>
+              </span>
+            )}
+            {estadoCobro === "no_elegible" && (
+              <Badge tone="red">
+                {o.status === "cancelled" ? "Cancelado: no se cobra" : "Reembolsado: no se cobra"}
+              </Badge>
+            )}
             <LinkButton href="/pedidos" variant="secondary">
               ← Pedidos
             </LinkButton>
