@@ -217,9 +217,9 @@ describe("D · anticipos", () => {
     const o = await leerPedido(id);
     expect(o.paid_cents).toBe(9000);
     expect(o.payment_status).toBe("paid");
-    const ventas = await sql<{ n: string }>`select count(*) as n from sales where order_id = ${id}`.execute(
-      db,
-    );
+    const ventas = await sql<{
+      n: string;
+    }>`select count(*) as n from sales where order_id = ${id}`.execute(db);
     expect(Number(ventas.rows[0]!.n)).toBe(1);
   });
 });
@@ -262,9 +262,9 @@ describe("F · idempotencia del envío", () => {
     expect(x.queued && y.queued).toBe(true);
     // Uno de los dos lo marcó; el otro lo encontró ya marcado. Nunca los dos como primeros.
     expect([x.already, y.already].filter(Boolean).length).toBe(1);
-    const n = await sql<{ n: string }>`select count(*) as n from orders where pos_queued_at is not null`.execute(
-      db,
-    );
+    const n = await sql<{
+      n: string;
+    }>`select count(*) as n from orders where pos_queued_at is not null`.execute(db);
     expect(Number(n.rows[0]!.n)).toBe(1);
   });
 });
@@ -353,9 +353,7 @@ describe("I y K · recuperación y casos no elegibles", () => {
   });
 
   it("un pedido inexistente no se puede enviar", async () => {
-    await expect(enviarAPos("00000000-0000-0000-0000-000000000000")).rejects.toThrow(
-      /no existe/i,
-    );
+    await expect(enviarAPos("00000000-0000-0000-0000-000000000000")).rejects.toThrow(/no existe/i);
   });
 });
 
@@ -367,9 +365,9 @@ describe("L · un pago confirmado actualiza el pedido sin falsear el estado", ()
     expect(r.sale_id).toBeNull();
     const o = await leerPedido(id);
     expect(o.payment_status).toBe("partial");
-    const ventas = await sql<{ n: string }>`select count(*) as n from sales where order_id = ${id}`.execute(
-      db,
-    );
+    const ventas = await sql<{
+      n: string;
+    }>`select count(*) as n from sales where order_id = ${id}`.execute(db);
     expect(Number(ventas.rows[0]!.n)).toBe(0);
   });
 

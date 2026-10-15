@@ -87,9 +87,7 @@ export default async function PendientesPage({
                   <td className="font-mono text-xs">{f.folio}</td>
                   <td>{f.customer_name ?? <span className="text-muted">Sin cliente</span>}</td>
                   <td>
-                    <Badge tone="gray">
-                      {MODALIDAD[f.fulfillment_type] ?? f.fulfillment_type}
-                    </Badge>
+                    <Badge tone="gray">{MODALIDAD[f.fulfillment_type] ?? f.fulfillment_type}</Badge>
                   </td>
                   <td className="text-right">
                     <Money cents={f.total_cents} />

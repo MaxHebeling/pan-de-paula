@@ -49,7 +49,9 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
   // sin ese permiso puede consultar el pedido aquí pero no registrar el pago.
   const puedeCobrar = estado === "cobrable" && hasPermission(session, "orders.write");
   const pagosConfirmados = o.payments.filter((p) => p.status === "paid");
-  const pagosEnVuelo = o.payments.filter((p) => p.status === "pending" || p.status === "authorized");
+  const pagosEnVuelo = o.payments.filter(
+    (p) => p.status === "pending" || p.status === "authorized",
+  );
 
   return (
     <>
@@ -247,9 +249,14 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
 
           <Card title="Entrega">
             <dl className="space-y-1 text-sm">
-              <Dato etiqueta="Modalidad" valor={MODALIDAD[o.fulfillment_type] ?? o.fulfillment_type} />
+              <Dato
+                etiqueta="Modalidad"
+                valor={MODALIDAD[o.fulfillment_type] ?? o.fulfillment_type}
+              />
               {o.pickup_name && <Dato etiqueta="Punto de retiro" valor={o.pickup_name} />}
-              {o.scheduled_for && <Dato etiqueta="Fecha comprometida" valor={fmtDate(o.scheduled_for)} />}
+              {o.scheduled_for && (
+                <Dato etiqueta="Fecha comprometida" valor={fmtDate(o.scheduled_for)} />
+              )}
               {o.customer_phone && <Dato etiqueta="Teléfono" valor={o.customer_phone} />}
               {o.delivery_address && (
                 <Dato
@@ -268,7 +275,10 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
                     <span>
                       {PAYMENT_METHOD_LABELS[p.method as keyof typeof PAYMENT_METHOD_LABELS] ??
                         p.method}
-                      <span className="text-muted"> · {fmtDate(p.confirmed_at ?? p.created_at)}</span>
+                      <span className="text-muted">
+                        {" "}
+                        · {fmtDate(p.confirmed_at ?? p.created_at)}
+                      </span>
                     </span>
                     <Money cents={p.amount_cents} />
                   </li>
