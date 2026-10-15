@@ -109,8 +109,11 @@ describe("pos_checkout", () => {
     expect(res.total_cents).toBe(4000);
   });
 
-  it("bloquea venta sin stock cuando allow_negative_stock=false", async () => {
+  it("bloquea venta sin stock cuando allow_negative_stock=false y el producto no admite preventa", async () => {
+    // Un producto agotado DE VERDAD es el que no se hornea por encargo. `createProduct` deja
+    // allow_preorder en true (el default de la tabla), así que hay que apagarlo explícitamente.
     await sql`update business_settings set allow_negative_stock = false`.execute(db);
+    await sql`update products set allow_preorder = false where id = ${croissant}`.execute(db);
     await expect(
       posCheckout(db, staff, {
         items: [{ product_id: croissant, qty: 21 }],
@@ -118,6 +121,20 @@ describe("pos_checkout", () => {
       }),
     ).rejects.toThrow(/Stock insuficiente/);
     expect(await onHand(db, croissant)).toBe(20);
+  });
+
+  it("vende un producto que admite preventa aunque esté en cero y allow_negative_stock=false", async () => {
+    // Regresión del 10/10/2026: el guardia de 0013 no miraba allow_preorder, así que apagar
+    // allow_negative_stock habría bloqueado 17 de los 21 productos activos — todos admiten
+    // preventa y la mayoría vive en cero porque se hornean por encargo.
+    await sql`update business_settings set allow_negative_stock = false`.execute(db);
+    const res = await posCheckout(db, staff, {
+      items: [{ product_id: croissant, qty: 25 }],
+      payments: [{ provider: "cash", method: "cash", amount_cents: 112500 }],
+    });
+    expect(res.total_cents).toBe(112500);
+    // El stock queda en negativo a propósito: es lo que hay que hornear de más.
+    expect(await onHand(db, croissant)).toBe(-5);
   });
 
   it("otorga puntos al cliente y actualiza estadísticas y nivel", async () => {

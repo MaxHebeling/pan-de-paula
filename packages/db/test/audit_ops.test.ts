@@ -163,7 +163,9 @@ describe("POS · pago dividido", () => {
 describe("concurrencia", () => {
   it("dos pestañas venden la última pieza con stock negativo prohibido: solo una gana", async () => {
     await sql`update business_settings set allow_negative_stock = false`.execute(db);
-    const ultimo = await createProduct(db, "Último audit", 3000);
+    // Sin preventa: es la única clase de producto que se puede agotar de verdad y, por tanto, la
+    // única donde hay una "última pieza" que dos cajas puedan pelearse (0081).
+    const ultimo = await createProduct(db, "Último audit", 3000, { allowPreorder: false });
     await withStaff(db, staff, (trx) => callFn(trx, "record_production", [ultimo, 1, null, null]));
     const a = await rawClient();
     const b = await rawClient();

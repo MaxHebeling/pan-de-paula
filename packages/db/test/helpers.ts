@@ -46,14 +46,18 @@ export async function createProduct(
   db: Database,
   name: string,
   priceCents: number,
-  opts: { trackStock?: boolean; slug?: string } = {},
+  opts: { trackStock?: boolean; slug?: string; allowPreorder?: boolean } = {},
 ) {
   const slug =
     opts.slug ??
     name.toLowerCase().replace(/\s+/g, "-") + "-" + Math.random().toString(36).slice(2, 7);
+  // `allow_preorder` viene en true por defecto en la tabla (0002_catalog.sql) y eso es lo correcto
+  // para esta panadería, que hornea por encargo. Un producto con `allowPreorder: false` es el que
+  // de verdad se puede agotar, y es el único que finalize_sale bloquea por falta de existencias.
   const r = await sql<{
     id: string;
-  }>`insert into products(name, slug, track_stock) values (${name}, ${slug}, ${opts.trackStock ?? true}) returning id`.execute(
+  }>`insert into products(name, slug, track_stock, allow_preorder)
+     values (${name}, ${slug}, ${opts.trackStock ?? true}, ${opts.allowPreorder ?? true}) returning id`.execute(
     db,
   );
   const id = r.rows[0]!.id;
