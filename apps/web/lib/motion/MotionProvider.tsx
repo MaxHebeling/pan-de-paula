@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { isCalmRoute, onIdle } from "./config";
 import { initHeroDepth } from "./hero";
+import { initHeroFilm } from "./heroFilm";
 import { initMagnetic } from "./magnetic";
 import { initParallax } from "./parallax";
 import { initCardTilt } from "./productCards";
@@ -28,6 +29,8 @@ export function MotionProvider() {
       cleanups.push(initParallax(), initMagnetic());
       const hero = document.querySelector<HTMLElement>("[data-hero]");
       if (hero) cleanups.push(initHeroDepth(hero));
+      const film = document.querySelector<HTMLElement>("[data-hero-film]");
+      if (film) cleanups.push(initHeroFilm(film));
     }
 
     let cancelled = false;

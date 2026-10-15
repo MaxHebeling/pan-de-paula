@@ -409,6 +409,30 @@ body:has([data-hero]) footer .container-x {
 .cin-hero-after {
   display: none;
 }
+
+/* Película «Del amasado al aroma» (docs/HERO_FILM.md): capas ocultas salvo con [data-film="ready"] (motion.css).
+   Sin película, sin JS, con reduced motion o si falla, la portada estática de arriba es la que se ve. */
+.cin-film-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+.cin-film-shade,
+.cin-film-caps,
+.cin-film-finale,
+.cin-film-menu,
+.cin-film-skip {
+  display: none;
+}
+.cin-film-after {
+  display: block;
+  height: 0;
+  outline: none;
+}
 @media (min-width: 1024px) {
   .cin-hero-body {
     grid-template-columns: minmax(0, 1fr) auto;
