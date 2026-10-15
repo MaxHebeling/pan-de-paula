@@ -15,7 +15,7 @@
     "build": "echo 'no build (source package)'"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.131.0",
+    "@anthropic-ai/sdk": "0.133.0",
     "@pdp/db": "workspace:*",
     "@pdp/domain": "workspace:*",
     "web-push": "3.6.7",
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@pdp/config": "workspace:*",
-    "@types/node": "22.20.2",
+    "@types/node": "26.6.5",
     "@types/web-push": "3.6.4",
     "eslint": "9.39.5",
     "typescript": "5.9.3",
