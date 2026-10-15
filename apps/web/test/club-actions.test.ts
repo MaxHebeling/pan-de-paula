@@ -17,6 +17,8 @@ type Customers = typeof import("../lib/customers");
 let joinClubAction: Join["joinClubAction"];
 let findCustomer: Customers["findCustomer"];
 let findCustomerByQrToken: Customers["findCustomerByQrToken"];
+let isQrToken: Customers["isQrToken"];
+let decodeToken: Customers["decodeToken"];
 let db: Database;
 let pool: { end: () => Promise<void> };
 
@@ -45,7 +47,8 @@ beforeAll(async () => {
   delete process.env.EMAIL_FROM;
   ({ db, pool } = createDb({ connectionString: process.env.DATABASE_URL, ssl: false, max: 4 }));
   ({ joinClubAction } = await import("../app/unete/actions"));
-  ({ findCustomer, findCustomerByQrToken } = await import("../lib/customers"));
+  ({ findCustomer, findCustomerByQrToken, isQrToken, decodeToken } =
+    await import("../lib/customers"));
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -289,6 +292,61 @@ describe("/unete · registro", () => {
 });
 
 describe("/mi-tarjeta · resolución del token", () => {
+  /*
+   * Regresión del 15/10/2026. El qr_token histórico es base64 ESTÁNDAR, con `+` y `/`. `cardUrl`
+   * los escapa y la URL es correcta, pero la cámara que lee el QR impreso suele decodificar antes
+   * de navegar. Medido contra producción con el MISMO token: con `%2F` daba 200, con `/` literal
+   * 404, y con el `+` convertido en espacio 404 también. Afectaba a 9 de los 14 socios.
+   *
+   * Se arregla sin reemitir tarjetas: la ruta es comodín y vuelve a unir los segmentos, y
+   * `decodeToken` restituye el `+`. Estas pruebas fijan las tres formas de llegar.
+   */
+  it("un token histórico con / y + se resuelve venga escapado, literal o con el + como espacio", async () => {
+    await redirectOf(
+      joinClubAction(
+        null,
+        form({
+          full_name: "Beto Con Barra",
+          phone: "6647778888",
+          email: "beto@example.com",
+          birthday: "1988-03-02",
+        }),
+      ),
+    );
+    // Se fuerza un token con los dos caracteres problemáticos, como los que ya están repartidos.
+    const historico = "ab+cd/ef+gh/ij0123456789";
+    await sql`update customers set qr_token = ${historico} where email = 'beto@example.com'`.execute(
+      db,
+    );
+
+    // 1) tal cual está en la base
+    expect((await findCustomerByQrToken(historico))?.fullName).toBe("Beto Con Barra");
+    // 2) escapado, como lo genera cardUrl
+    expect(await findCustomerByQrToken(encodeURIComponent(historico))).not.toBeNull();
+    // 3) el `+` llegó como espacio (lector que lo trata como codificación de formulario)
+    expect(await findCustomerByQrToken(historico.replace(/\+/g, " "))).not.toBeNull();
+    // 4) y unido desde los segmentos de la ruta comodín, que es lo que hace la página
+    expect(await findCustomerByQrToken(historico.split("/").join("/"))).not.toBeNull();
+  });
+
+  it("acepta los dos alfabetos: base64 estándar (histórico) y base64url (nuevo)", async () => {
+    expect(isQrToken("ab+cd/ef+gh/ij0123456789")).toBe(true);
+    expect(isQrToken("ab-cd_ef-gh_ij0123456789")).toBe(true);
+    // Y sigue rechazando lo que no tiene forma de token.
+    expect(isQrToken("6641234567")).toBe(false);
+    expect(isQrToken("ana@example.com")).toBe(false);
+    expect(isQrToken("")).toBe(false);
+  });
+
+  it("decodeToken recorta antes de restituir el +, para no inventar un carácter al final", () => {
+    expect(decodeToken(" abc ")).toBe("abc");
+    expect(decodeToken("ab cd")).toBe("ab+cd");
+    expect(decodeToken("ab%2Fcd")).toBe("ab/cd");
+    expect(decodeToken("ab%2Bcd")).toBe("ab+cd");
+    // Escape mal formado: no lanza, devuelve lo que pueda.
+    expect(decodeToken("ab%zzcd")).toBe("ab%zzcd");
+  });
+
   it("solo el qr_token abre la tarjeta; teléfono, correo y código PDP devuelven null (→ 404)", async () => {
     await redirectOf(
       joinClubAction(

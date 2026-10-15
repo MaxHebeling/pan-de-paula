@@ -305,6 +305,9 @@ export interface Customers {
   phone: string | null;
   points_balance: Generated<number>;
   public_code: Generated<string>;
+  /**
+   * Token opaco de la tarjeta. Los nuevos son base64url (seguro en URL); los históricos son base64 estándar y pueden llevar + y /. Ambos alfabetos se aceptan al resolver.
+   */
   qr_token: Generated<string>;
   source: Generated<string>;
   tags: Generated<string[]>;
