@@ -333,3 +333,62 @@ export async function listPortalPointsMovements(
     folio: m.folio,
   }));
 }
+
+/** Estados de un canje, en lenguaje de cliente. */
+export const REDEMPTION_STATUS_LABELS: Record<string, string> = {
+  issued: "Emitida, lista para usar",
+  applied: "Ya la usaste",
+  expired: "Venció",
+  cancelled: "Cancelada",
+};
+
+export type PortalRedemption = {
+  id: string;
+  rewardName: string;
+  pointsSpent: number;
+  status: string;
+  code: string | null;
+  issuedAt: Date;
+  appliedAt: Date | null;
+  expiresAt: Date | null;
+  orderFolio: string | null;
+};
+
+/**
+ * Recompensas que este socio ya obtuvo. Filtra SIEMPRE por el cliente de la sesión: con el id de
+ * otro no devuelve nada, igual que el resto de las consultas del portal.
+ *
+ * Se lee de `reward_redemptions`, la misma tabla que consume `pos_checkout`. No hay un registro
+ * paralelo de canjes en el portal.
+ */
+export async function listPortalRedemptions(customerId: string): Promise<PortalRedemption[]> {
+  const r = await sql<{
+    id: string;
+    reward_name: string;
+    points_spent: number;
+    status: string;
+    code: string | null;
+    issued_at: Date;
+    applied_at: Date | null;
+    expires_at: Date | null;
+    order_folio: string | null;
+  }>`select rr.id, rw.name as reward_name, rr.points_spent, rr.status::text as status, rr.code,
+            rr.issued_at, rr.applied_at, rr.expires_at, o.folio as order_folio
+       from reward_redemptions rr
+       join rewards rw on rw.id = rr.reward_id
+       left join orders o on o.id = rr.order_id
+      where rr.customer_id = ${customerId}
+      order by rr.issued_at desc
+      limit 50`.execute(db());
+  return r.rows.map((x) => ({
+    id: x.id,
+    rewardName: x.reward_name,
+    pointsSpent: x.points_spent,
+    status: x.status,
+    code: x.code,
+    issuedAt: x.issued_at,
+    appliedAt: x.applied_at,
+    expiresAt: x.expires_at,
+    orderFolio: x.order_folio,
+  }));
+}

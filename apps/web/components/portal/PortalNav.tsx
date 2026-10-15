@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/portal/pedidos", label: "Pedidos" },
   { href: "/portal/compras", label: "Compras" },
   { href: "/portal/puntos", label: "Puntos" },
+  { href: "/portal/recompensas", label: "Recompensas" },
   { href: "/portal/perfil", label: "Perfil" },
 ];
 

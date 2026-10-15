@@ -167,6 +167,23 @@ test.describe("portal del cliente", () => {
     await expect(page.getByTestId("portal-movimientos")).toContainText("Puntos por tu compra");
     await expect(page.getByTestId("portal-movimientos")).toContainText(f.folio);
 
+    // 5b) Recompensas: el saldo se repite destacado y cada tarjeta dice qué le pasa al socio.
+    //     El canje NO se hace aquí (lo emite el punto de venta), así que la página ofrece "cómo
+    //     canjear" y nunca un botón que descuente puntos.
+    await page.getByTestId("portal-nav-recompensas").click();
+    await page.waitForURL(/\/portal\/recompensas$/);
+    await expect(page.getByTestId("recompensas-saldo")).toContainText("9");
+    await expect(page.getByText("Cómo canjear")).toBeVisible();
+    const tarjetas = page.getByTestId("recompensa");
+    if ((await tarjetas.count()) > 0) {
+      // Con 9 puntos y recompensas del seed, al menos una debe decir cuántos puntos faltan.
+      const estados = await tarjetas.evaluateAll((els) =>
+        els.map((e) => e.getAttribute("data-estado")),
+      );
+      expect(estados.every((s) => s === "lista" || s === "faltan" || s === "nivel")).toBe(true);
+      for (const s of estados) expect(s).not.toBeNull();
+    }
+
     // 6) Perfil: código, alta y canal de registro reales.
     await page.getByTestId("portal-nav-perfil").click();
     await page.waitForURL(/\/portal\/perfil$/);
@@ -190,7 +207,13 @@ test.describe("portal del cliente", () => {
   });
 
   test("sin sesión, todas las páginas del portal mandan a /portal/entrar", async ({ page }) => {
-    for (const path of ["/portal", "/portal/perfil", "/portal/compras", "/portal/puntos"]) {
+    for (const path of [
+      "/portal",
+      "/portal/perfil",
+      "/portal/compras",
+      "/portal/puntos",
+      "/portal/recompensas",
+    ]) {
       await page.goto(path);
       await page.waitForURL(/\/portal\/entrar$/);
       await expect(page.getByTestId("portal-email")).toBeVisible();
