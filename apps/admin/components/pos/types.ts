@@ -159,6 +159,8 @@ export type PosConfig = {
     allowNegativeStock: boolean;
   };
   staffName: string;
+  /** Dueño del carrito guardado en el navegador. Ver `cart-persist`: separa turnos. */
+  staffId: string;
   /** Pedidos enviados al punto de venta y todavía sin cobrar. */
   pendingOrders: number;
 };

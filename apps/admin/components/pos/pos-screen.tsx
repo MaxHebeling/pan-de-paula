@@ -182,7 +182,7 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   useEffect(() => {
     if (recuperadoRef.current) return;
     recuperadoRef.current = true;
-    const previo = leerCarrito();
+    const previo = leerCarrito(config.staffId);
     if (previo && previo.length > 0) {
       /*
        * `react-hooks/set-state-in-effect` desactivado a conciencia, no por comodidad.
@@ -200,12 +200,12 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
         `Se recuperó la venta que tenías sin cobrar (${previo.length} ${previo.length === 1 ? "producto" : "productos"}). Revísala antes de cobrar.`,
       );
     }
-  }, [say]);
+  }, [say, config.staffId]);
 
   // Y se guarda en cada cambio. Con el carrito vacío se borra el respaldo, no se guarda un vacío.
   useEffect(() => {
-    guardarCarrito(lines);
-  }, [lines]);
+    guardarCarrito(config.staffId, lines);
+  }, [config.staffId, lines]);
 
   const resetAll = useCallback(() => {
     setLines([]);
@@ -218,10 +218,10 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
     setCheckoutOpen(false);
     setCartOpen(false);
     setSale(null);
-    limpiarCarrito();
+    limpiarCarrito(config.staffId);
     idemRef.current = newIdempotencyKey("pos");
     window.setTimeout(() => searchRef.current?.focus(), 50);
-  }, []);
+  }, [config.staffId]);
 
   // ── Cliente y recompensas ────────────────────────────────────────────────
   const loadRewards = useCallback(async (customerId: string) => {
