@@ -190,6 +190,7 @@ export async function loadPosConfig(session: StaffSession): Promise<PosConfig> {
       allowNegativeStock: b.allow_negative_stock,
     },
     staffName: session.staff.fullName,
+    staffId: session.staff.id,
     pendingOrders: pend.rows[0]?.n ?? 0,
   };
 }
