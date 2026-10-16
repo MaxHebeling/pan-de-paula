@@ -159,6 +159,8 @@ export type PosConfig = {
     allowNegativeStock: boolean;
   };
   staffName: string;
+  /** Pedidos enviados al punto de venta y todavía sin cobrar. */
+  pendingOrders: number;
 };
 
 export type ApiError = { error: string; code?: string };

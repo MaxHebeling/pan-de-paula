@@ -13,7 +13,7 @@ export const metadata = { title: "Caja" };
 export default async function CajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ abierta?: string }>;
+  searchParams: Promise<{ abierta?: string; next?: string }>;
 }) {
   await requireSession("pos.register");
   const sp = await searchParams;
@@ -80,7 +80,7 @@ export default async function CajaPage({
           <p className="mb-3 text-sm text-muted">
             Captura el fondo inicial en efectivo con el que inicia el turno.
           </p>
-          <RegisterOpenForm />
+          <RegisterOpenForm next={sp.next} />
         </Card>
       )}
 
