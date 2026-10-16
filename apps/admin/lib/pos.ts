@@ -137,7 +137,7 @@ export async function getRegisterSummary(sessionId: string): Promise<RegisterSum
 
 // ── Configuración del POS para el cliente ───────────────────────────────────
 export async function loadPosConfig(session: StaffSession): Promise<PosConfig> {
-  const [flags, register, bs] = await Promise.all([
+  const [flags, register, bs, pend] = await Promise.all([
     getFlags([
       "mercadopago_point",
       "mercadopago_qr",
@@ -155,6 +155,16 @@ export async function loadPosConfig(session: StaffSession): Promise<PosConfig> {
     }>`select name, whatsapp, tax_rate_bps, prices_include_tax, allow_negative_stock from business_settings where id = 1`.execute(
       db(),
     ),
+    /*
+     * Cuántos pedidos esperan cobro. Sin esto, la cola de /pos/pendientes solo se descubría por la
+     * barra lateral: el cajero no tenía forma de saber que había alguien esperando su cobro.
+     * Mismo filtro que `listPendingPosOrders`, para que el número y la lista no se contradigan.
+     * Va dentro del Promise.all: no añade latencia a la carga del punto de venta.
+     */
+    sql<{ n: number }>`
+      select count(*)::int as n from orders
+       where pos_queued_at is not null and payment_status <> 'paid'
+         and status not in ('cancelled', 'refunded') and total_cents > paid_cents`.execute(db()),
   ]);
   const b = bs.rows[0]!;
   return {
@@ -180,6 +190,7 @@ export async function loadPosConfig(session: StaffSession): Promise<PosConfig> {
       allowNegativeStock: b.allow_negative_stock,
     },
     staffName: session.staff.fullName,
+    pendingOrders: pend.rows[0]?.n ?? 0,
   };
 }
 

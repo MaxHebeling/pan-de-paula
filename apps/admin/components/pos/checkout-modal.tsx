@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Banknote,
   CreditCard,
@@ -64,6 +65,9 @@ export function CheckoutModal(props: CheckoutModalProps) {
 
 function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp }: CheckoutModalProps) {
   const registerOpen = Boolean(config.register);
+  // Volver aquí tras abrir la caja: antes el enlace era "/caja" a secas y el operador tenía que
+  // buscar otra vez el pedido que estaba cobrando.
+  const rutaActual = usePathname();
   const [tab, setTab] = useState<Tab>(registerOpen ? "cash" : "card_terminal");
   const [tendered, setTendered] = useState(0);
   const [reference, setReference] = useState("");
@@ -230,7 +234,10 @@ function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp }: CheckoutM
                 <p className="st-amber mb-3 rounded-[var(--r-btn)] px-3 py-2 text-sm">
                   La caja está cerrada: no se puede cobrar en efectivo.{" "}
                   {config.canRegister ? (
-                    <Link href="/caja" className="font-semibold underline">
+                    <Link
+                      href={`/caja?next=${encodeURIComponent(rutaActual)}`}
+                      className="font-semibold underline"
+                    >
                       Abrir caja
                     </Link>
                   ) : (

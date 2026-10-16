@@ -8,7 +8,7 @@ import {
 } from "@/app/(app)/caja/actions";
 import { Numpad } from "./numpad";
 
-export function RegisterOpenForm() {
+export function RegisterOpenForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState<RegisterActionState, FormData>(
     openRegisterAction,
     {},
@@ -17,6 +17,8 @@ export function RegisterOpenForm() {
   return (
     <form action={action} className="grid gap-4 md:grid-cols-2" data-testid="register-open-form">
       <input type="hidden" name="opening_cash_cents" value={cents} />
+      {/* A dónde volver tras abrir: el servidor lo acota a rutas de /pos/ (ver destinoSeguro). */}
+      {next && <input type="hidden" name="next" value={next} />}
       <div className="flex flex-col gap-3">
         <div className="card p-4">
           <div className="text-xs font-medium uppercase tracking-wide text-muted">

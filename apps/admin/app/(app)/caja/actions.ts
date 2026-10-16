@@ -10,7 +10,26 @@ export type RegisterActionState = { error?: string };
 const openSchema = z.object({
   opening_cash_cents: z.coerce.number().int().min(0).max(100_000_000),
   notes: z.string().trim().max(300).optional(),
+  /** A dónde volver tras abrir. Ver `destinoSeguro`: nunca se confía en el valor tal cual. */
+  next: z.string().max(200).optional(),
 });
+
+/*
+ * Redirección de retorno acotada a RUTAS INTERNAS del punto de venta.
+ *
+ * El caso que resuelve: con la caja cerrada, el panel de cobro de un pedido manda a abrirla y
+ * antes el operador tenía que volver a buscar el pedido a mano. Ahora vuelve solo.
+ *
+ * Y no se confía en el parámetro: un `next` con `//otro.sitio` o `https://…` sería una redirección
+ * abierta servida por nuestro propio dominio. Solo se aceptan rutas que empiecen por `/pos/` y sin
+ * doble barra inicial; cualquier otra cosa cae al destino de siempre.
+ */
+function destinoSeguro(next: string | undefined): string {
+  if (!next) return "/caja?abierta=1";
+  if (!next.startsWith("/pos/") || next.startsWith("//")) return "/caja?abierta=1";
+  if (next.includes("\\") || next.includes("..")) return "/caja?abierta=1";
+  return next;
+}
 
 export async function openRegisterAction(
   _prev: RegisterActionState,
@@ -20,6 +39,7 @@ export async function openRegisterAction(
   const parsed = openSchema.safeParse({
     opening_cash_cents: form.get("opening_cash_cents"),
     notes: form.get("notes") || undefined,
+    next: (form.get("next") as string | null) || undefined,
   });
   if (!parsed.success) return { error: "Fondo inicial inválido" };
   try {
@@ -33,7 +53,7 @@ export async function openRegisterAction(
   }
   revalidatePath("/caja");
   revalidatePath("/pos");
-  redirect("/caja?abierta=1");
+  redirect(destinoSeguro(parsed.data.next));
 }
 
 const closeSchema = z.object({

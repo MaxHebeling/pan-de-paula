@@ -15,6 +15,7 @@ import { useScanner } from "./use-scanner";
 import { CartPanel } from "./cart-panel";
 import { CheckoutModal } from "./checkout-modal";
 import type { MpHandlers } from "./mp-payment";
+import { guardarCarrito, leerCarrito, limpiarCarrito } from "./cart-persist";
 import { canQueue } from "./offline-queue";
 import { ProductGrid } from "./product-grid";
 import { SaleSuccess, type SaleOutcome } from "./sale-success";
@@ -171,6 +172,41 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
   const setDiscount = (productId: string, discountCents: number) =>
     setLines((prev) => prev.map((l) => (l.productId === productId ? { ...l, discountCents } : l)));
 
+  /*
+   * Recuperación del carrito al montar. `lines` vivía solo en memoria, así que salir a cobrar un
+   * pedido, abrir la caja o mirar los pendientes tiraba todo lo escaneado sin avisar. Se recupera
+   * una sola vez y se le dice al cajero: un carrito que reaparece en silencio es peor que perderlo,
+   * porque se cobra sin que nadie lo haya querido.
+   */
+  const recuperadoRef = useRef(false);
+  useEffect(() => {
+    if (recuperadoRef.current) return;
+    recuperadoRef.current = true;
+    const previo = leerCarrito();
+    if (previo && previo.length > 0) {
+      /*
+       * `react-hooks/set-state-in-effect` desactivado a conciencia, no por comodidad.
+       *
+       * Recuperar de `localStorage` al montar no se puede expresar de otra forma sin empeorar algo:
+       * con estado inicial perezoso el servidor renderiza el carrito vacío y el cliente lleno, y el
+       * error de lint se cambia por un desajuste de hidratación. `useSyncExternalStore` —el patrón
+       * de la cola offline, en este mismo directorio— sirve para estado de SOLO LECTURA, y el
+       * carrito se edita. Son dos `setState` que corren UNA vez, con guarda de ref.
+       */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLines(previo);
+      say(
+        "amber",
+        `Se recuperó la venta que tenías sin cobrar (${previo.length} ${previo.length === 1 ? "producto" : "productos"}). Revísala antes de cobrar.`,
+      );
+    }
+  }, [say]);
+
+  // Y se guarda en cada cambio. Con el carrito vacío se borra el respaldo, no se guarda un vacío.
+  useEffect(() => {
+    guardarCarrito(lines);
+  }, [lines]);
+
   const resetAll = useCallback(() => {
     setLines([]);
     setCustomer(null);
@@ -182,6 +218,7 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
     setCheckoutOpen(false);
     setCartOpen(false);
     setSale(null);
+    limpiarCarrito();
     idemRef.current = newIdempotencyKey("pos");
     window.setTimeout(() => searchRef.current?.focus(), 50);
   }, []);
@@ -553,6 +590,21 @@ export function PosScreen({ catalog, config }: { catalog: PosCatalog; config: Po
               onSyncNow={() => void offline.syncNow()}
             />
           )}
+          <Link
+            href="/pos/pendientes"
+            className="btn btn-secondary btn-sm min-h-9"
+            data-testid="pos-pendientes"
+          >
+            Pendientes
+            {effectiveConfig.pendingOrders > 0 && (
+              <span
+                className="st-amber ml-1.5 rounded-full px-1.5 text-[11px] font-bold"
+                aria-label={`${effectiveConfig.pendingOrders} pedidos por cobrar`}
+              >
+                {effectiveConfig.pendingOrders}
+              </span>
+            )}
+          </Link>
           <Link href="/pos/ventas" className="btn btn-secondary btn-sm min-h-9">
             Ventas del día
           </Link>
