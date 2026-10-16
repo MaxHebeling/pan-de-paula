@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db, sql } from "@/lib/db";
 import { fmtDate } from "@/lib/format";
 import { getOpenRegister, getRegisterSummary } from "@/lib/pos";
+import { rutaPosSegura } from "@/lib/retorno-pos";
 import { Alert, Badge, Card, Money, PageHeader, Table } from "@/components/ui";
 import { RegisterCloseForm, RegisterOpenForm } from "@/components/pos/register-forms";
 import { RegisterSummaryTable } from "@/components/pos/register-summary";
@@ -18,6 +20,14 @@ export default async function CajaPage({
   await requireSession("pos.register");
   const sp = await searchParams;
   const open = await getOpenRegister();
+  /*
+   * El operador llegó aquí desde el panel de cobro de un pedido, a abrir la caja, y la caja ya
+   * está abierta: la abrió otro del mostrador mientras venía. Sin esto se quedaba mirando el
+   * formulario de CIERRE, sin camino de vuelta al pedido y sin entender por qué. No hay nada que
+   * abrir, así que se le devuelve al pedido, que es lo que venía a hacer.
+   */
+  const retorno = rutaPosSegura(sp.next);
+  if (open && retorno) redirect(retorno);
   const summary = open ? await getRegisterSummary(open.id) : null;
   const history = await sql<{
     id: string;

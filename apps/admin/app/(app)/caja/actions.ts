@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { db, callFn, withStaff, dbErrorMessage } from "@/lib/db";
+import { rutaPosSegura } from "@/lib/retorno-pos";
 
 export type RegisterActionState = { error?: string };
 
@@ -14,21 +15,13 @@ const openSchema = z.object({
   next: z.string().max(200).optional(),
 });
 
-/*
- * Redirección de retorno acotada a RUTAS INTERNAS del punto de venta.
- *
- * El caso que resuelve: con la caja cerrada, el panel de cobro de un pedido manda a abrirla y
- * antes el operador tenía que volver a buscar el pedido a mano. Ahora vuelve solo.
- *
- * Y no se confía en el parámetro: un `next` con `//otro.sitio` o `https://…` sería una redirección
- * abierta servida por nuestro propio dominio. Solo se aceptan rutas que empiecen por `/pos/` y sin
- * doble barra inicial; cualquier otra cosa cae al destino de siempre.
+/**
+ * A dónde volver tras abrir la caja. La regla de qué destino es aceptable vive en
+ * `rutaPosSegura` —la comparte la propia página de caja, que honra el mismo retorno cuando la
+ * caja ya estaba abierta—; un `next` que no pase cae al destino de siempre.
  */
 function destinoSeguro(next: string | undefined): string {
-  if (!next) return "/caja?abierta=1";
-  if (!next.startsWith("/pos/") || next.startsWith("//")) return "/caja?abierta=1";
-  if (next.includes("\\") || next.includes("..")) return "/caja?abierta=1";
-  return next;
+  return rutaPosSegura(next) ?? "/caja?abierta=1";
 }
 
 export async function openRegisterAction(
