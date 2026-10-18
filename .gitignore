@@ -22,3 +22,8 @@ packages/db/import/reports/*.md
 .secrets.*.local
 .deploys-*.log
 AGENTS.md
+
+# Material provisional y codificaciones de prueba de la película de la portada (solo en local,
+# ver docs/HERO_FILM.md). Las de prueba pesan megas y no deben entrar al repositorio por descuido.
+apps/web/public/film/*.provisional.*
+apps/web/public/film/*.PRUEBA-*

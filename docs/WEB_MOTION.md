@@ -64,6 +64,9 @@ contenedor) escalona.
 
 ### Portada (A)
 
+> Película «Del amasado al aroma»: si existen archivos en `apps/web/public/film/`, la portada suma una película
+> controlada por el scroll (sin librerías). Ver [HERO_FILM.md](HERO_FILM.md). Sin archivos, todo lo de abajo sigue igual.
+
 `components/cinematic/CinematicHero.tsx`. Capas y quién mueve cada una (nunca dos `transform` en el mismo elemento):
 `.cin-hero-media[data-depth]` → puntero (`lib/motion/hero.ts`, ±6 px) · `.cin-hero-zoom` → scroll · `img.cin-hero-img` →
 entrada. Secuencia: imagen (scale 1.08→1) → `.line-in` escalonadas (0.18 s + 0.12 s por línea, solo transform) →

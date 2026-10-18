@@ -29,6 +29,7 @@ import {
   nowFor,
   openStatus,
 } from "@/lib/site";
+import { getHeroFilm } from "@/lib/heroFilm";
 import { getStoryPhotos } from "@/lib/storyPhotos";
 
 export const metadata: Metadata = {
@@ -87,7 +88,7 @@ export default async function HomePage() {
   return (
     <>
       <ScrollProgress />
-      <CinematicHero status={status} next={next} />
+      <CinematicHero status={status} next={next} film={getHeroFilm()} />
       <EditorialStatement />
       <Marquee />
       <ProductShowcase products={showcase} />

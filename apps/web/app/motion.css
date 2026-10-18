@@ -177,6 +177,185 @@ html[data-motion="on"] body:has([data-hero]) .header-nav-enter {
   }
 }
 
+/* ── Película de la portada (lib/motion/heroFilm.ts) ──────────────────────────────────────────────────────
+   Solo con la película lista: la portada se fija var(--film-screens) pantallas y el progreso del scroll mueve
+   el video. Reemplaza la transición de scroll de la portada estática (se apagan sus animaciones). Tratamiento de
+   legibilidad cálido (café/caramelo), nunca un negro dominante. */
+html[data-motion="on"] .cin-hero-pin[data-film="ready"] {
+  height: calc(var(--film-screens, 4) * 100svh);
+  view-timeline: none;
+}
+html[data-motion="on"] [data-film="ready"] .cin-hero {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 0;
+}
+html[data-motion="on"]
+  [data-film="ready"]
+  :is(
+    .cin-hero-zoom,
+    .cin-hero-scrollout,
+    .cin-hero-body,
+    .cin-hero-meta,
+    .cin-hero-top,
+    .cin-hero-veil
+  ) {
+  animation: none;
+}
+html[data-motion="on"]
+  [data-film="ready"]
+  :is(.cin-hero-after, .cin-hero-scrim, .cin-hero-veil, .cin-hero-grain) {
+  display: none;
+}
+html[data-motion="on"] [data-film="ready"] .cin-hero-media {
+  inset: 0;
+}
+html[data-motion="on"] [data-film="ready"] .cin-film-video {
+  opacity: 1;
+  transition: opacity 0.5s var(--ease-premium);
+}
+html[data-motion="on"] [data-film="ready"] .cin-film-shade {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(46, 32, 20, 0.5) 0%, rgba(46, 32, 20, 0) 22%),
+    linear-gradient(0deg, rgba(46, 32, 20, 0.66) 0%, rgba(46, 32, 20, 0) 46%);
+}
+/* Velo cálido solo mientras se ve la entrada: el titular se lee aunque el primer plano sea claro (harina) */
+html[data-motion="on"] [data-film="ready"] .cin-film-shade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(46, 32, 20, 0.72) 0%,
+    rgba(46, 32, 20, 0.45) 60%,
+    rgba(46, 32, 20, 0.3) 100%
+  );
+  opacity: var(--film-entrance, 1);
+}
+/* Entrada: titular, texto y botones se ven desde la primera carga y ceden a la película al bajar */
+html[data-motion="on"]
+  [data-film="ready"]
+  :is(.cin-hero-titlewrap, .cin-hero-body, .cin-hero-meta, .cin-hero-top) {
+  opacity: var(--film-entrance, 1);
+}
+html[data-motion="on"]
+  [data-film="ready"][data-film-entered]
+  :is(.cin-hero-titlewrap, .cin-hero-body, .cin-hero-meta, .cin-hero-top) {
+  visibility: hidden;
+}
+/* Textos de escena: uno a la vez, sincronizados con el video por la misma fuente de progreso */
+html[data-motion="on"] [data-film="ready"] .cin-film-caps {
+  display: block;
+  position: absolute;
+  inset: auto 0 clamp(6rem, 17vh, 9.5rem);
+  margin: 0;
+  padding: 0 var(--gutter);
+  list-style: none;
+  pointer-events: none;
+}
+html[data-motion="on"] [data-film="ready"] .cin-film-cap {
+  position: absolute;
+  inset: auto var(--gutter) 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5.4vw, 4.6rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-align: center;
+  color: #fffdf9;
+  text-shadow: 0 2px 28px rgba(46, 32, 20, 0.55);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition:
+    opacity 0.55s var(--ease-premium),
+    transform 0.55s var(--ease-premium);
+}
+html[data-motion="on"] [data-film="ready"]:not([data-film-entered]) .cin-film-cap {
+  opacity: 0;
+}
+html[data-motion="on"] [data-film="ready"][data-film-entered] .cin-film-cap.is-active {
+  opacity: 1;
+  transform: none;
+}
+/* Cierre: producto terminado, logo oficial (archivo, sin alterar) y acciones */
+html[data-motion="on"] [data-film="ready"] .cin-film-finale {
+  display: grid;
+  position: absolute;
+  inset: auto 0 clamp(5rem, 14vh, 8rem);
+  justify-items: center;
+  gap: 1.1rem;
+  padding: 0 var(--gutter);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(1rem);
+  transition:
+    opacity 0.6s var(--ease-premium),
+    transform 0.6s var(--ease-premium);
+}
+html[data-motion="on"] [data-film="ready"][data-scene="4"] .cin-film-finale {
+  opacity: 1;
+  transform: none;
+}
+.cin-film-logo {
+  width: clamp(5.5rem, 9vw, 7.5rem);
+  height: auto;
+  border-radius: 50%;
+}
+.cin-film-finale-line {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  color: #fffdf9;
+  text-shadow: 0 2px 24px rgba(46, 32, 20, 0.55);
+}
+.cin-film-finale-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+/* Acceso discreto al menú y salto accesible durante el recorrido */
+html[data-motion="on"] [data-film="ready"] :is(.cin-film-menu, .cin-film-skip) {
+  display: inline-flex;
+  position: absolute;
+  bottom: clamp(1rem, 3vh, 1.75rem);
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 1.1rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: #fffdf9;
+  background: rgba(46, 32, 20, 0.42);
+  border: 1px solid rgba(255, 253, 249, 0.28);
+  backdrop-filter: blur(8px);
+}
+html[data-motion="on"] [data-film="ready"] .cin-film-menu {
+  right: var(--gutter);
+}
+html[data-motion="on"] [data-film="ready"] .cin-film-skip {
+  left: var(--gutter);
+}
+html[data-motion="on"]
+  [data-film="ready"]:is([data-scene="4"], :not([data-film-entered]))
+  .cin-film-menu {
+  display: none;
+}
+/* En la entrada el salto no tapa la línea de entrega: queda invisible hasta recibir el foco del teclado */
+html[data-motion="on"]
+  [data-film="ready"]:not([data-film-entered])
+  .cin-film-skip:not(:focus-visible) {
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-motion="on"] [data-film="ready"] :is(.cin-film-menu, .cin-film-skip):focus-visible {
+  outline: 2px solid var(--color-gold-soft);
+  outline-offset: 3px;
+}
+
 /* Barra de progreso de lectura: 2 px, sin JS */
 @keyframes cin-progress {
   to {
