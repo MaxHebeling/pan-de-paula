@@ -118,13 +118,28 @@ describe("película de la portada · archivos", () => {
     touch(dir, "del-amasado-al-aroma-horizontal.mp4");
     touch(dir, "del-amasado-al-aroma-horizontal.jpg");
     touch(dir, "del-amasado-al-aroma-vertical.mp4", "");
-    expect(resolveHeroFilm(dir, false)).toEqual({
-      horizontal: {
-        src: "/film/del-amasado-al-aroma-horizontal.mp4",
-        poster: "/film/del-amasado-al-aroma-horizontal.jpg",
-        provisional: false,
-      },
-    });
+    const r = resolveHeroFilm(dir, false);
+    expect(Object.keys(r)).toEqual(["horizontal"]);
+    expect(r.horizontal!.provisional).toBe(false);
+    // La huella depende del tamaño y la fecha del archivo, así que se afirma la forma, no un literal.
+    expect(r.horizontal!.src).toMatch(
+      /^\/film\/del-amasado-al-aroma-horizontal\.mp4\?v=[0-9a-z]+$/,
+    );
+    expect(r.horizontal!.poster).toMatch(
+      /^\/film\/del-amasado-al-aroma-horizontal\.jpg\?v=[0-9a-z]+$/,
+    );
+  });
+
+  it("al cambiar el archivo cambia la huella de la URL", () => {
+    // Es lo que hace segura la caché `immutable` de /film/:path* (next.config.ts): si al recodificar
+    // la película la URL no cambiara, los navegadores servirían la versión vieja durante un año.
+    const dir = publicDir();
+    touch(dir, "del-amasado-al-aroma-horizontal.mp4", "primera versión");
+    const antes = resolveHeroFilm(dir, false).horizontal!.src;
+    touch(dir, "del-amasado-al-aroma-horizontal.mp4", "segunda versión, otro tamaño");
+    const despues = resolveHeroFilm(dir, false).horizontal!.src;
+    expect(despues).not.toBe(antes);
+    expect(despues).toMatch(/\?v=[0-9a-z]+$/);
   });
 
   it("el material provisional solo cuenta con la variable de entorno", () => {

@@ -86,7 +86,9 @@ test("«Saltar la historia» lleva al contenido siguiente con el foco", async ({
 });
 
 test("si el video falla queda la portada estática y se puede comprar", async ({ page }) => {
-  await page.route("**/film/*.mp4", (r) => r.abort());
+  // El `*` final es necesario: la URL lleva la huella del archivo (`?v=…`, lib/heroFilm.ts) y sin
+  // él el glob deja de coincidir, la petición no se aborta y la prueba dejaría de probar nada.
+  await page.route("**/film/*.mp4*", (r) => r.abort());
   await page.goto("/");
   await expect(film(page)).toHaveAttribute("data-film", "failed", { timeout: 15_000 });
   await page.getByTestId("cta-menu").click();

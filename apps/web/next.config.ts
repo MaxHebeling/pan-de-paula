@@ -57,13 +57,32 @@ const nextConfig: NextConfig = {
   images: {
     // Las fotos de `public/story` llevan la huella del archivo en la URL (ver lib/storyPhotos.ts).
     // Sin declararlo aquí, next/image rechaza cualquier imagen local con query string.
-    localPatterns: [{ pathname: "/story/**" }, { pathname: "/**", search: "" }],
+    // `/film/**` por lo mismo que `/story/**`: el póster de la película lleva la huella del archivo
+    // en la URL (lib/heroFilm.ts) y sin declararlo next/image rechaza la query string.
+    localPatterns: [
+      { pathname: "/story/**" },
+      { pathname: "/film/**" },
+      { pathname: "/**", search: "" },
+    ],
     qualities: [60, 75],
     formats: ["image/avif", "image/webp"],
     remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }],
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      /*
+       * La película de la portada se busca con el scroll, así que el navegador pide rangos del
+       * archivo todo el tiempo. Con el `max-age=0, must-revalidate` que Next pone por omisión a
+       * `public/`, cada salto fuera del búfer pagaba una revalidación: 200 ms medidos contra
+       * producción para un 304 de cero bytes. `immutable` es seguro porque la URL lleva la huella
+       * del archivo (lib/heroFilm.ts): al recodificar cambia la URL y nadie arrastra la vieja.
+       */
+      {
+        source: "/film/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
   },
 };
 

@@ -23,6 +23,28 @@ function nonEmpty(path: string): boolean {
   }
 }
 
+/*
+ * La huella del archivo va en la URL, igual que en lib/storyPhotos.ts.
+ *
+ * Por qué importa más aquí que en una foto: Next sirve `public/` con
+ * `cache-control: public, max-age=0, must-revalidate` porque los nombres no la llevan. En un video
+ * que el scroll va buscando, eso significa que cada salto fuera del búfer paga una revalidación.
+ * Medido contra producción el 14/10/2026: **200 ms por un 304 que devuelve cero bytes**, doce
+ * fotogramas de 60 fps tirados por decir "no cambió". Con la huella en la URL el archivo se puede
+ * declarar `immutable` (ver la regla de `/film/:path*` en next.config.ts) y el navegador deja de
+ * preguntar; recodificar la película cambia la huella y por tanto la URL, así que nadie se queda
+ * con la versión vieja.
+ */
+function huella(path: string): string {
+  try {
+    const { size, mtimeMs } = statSync(path);
+    return `?v=${((size ^ Math.round(mtimeMs)) >>> 0).toString(36)}`;
+  } catch {
+    // Sin huella se sirve la ruta desnuda: pierde la caché inmutable, no la portada.
+    return "";
+  }
+}
+
 export function resolveHeroFilm(publicDir: string, allowProvisional: boolean): HeroFilmSources {
   const out: HeroFilmSources = {};
   const variants: HeroFilmVariant[] = ["horizontal", "vertical"];
@@ -34,8 +56,8 @@ export function resolveHeroFilm(publicDir: string, allowProvisional: boolean): H
       if (!nonEmpty(video)) continue;
       const poster = join(publicDir, HERO_FILM.dir, `${name}.jpg`);
       out[variant] = {
-        src: `/${HERO_FILM.dir}/${name}.mp4`,
-        poster: nonEmpty(poster) ? `/${HERO_FILM.dir}/${name}.jpg` : null,
+        src: `/${HERO_FILM.dir}/${name}.mp4${huella(video)}`,
+        poster: nonEmpty(poster) ? `/${HERO_FILM.dir}/${name}.jpg${huella(poster)}` : null,
         provisional: suffix !== "",
       };
       break;
