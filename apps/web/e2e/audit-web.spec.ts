@@ -384,6 +384,10 @@ test.describe("frontend · consola limpia, 320 px y teclado", () => {
   test("sin errores de consola ni respuestas 4xx/5xx en las rutas principales", async ({
     page,
   }) => {
+    // Trece rutas, y en `/` la espera a que calle la red se agota a propósito por la película (ver
+    // abajo). Con los 45 s de por omisión queda al filo en una máquina de CI, así que se da margen:
+    // el riesgo es una intermitencia, y una prueba que falla por el reloj no dice nada de la web.
+    test.setTimeout(120_000);
     const errors = consoleWatcher(page);
     const badResponses: string[] = [];
     page.on("response", (r) => {
@@ -404,7 +408,20 @@ test.describe("frontend · consola limpia, 320 px y teclado", () => {
       "/privacidad",
       "/terminos",
     ]) {
-      await page.goto(path, { waitUntil: "networkidle" });
+      await page.goto(path);
+      /*
+       * `networkidle` con tope y sin romper, como en las suites del CRM.
+       *
+       * No se puede esperar a que la red calle del todo. La portada pide la película del scroll
+       * CUANDO EL HILO QUEDA LIBRE —`onIdle` con tope de 1200 ms en lib/motion/heroFilm.ts, para
+       * pintar antes la portada estática—, así que la red calla y vuelve a ocuparse con megas de
+       * video: el `goto` con `networkidle` agotaba los 45 s en `/`. Y el orden es deliberado, no
+       * un defecto que arreglar.
+       *
+       * Lo que esta prueba necesita es que las peticiones de la página hayan tenido tiempo de
+       * fallar —mira consola y respuestas 4xx/5xx—, no que la red quede muerta.
+       */
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined);
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await page.waitForTimeout(150);
     }
@@ -449,8 +466,10 @@ test.describe("frontend · consola limpia, 320 px y teclado", () => {
     isMobile,
   }) => {
     test.skip(isMobile, "la navegación de escritorio está oculta en móvil");
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/");
     // Enter sobre un botón solo actúa cuando React ya hidrató (el foco con Tab funciona antes).
+    // La espera explícita de abajo es la que lo garantiza; `networkidle` aquí sobraba y además
+    // no llega nunca, porque la portada pide la película cuando el hilo queda libre.
     await page.waitForFunction(() => {
       const el = document.querySelector('[data-testid="cart-button"]');
       return Boolean(el && Object.keys(el).some((k) => k.startsWith("__reactFiber")));
