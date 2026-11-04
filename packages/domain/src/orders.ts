@@ -189,3 +189,25 @@ export function portalTimeline(
  * para no llamar en balde.
  */
 export const POINT_MIN_CENTS = 500;
+
+/**
+ * Estados en los que un pedido ya no admite productos nuevos: el pan salió del mostrador o el
+ * pedido murió. Lo que el cliente pida después es otra compra.
+ */
+const CERRADO_PARA_AGREGAR: OrderStatus[] = ["cancelled", "refunded", "delivered", "completed"];
+
+/**
+ * ¿Se le pueden agregar productos a este pedido? Espejo exacto de la barrera de `add_order_items`
+ * (migración 0084), para que la interfaz no ofrezca un botón que la base va a rechazar.
+ *
+ * La condición que de verdad importa NO es el estado sino `hasActiveSale`: en cuanto existe una
+ * venta viva para el pedido, `finalize_sale` ya corrió y con él se congeló el total, se descontó
+ * el stock, se canjeó el cupón y se otorgaron los puntos. Agregar después separaría el pedido de
+ * su propia venta y el pan nuevo nunca saldría del inventario.
+ *
+ * Una venta anulada (`voided_at`) no cuenta: ahí el cobro se deshizo.
+ */
+export function canAddItems(o: { status: OrderStatus | string; hasActiveSale: boolean }): boolean {
+  if (o.hasActiveSale) return false;
+  return !CERRADO_PARA_AGREGAR.includes(o.status as OrderStatus);
+}
