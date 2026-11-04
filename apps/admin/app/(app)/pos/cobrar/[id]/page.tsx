@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
-import { PAYMENT_METHOD_LABELS } from "@pdp/domain";
+import { canAddItems, PAYMENT_METHOD_LABELS } from "@pdp/domain";
 import { requireSession, hasPermission } from "@/lib/auth";
 import { PageHeader, Card, Table, Badge, Money, LinkButton, Alert } from "@/components/ui";
 import { fmtDate, qty } from "@/lib/format";
 import { balanceCents, collectState, loadOrderForCollect } from "@/lib/orderCollect";
 import { loadPosConfig } from "@/lib/pos";
+import { loadCatalogoAgregable } from "@/lib/orderItems";
+import { AgregarProductos } from "@/components/pedidos/agregar-productos";
 import { CobroPedido } from "./CobroPedido";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +49,19 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
   // quien cobra. Antes se pedía además `orders.write` y eso dejaba fuera justo a quien está en el
   // mostrador.
   const puedeCobrar = estado === "cobrable";
-  const posConfig = await loadPosConfig(session);
+  /*
+   * Agregar productos es la otra mitad del mostrador: la persona viene por su pedido y pide dos
+   * conchas más. La barrera la define `canAddItems` —espejo de `add_order_items` (0084)—, no el
+   * estado por sí solo: en cuanto existe una venta viva, el total está congelado y el stock
+   * descontado, así que lo adicional es una venta nueva, no un parche sobre el pedido.
+   */
+  const puedeAgregar =
+    canAddItems({ status: o.status, hasActiveSale: Boolean(o.sale_id && !o.sale_voided_at) }) &&
+    hasPermission(session, "orders.write");
+  const [posConfig, catalogo] = await Promise.all([
+    loadPosConfig(session),
+    puedeAgregar ? loadCatalogoAgregable(o.channel) : Promise.resolve(null),
+  ]);
   const pagosConfirmados = o.payments.filter((p) => p.status === "paid");
   const pagosEnVuelo = o.payments.filter(
     (p) => p.status === "pending" || p.status === "authorized",
@@ -153,6 +167,10 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
             )}
           </Card>
 
+          {puedeAgregar && catalogo && (
+            <AgregarProductos orderId={o.id} catalogo={catalogo} canal={o.channel} />
+          )}
+
           {puedeCobrar && (
             <CobroPedido
               orderId={o.id}
@@ -160,6 +178,7 @@ export default async function CobrarPedidoPage({ params }: { params: Promise<{ i
               balanceCents={saldo}
               config={posConfig}
               volverA={`/pedidos/${o.id}`}
+              puedeAgregar={puedeAgregar}
             />
           )}
         </div>

@@ -40,12 +40,15 @@ export function CobroPedido({
   balanceCents,
   config,
   volverA,
+  puedeAgregar = false,
 }: {
   orderId: string;
   folio: string;
   balanceCents: number;
   config: PosConfig;
   volverA: string;
+  /** El pedido todavía admite productos: se ofrece el atajo desde dentro del panel de pagos. */
+  puedeAgregar?: boolean;
 }) {
   const [abierto, setAbierto] = useState(true);
   const [resultado, setResultado] = useState<CobroResultado | null>(null);
@@ -206,6 +209,32 @@ export function CobroPedido({
         </div>
       )}
       <CheckoutModal
+        extra={
+          puedeAgregar ? (
+            <div className="border-b border-line px-4 py-2">
+              <button
+                type="button"
+                className="text-sm font-semibold underline"
+                data-testid="ir-a-agregar"
+                onClick={() => {
+                  /*
+                   * El panel de pagos se abre solo y tapa la pantalla: sin esto, agregar lo que el
+                   * cliente pide al llegar quedaba detrás, sin nada que lo anunciara.
+                   */
+                  setAbierto(false);
+                  requestAnimationFrame(() => {
+                    document
+                      .querySelector('[data-testid="agregar-productos"]')
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    document.getElementById("agregar-buscar")?.focus();
+                  });
+                }}
+              >
+                ¿Pide algo más? Agregar productos al pedido
+              </button>
+            </div>
+          ) : null
+        }
         open={abierto}
         totalCents={balanceCents}
         config={config}

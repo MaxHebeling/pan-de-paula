@@ -31,6 +31,13 @@ export type CheckoutModalProps = {
   onClose: () => void;
   onSubmit: (payments: CheckoutPayment[]) => Promise<{ ok: true } | { ok: false; error: string }>;
   mp: MpHandlers;
+  /**
+   * Bloque opcional bajo las pestañas. Existe por un choque real: al cobrar un pedido este panel
+   * se abre solo y TAPA el resto de la pantalla, así que una acción que viva detrás —agregar
+   * productos al pedido— queda inalcanzable sin cerrar el panel, y nada le dice al operador que
+   * puede hacerlo. El punto de venta no lo pasa y se comporta igual que siempre.
+   */
+  extra?: React.ReactNode;
 };
 
 type SplitPart = {
@@ -63,7 +70,7 @@ export function CheckoutModal(props: CheckoutModalProps) {
   return <CheckoutDialog {...props} />;
 }
 
-function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp }: CheckoutModalProps) {
+function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp, extra }: CheckoutModalProps) {
   const registerOpen = Boolean(config.register);
   // Volver aquí tras abrir la caja: antes el enlace era "/caja" a secas y el operador tenía que
   // buscar otra vez el pedido que estaba cobrando.
@@ -228,6 +235,8 @@ function CheckoutDialog({ totalCents, config, onClose, onSubmit, mp }: CheckoutM
                 </button>
               ))}
             </div>
+
+            {extra}
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {!registerOpen && (
