@@ -16,12 +16,15 @@ import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_TONE,
   PAYMENT_METHOD_LABELS,
+  canAddItems,
   canTransition,
   formatMXN,
   type OrderStatus,
 } from "@pdp/domain";
 import { fmtDate, qty } from "@/lib/format";
 import { collectState } from "@/lib/orderCollect";
+import { loadCatalogoAgregable } from "@/lib/orderItems";
+import { AgregarProductos } from "@/components/pedidos/agregar-productos";
 import {
   cancelOrderAction,
   changeStatusAction,
@@ -265,6 +268,16 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
    * Enviarlo no lo cobra, y cobrarlo no lo entrega.
    */
   const estadoCobro = collectState(o);
+  /*
+   * Agregar productos a un pedido que todavía no se cobró: sirve para ajustarlo por teléfono antes
+   * de que la persona llegue, igual que sirve en el mostrador. La barrera no es el estado sino la
+   * venta: con una venta viva el total está congelado y el stock descontado (ver `add_order_items`,
+   * migración 0084), así que lo adicional es una venta nueva.
+   */
+  const puedeAgregar =
+    canWrite &&
+    canAddItems({ status: o.status, hasActiveSale: Boolean(o.sale_id && !o.voided_at) });
+  const catalogoAgregable = puedeAgregar ? await loadCatalogoAgregable(o.channel) : null;
   const enCola = o.pos_queued_at !== null;
   const puedeVenderEnPos = hasPermission(session, "pos.sell");
   const wa = whatsappNumber(o.customer_phone);
@@ -526,6 +539,10 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
               )}
             </dl>
           </Card>
+
+          {catalogoAgregable && (
+            <AgregarProductos orderId={o.id} catalogo={catalogoAgregable} canal={o.channel} />
+          )}
 
           <Card title="Pagos">
             {payments.rows.length === 0 ? (
