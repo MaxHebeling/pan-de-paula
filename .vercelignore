@@ -1,0 +1,31 @@
+# Qué NO sube `vercel deploy` (scripts/deploy.sh) desde la raíz del monorepo.
+#
+# Sin este archivo, la CLI subía todo el árbol local: 7 411 archivos, incluidas las carpetas de
+# compilación `.next` y `.turbo`, y el despliegue a staging del 2026-11-04 quedó colgado leyéndolos.
+# Vercel compila en su lado: nada de lo de abajo hace falta para construir ni para servir.
+
+# Dependencias y compilaciones locales: Vercel instala y compila por su cuenta.
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+out
+coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+
+# Datos y secretos locales: no deben salir de esta máquina. Las variables de entorno viven en
+# Vercel (Production / Preview), no en archivos.
+.env
+.env.*
+**/.env
+**/.env.*
+backups
+certs
+
+# Material de producción audiovisual, no lo usa ninguna app.
+media
