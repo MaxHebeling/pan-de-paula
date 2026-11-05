@@ -17,6 +17,7 @@ import {
   ORDER_STATUS_TONE,
   PAYMENT_METHOD_LABELS,
   canAddItems,
+  canEditItems,
   canTransition,
   formatMXN,
   type OrderStatus,
@@ -25,6 +26,7 @@ import { fmtDate, qty } from "@/lib/format";
 import { collectState } from "@/lib/orderCollect";
 import { loadCatalogoAgregable } from "@/lib/orderItems";
 import { AgregarProductos } from "@/components/pedidos/agregar-productos";
+import { EditarProductos } from "@/components/pedidos/editar-productos";
 import {
   cancelOrderAction,
   changeStatusAction,
@@ -277,7 +279,20 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const puedeAgregar =
     canWrite &&
     canAddItems({ status: o.status, hasActiveSale: Boolean(o.sale_id && !o.voided_at) });
-  const catalogoAgregable = puedeAgregar ? await loadCatalogoAgregable(o.channel) : null;
+  /*
+   * Editar (cambiar cantidades, quitar, cambiar por otro) es solo de administración y gerencia
+   * (`orders.edit_items`, migración 0085). Misma frontera que agregar, y además ningún pago en
+   * proceso: ese pago se calculó sobre el total de antes.
+   */
+  const puedeEditar =
+    hasPermission(session, "orders.edit_items") &&
+    canEditItems({
+      status: o.status,
+      hasActiveSale: Boolean(o.sale_id && !o.voided_at),
+      hasPaymentInProgress: payments.rows.some((p) => ["pending", "authorized"].includes(p.status)),
+    });
+  const catalogoAgregable =
+    puedeAgregar || puedeEditar ? await loadCatalogoAgregable(o.channel) : null;
   const enCola = o.pos_queued_at !== null;
   const puedeVenderEnPos = hasPermission(session, "pos.sell");
   const wa = whatsappNumber(o.customer_phone);
@@ -540,8 +555,28 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
             </dl>
           </Card>
 
-          {catalogoAgregable && (
+          {catalogoAgregable && puedeAgregar && (
             <AgregarProductos orderId={o.id} catalogo={catalogoAgregable} canal={o.channel} />
+          )}
+          {/* Editar va cerrado por defecto: es la acción de administración, no la del mostrador. */}
+          {catalogoAgregable && puedeEditar && (
+            <EditarProductos
+              orderId={o.id}
+              canal={o.channel}
+              items={items.rows.map((it) => ({
+                id: it.id,
+                productId: it.product_id,
+                name: it.product_name,
+                variantLabel: it.variant_label,
+                qty: Number(it.qty),
+                unitPriceCents: it.unit_price_cents,
+                discountCents: it.discount_cents,
+              }))}
+              subtotalCents={o.subtotal_cents}
+              discountCents={o.discount_cents}
+              paidCents={o.paid_cents}
+              catalogo={catalogoAgregable}
+            />
           )}
 
           <Card title="Pagos">

@@ -211,3 +211,23 @@ export function canAddItems(o: { status: OrderStatus | string; hasActiveSale: bo
   if (o.hasActiveSale) return false;
   return !CERRADO_PARA_AGREGAR.includes(o.status as OrderStatus);
 }
+
+/**
+ * ¿Se pueden editar los productos de este pedido (cambiar cantidades, quitar, cambiar por otro)?
+ * Espejo de la barrera de `edit_order_items` (migración 0085), para que la interfaz no ofrezca un
+ * editor que la base va a rechazar.
+ *
+ * Es la misma frontera que agregar (`canAddItems`) más una condición: un pago en proceso (link de
+ * Mercado Pago abierto, terminal cobrando) se calculó sobre el total de antes, así que mientras
+ * exista no se edita.
+ *
+ * Quién puede lo decide el permiso `orders.edit_items`, no esta función.
+ */
+export function canEditItems(o: {
+  status: OrderStatus | string;
+  hasActiveSale: boolean;
+  hasPaymentInProgress: boolean;
+}): boolean {
+  if (o.hasPaymentInProgress) return false;
+  return canAddItems(o);
+}

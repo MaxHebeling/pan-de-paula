@@ -608,6 +608,23 @@ export interface OrderItemAdditions {
   total_before: number;
 }
 
+export interface OrderItemEdits {
+  created_at: Generated<Timestamp>;
+  discount_after: number;
+  discount_before: number;
+  id: Generated<Int8>;
+  idempotency_key: string;
+  items_after: Json;
+  items_before: Json;
+  order_id: string;
+  reason: string | null;
+  staff_id: string | null;
+  subtotal_after: number;
+  subtotal_before: number;
+  total_after: number;
+  total_before: number;
+}
+
 export interface OrderItems {
   discount_cents: Generated<number>;
   id: Generated<string>;
@@ -1132,6 +1149,7 @@ export interface DB {
   notifications: Notifications;
   order_first_views: OrderFirstViews;
   order_item_additions: OrderItemAdditions;
+  order_item_edits: OrderItemEdits;
   order_items: OrderItems;
   order_status_history: OrderStatusHistory;
   ordering_windows: OrderingWindows;

@@ -66,11 +66,18 @@ async function abrirCajaSiHaceFalta(page: Page) {
   }
 }
 
-/** Producto del mostrador con precio y stock suficiente: lo que el cliente pedirá al llegar. */
+/**
+ * Producto del mostrador con precio y stock suficiente: lo que el cliente pedirá al llegar.
+ *
+ * Tiene que llevar control de stock (`track_stock`): la prueba comprueba que cobrar descuenta el
+ * inventario de lo agregado. En CI las suites comparten base y la web corre antes; si el primero
+ * del catálogo resultaba ser uno sin control de stock, el inventario no se movía y la prueba fallaba
+ * de forma intermitente (pasó en main en 5544805 y en #81), sin que hubiera ningún defecto.
+ */
 async function productoDisponible(): Promise<{ id: string; name: string }> {
   const r = await sql<{ id: string; name: string }>`
     select cp.id, cp.name from catalog_products cp
-     where cp.is_active and cp.show_on_pos and cp.pos_price_cents is not null
+     where cp.is_active and cp.show_on_pos and cp.pos_price_cents is not null and cp.track_stock
      order by cp.sort_order, cp.name limit 1`.execute(db);
   const p = r.rows[0]!;
   // Se repone para que la prueba no dependa de lo que dejaron otras suites.
