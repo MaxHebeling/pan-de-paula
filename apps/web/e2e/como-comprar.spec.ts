@@ -9,6 +9,7 @@ for (const ruta of ["/", "/horarios"]) {
     await page.goto(ruta);
     const bloque = page.getByTestId("como-comprar");
     await expect(bloque).toBeVisible();
+    await expect(bloque).toContainText("hasta el jueves a las 10 PM, para recoger el viernes");
     await expect(bloque).toContainText("Todos los viernes abrimos nuestra vitrina a las 6 PM");
     await expect(bloque).toContainText("París 410, Costa Azul");
     await expect(bloque).toContainText("No es necesario hacer un pedido anticipado");

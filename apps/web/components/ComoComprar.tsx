@@ -1,6 +1,7 @@
 /**
  * Las dos formas de comprar, con el texto que indicó el negocio (2026-11-07). Se usa en la portada y en
- * /horarios.
+ * /horarios. No dice "de lunes a jueves": el sitio también acepta pedidos el fin de semana y los deja
+ * para el viernes siguiente (decisión del negocio, 2026-11-07).
  *
  * El día y la hora de cierre están escritos aquí a propósito, tal cual los redactó el negocio. Si cambia
  * la ventana de pedidos en CRM → Configuración, este texto hay que cambiarlo a mano también.
@@ -20,8 +21,7 @@ export function ComoComprar({
       {pedidosAbiertos && (
         <p>
           <strong className="font-semibold text-ink">Pedidos anticipados:</strong> Recibimos pedidos
-          a través de nuestra página web de lunes a jueves, hasta el jueves a las 10 PM, para
-          recoger el viernes.
+          a través de nuestra página web hasta el jueves a las 10 PM, para recoger el viernes.
         </p>
       )}
       <p>
