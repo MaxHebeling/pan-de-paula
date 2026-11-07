@@ -135,6 +135,7 @@ export default async function HomePage() {
         instagram={business.instagramHandle}
         mapEmbed={mapEmbedUrl(business)}
         mapsUrl={mapsLinkUrl(business)}
+        pedidosAbiertos={options.length > 0}
       />
       <ClubSection
         qrDataUrl={joinQr}

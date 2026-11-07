@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { WEEKDAY_LABELS, formatLocalDate } from "@pdp/domain";
+import { ComoComprar } from "@/components/ComoComprar";
 import { FULFILLMENT_LABELS, capitalize, hour12, hourRange } from "@/lib/format";
 import { fulfillmentOptions, getBusiness, openStatus } from "@/lib/site";
 
@@ -28,6 +29,8 @@ export default async function HoursPage() {
           ? `Abierto ahora${status.closesAt ? ` · cerramos a las ${hour12(status.closesAt)}` : ""}`
           : `Cerrado${status.reason ? ` · ${status.reason.toLowerCase()}` : ""}`}
       </p>
+
+      <ComoComprar pedidosAbiertos={options.length > 0} className="mt-6 max-w-2xl" />
 
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <section className="card p-6" aria-labelledby="h-tienda">

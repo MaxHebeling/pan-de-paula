@@ -3,6 +3,7 @@ import { WEEKDAY_LABELS, type BusinessHour } from "@pdp/domain";
 import { hourRange } from "@/lib/format";
 import { instagramUrl, type PickupPoint } from "@/lib/site";
 import { Reveal } from "../Reveal";
+import { ComoComprar } from "../ComoComprar";
 import { Arrow } from "./Button";
 import { statusDetail, type OpenStatus } from "./CinematicHero";
 
@@ -19,6 +20,7 @@ export function VisitUs({
   instagram,
   mapEmbed,
   mapsUrl,
+  pedidosAbiertos,
 }: {
   status: OpenStatus;
   hours: BusinessHour[];
@@ -29,6 +31,8 @@ export function VisitUs({
   /** Mapa incrustado; si falta, la sección se queda con la dirección y el enlace. */
   mapEmbed: string | null;
   mapsUrl: string | null;
+  /** Hay al menos una fecha abierta para pedir en línea. */
+  pedidosAbiertos: boolean;
 }) {
   const detail = statusDetail(status);
   const igUrl = instagramUrl(instagram);
@@ -54,6 +58,8 @@ export function VisitUs({
           {detail && (
             <p className="cin-open-note">{detail.charAt(0).toUpperCase() + detail.slice(1)}.</p>
           )}
+
+          <ComoComprar pedidosAbiertos={pedidosAbiertos} className="mt-6" />
 
           <div className="cin-place">
             <h3 className="cin-place-name">{point?.name ?? "Punto de recolección"}</h3>
