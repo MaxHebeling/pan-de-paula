@@ -34,8 +34,8 @@
     "restore:drill": "bash scripts/restore-drill.sh"
   },
   "devDependencies": {
-    "prettier": "3.9.10",
-    "turbo": "2.11.10",
+    "prettier": "3.10.1",
+    "turbo": "2.11.13",
     "typescript": "5.9.3"
   },
   "pnpm": {
